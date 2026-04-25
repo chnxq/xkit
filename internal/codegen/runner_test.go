@@ -46,6 +46,21 @@ var UserService_ServiceDesc = struct{
 
 type UserServiceHTTPServer interface{}
 `)
+	writeFile(t, filepath.Join(root, "internal", "data", "ent", "schema", "user.go"), `package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/field"
+)
+
+type User struct { ent.Schema }
+
+func (User) Fields() []ent.Field {
+	return []ent.Field{
+		field.String("username").Optional().Nillable(),
+	}
+}
+`)
 
 	cfg := config.Config{
 		Service: "admin",
@@ -118,6 +133,12 @@ type UserServiceHTTPServer interface{}
 	}
 	if !strings.Contains(repoFile, "entCrud.Repository") {
 		t.Fatalf("repo file is missing ent CRUD repository")
+	}
+	if !strings.Contains(repoFile, "type UserRepo interface") {
+		t.Fatalf("repo file is missing repo interface")
+	}
+	if !strings.Contains(repoFile, "func (r *userRepo) List") {
+		t.Fatalf("repo file is missing List method skeleton")
 	}
 
 	serviceWireFile := readFile(t, filepath.Join(root, "app", "admin", "service", "internal", "service", "providers", "wire_set.gen.go"))

@@ -14,6 +14,7 @@ import (
 
 	"github.com/chnxq/xkit/internal/binding"
 	"github.com/chnxq/xkit/internal/config"
+	"github.com/chnxq/xkit/internal/entschema"
 	"github.com/chnxq/xkit/internal/project"
 	xproto "github.com/chnxq/xkit/internal/proto"
 )
@@ -32,6 +33,7 @@ type Runner struct {
 	config       config.Config
 	protoIndex   map[string]xproto.Service
 	bindingIndex map[string]binding.ServiceBinding
+	schemaIndex  map[string]entschema.Schema
 	options      Options
 }
 
@@ -42,6 +44,7 @@ type resourcePlan struct {
 	ResourceField   string
 	FileBase        string
 	APIPackageAlias string
+	Schema          entschema.Schema
 }
 
 type importSpec struct {
@@ -100,9 +103,16 @@ type repoTemplateData struct {
 	ConstructorName string
 	EntityName      string
 	ResourceName    string
-	EntPackage      string
 	PredicateType   string
 	DTOType         string
+	Methods         []repoMethodData
+	Fields          []entschema.Field
+}
+
+type repoMethodData struct {
+	Name         string
+	Params       []namedType
+	ResponseType string
 }
 
 var aliasPattern = regexp.MustCompile(`\b([A-Za-z_][A-Za-z0-9_]*)\.`)
@@ -209,6 +219,12 @@ import (
 {{end}}
 )
 
+type {{ .RepoName }} interface {
+{{range .Methods}}
+	{{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error)
+{{end}}
+}
+
 type {{ .RepoStructName }} struct {
 	entClient *entCrud.EntClient[*ent.Client]
 	log       *log.Helper
@@ -250,6 +266,19 @@ func (r *{{ .RepoStructName }}) init() {
 	r.mapper.AppendConverters(copierutil.NewTimeStringConverterPair())
 	r.mapper.AppendConverters(copierutil.NewTimeTimestamppbConverterPair())
 }
+
+{{range .Methods}}
+// {{ .Name }} is generated from the source proto contract.
+func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error) {
+{{range .Params}}
+	_ = {{.Name}}
+{{end}}
+
+	var out {{ .ResponseType }}
+	return out, fmt.Errorf("{{ $.RepoName }}.{{ .Name }} not implemented")
+}
+
+{{end}}
 `
 
 func New(info project.Info, cfg config.Config, options Options) (*Runner, error) {
@@ -267,11 +296,17 @@ func New(info project.Info, cfg config.Config, options Options) (*Runner, error)
 		return nil, err
 	}
 
+	schemaIndex, err := entschema.Load(info.Root)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Runner{
 		project:      info,
 		config:       cfg,
 		protoIndex:   protoIndex,
 		bindingIndex: bindingIndex,
+		schemaIndex:  schemaIndex,
 		options:      options,
 	}, nil
 }
@@ -577,6 +612,15 @@ func (r *Runner) plans() ([]resourcePlan, error) {
 			return nil, fmt.Errorf("binding service %q not found under api/gen", resource.ProtoService)
 		}
 
+		entityName := strings.TrimSpace(resource.Entity)
+		if entityName == "" {
+			entityName = strings.TrimSuffix(bindingService.ServiceName, "Service")
+		}
+		schema, ok := r.schemaIndex[entityName]
+		if !ok && resource.Generate.EffectiveRepoCRUD() {
+			return nil, fmt.Errorf("ent schema %q not found under internal/data/ent/schema", entityName)
+		}
+
 		plans = append(plans, resourcePlan{
 			Resource:        resource,
 			Proto:           protoService,
@@ -584,6 +628,7 @@ func (r *Runner) plans() ([]resourcePlan, error) {
 			ResourceField:   toPascal(resource.Name),
 			FileBase:        resource.Name,
 			APIPackageAlias: apiAlias(bindingService.ImportPath),
+			Schema:          schema,
 		})
 	}
 
@@ -659,6 +704,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	}
 
 	imports := []importSpec{
+		{Path: "fmt"},
 		{Path: "github.com/chnxq/x-crud/entgo", Alias: "entCrud"},
 		{Path: "github.com/chnxq/x-utils/copierutil"},
 		{Path: "github.com/chnxq/x-utils/mapper"},
@@ -667,6 +713,24 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		{Path: filepath.ToSlash(filepath.Join(r.project.Module, "app", r.config.Service, "service", "internal", "data", "ent"))},
 		{Path: filepath.ToSlash(filepath.Join(r.project.Module, "app", r.config.Service, "service", "internal", "data", "ent", "predicate"))},
 		{Alias: dtoAlias, Path: dtoImport},
+	}
+	usedAliases := make(map[string]struct{})
+	for _, method := range plan.Binding.Methods {
+		if !isCRUDMethod(method.Name) {
+			continue
+		}
+		for _, typeText := range append(slices.Clone(method.Params), method.Results...) {
+			for _, alias := range aliasesInType(typeText) {
+				usedAliases[alias] = struct{}{}
+			}
+		}
+	}
+	for alias := range usedAliases {
+		path, ok := plan.Binding.Imports[alias]
+		if !ok {
+			continue
+		}
+		imports = append(imports, importSpec{Alias: alias, Path: path})
 	}
 
 	data := repoTemplateData{
@@ -678,6 +742,17 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		ResourceName:    plan.Resource.Name,
 		PredicateType:   entityName,
 		DTOType:         dtoType,
+		Fields:          plan.Schema.Fields,
+	}
+	for _, method := range plan.Binding.Methods {
+		if !isCRUDMethod(method.Name) {
+			continue
+		}
+		data.Methods = append(data.Methods, repoMethodData{
+			Name:         method.Name,
+			Params:       nameParams(method.Params),
+			ResponseType: firstResult(method.Results),
+		})
 	}
 
 	return renderTemplate(repoFileTemplate, data)
@@ -787,6 +862,14 @@ func serviceEmbeds(alias, serviceName string) []string {
 		alias + "." + serviceName + "HTTPServer",
 		alias + ".Unimplemented" + serviceName + "Server",
 	}
+}
+
+func isCRUDMethod(name string) bool {
+	switch name {
+	case "List", "Get", "Create", "Update", "Delete", "Count", "Exists":
+		return true
+	}
+	return strings.HasSuffix(name, "Exists") || strings.HasPrefix(name, "Count")
 }
 
 func sanitizeIdentifier(value string) string {
