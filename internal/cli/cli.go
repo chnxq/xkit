@@ -22,7 +22,7 @@ const usageText = `Usage:
   xkit gen all <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 `
 
-func Run(args []string) error {
+func Run(args []string, version string) error {
 	if len(args) == 0 {
 		printUsage(os.Stdout)
 		return nil
@@ -33,7 +33,7 @@ func Run(args []string) error {
 		printUsage(os.Stdout)
 		return nil
 	case "gen":
-		return runGen(args[1:])
+		return runGen(args[1:], version)
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -46,7 +46,7 @@ type genOptions struct {
 	dryRun      bool
 }
 
-func runGen(args []string) error {
+func runGen(args []string, version string) error {
 	if len(args) < 2 {
 		return errors.New("gen requires a target and service name")
 	}
@@ -95,7 +95,7 @@ func runGen(args []string) error {
 		return fmt.Errorf("config service %q does not match argument %q", cfg.Service, serviceName)
 	}
 
-	runner, err := codegen.New(projectInfo, cfg, codegen.Options{DryRun: options.dryRun})
+	runner, err := codegen.New(projectInfo, cfg, codegen.Options{DryRun: options.dryRun, Version: version})
 	if err != nil {
 		return err
 	}

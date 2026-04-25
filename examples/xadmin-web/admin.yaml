@@ -8,6 +8,9 @@ resources:
     dto_import: xadmin-web/api/gen/identity/v1
     dto_type: User
     repo_interface: UserRepo
+    exists_fields:
+      - id
+      - username
 
     operations:
       list: true

@@ -21,6 +21,7 @@ type Resource struct {
 	DTOImport     string         `yaml:"dto_import"`
 	DTOType       string         `yaml:"dto_type"`
 	RepoInterface string         `yaml:"repo_interface"`
+	ExistsFields  []string       `yaml:"exists_fields"`
 	Operations    OperationFlags `yaml:"operations"`
 	Generate      GenerateFlags  `yaml:"generate"`
 }

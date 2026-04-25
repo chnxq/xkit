@@ -24,7 +24,7 @@ service UserService {
   rpc Get (GetRequest) returns (GetResponse) {}
   rpc Create (CreateUserRequest) returns (User) {}
   rpc Delete (DeleteUserRequest) returns (Empty) {}
-  rpc Exists (UserExistsRequest) returns (UserExistsResponse) {}
+  rpc UserExists (UserExistsRequest) returns (UserExistsResponse) {}
 }`)
 	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_user_grpc.pb.go"), `package admin
 
@@ -38,7 +38,7 @@ type UserServiceServer interface {
 	Get(context.Context, *v1.GetRequest) (*v1.GetResponse, error)
 	Create(context.Context, *v1.CreateUserRequest) (*v1.User, error)
 	Delete(context.Context, *v1.DeleteUserRequest) (*v1.Empty, error)
-	Exists(context.Context, *v1.UserExistsRequest) (*v1.UserExistsResponse, error)
+	UserExists(context.Context, *v1.UserExistsRequest) (*v1.UserExistsResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -79,6 +79,7 @@ func (User) Fields() []ent.Field {
 				DTOImport:     "example.com/xadmin-web/api/gen/identity/v1",
 				DTOType:       "User",
 				RepoInterface: "UserRepo",
+				ExistsFields:  []string{"id", "username"},
 				Generate: config.GenerateFlags{
 					ServiceStub:  true,
 					RepoCRUD:     true,
@@ -93,7 +94,7 @@ func (User) Fields() []ent.Field {
 	runner, err := New(project.Info{
 		Root:   root,
 		Module: "example.com/xadmin-web",
-	}, cfg, Options{})
+	}, cfg, Options{Version: "test-version"})
 	if err != nil {
 		t.Fatalf("new runner: %v", err)
 	}
@@ -123,6 +124,9 @@ func (User) Fields() []ent.Field {
 	}
 
 	serviceFile := readFile(t, filepath.Join(root, "app", "admin", "service", "internal", "service", "user_service.gen.go"))
+	if !strings.Contains(serviceFile, "// xkit version: test-version") || !strings.Contains(serviceFile, "// generated at:") {
+		t.Fatalf("service file is missing generated metadata header")
+	}
 	if !strings.Contains(serviceFile, "UnimplementedUserServiceServer") {
 		t.Fatalf("service file is missing embedded unimplemented server")
 	}
@@ -146,6 +150,12 @@ func (User) Fields() []ent.Field {
 	if !strings.Contains(repoFile, "func (r *userRepo) List") {
 		t.Fatalf("repo file is missing List method skeleton")
 	}
+	if !strings.Contains(repoFile, "entities, err := builder.Limit(limit).Offset(int(req.GetOffset())).All(ctx)") {
+		t.Fatalf("repo file is missing generated List body")
+	}
+	if !strings.Contains(repoFile, "entity, err := builder.Where(user.IDEQ(req.GetId())).Only(ctx)") {
+		t.Fatalf("repo file is missing generated Get body")
+	}
 	if !strings.Contains(repoFile, "func (r *userRepo) Create") {
 		t.Fatalf("repo file is missing Create method")
 	}
@@ -158,8 +168,8 @@ func (User) Fields() []ent.Field {
 	if !strings.Contains(repoFile, "DeleteOneID(req.GetId()).Exec(ctx)") {
 		t.Fatalf("repo file is missing generated delete body")
 	}
-	if !strings.Contains(repoFile, "Where(user.IDEQ(req.GetId())).Exist(ctx)") {
-		t.Fatalf("repo file is missing generated exists body")
+	if !strings.Contains(repoFile, "case *identityv1.UserExistsRequest_Id:") || !strings.Contains(repoFile, "builder.Where(user.IDEQ(req.GetId()))") || !strings.Contains(repoFile, "builder.Where(user.UsernameEQ(req.GetUsername()))") {
+		t.Fatalf("repo file is missing generated query_by exists body")
 	}
 
 	serviceWireFile := readFile(t, filepath.Join(root, "app", "admin", "service", "internal", "service", "providers", "wire_set.gen.go"))

@@ -24,8 +24,11 @@ type Field struct {
 }
 
 var (
-	typePattern  = regexp.MustCompile(`type\s+([A-Z][A-Za-z0-9_]*)\s+struct\s*\{`)
-	fieldPattern = regexp.MustCompile(`field\.([A-Za-z0-9_]+)\("([^"]+)"\)`)
+	typePattern          = regexp.MustCompile(`type\s+([A-Z][A-Za-z0-9_]*)\s+struct\s*\{`)
+	fieldPattern         = regexp.MustCompile(`field\.([A-Za-z0-9_]+)\("([^"]+)"\)`)
+	optionalCallPattern  = regexp.MustCompile(`\.\s*Optional\s*\(\s*\)`)
+	nillableCallPattern  = regexp.MustCompile(`\.\s*Nillable\s*\(\s*\)`)
+	immutableCallPattern = regexp.MustCompile(`\.\s*Immutable\s*\(\s*\)`)
 )
 
 func Load(projectRoot string) (map[string]Schema, error) {
@@ -62,7 +65,7 @@ func parseFile(path string) (Schema, error) {
 		return Schema{}, fmt.Errorf("read ent schema %s: %w", path, err)
 	}
 
-	content := string(data)
+	content := stripLineComments(string(data))
 	matches := typePattern.FindStringSubmatch(content)
 	if len(matches) != 2 {
 		return Schema{}, nil
@@ -81,11 +84,21 @@ func parseFile(path string) (Schema, error) {
 		schema.Fields = append(schema.Fields, Field{
 			Name:      name,
 			Kind:      kind,
-			Optional:  strings.Contains(chain, ".Optional()"),
-			Nillable:  strings.Contains(chain, ".Nillable()"),
-			Immutable: strings.Contains(chain, ".Immutable()"),
+			Optional:  optionalCallPattern.MatchString(chain),
+			Nillable:  nillableCallPattern.MatchString(chain),
+			Immutable: immutableCallPattern.MatchString(chain),
 		})
 	}
 
 	return schema, nil
+}
+
+func stripLineComments(content string) string {
+	lines := strings.Split(content, "\n")
+	for index, line := range lines {
+		if comment := strings.Index(line, "//"); comment >= 0 {
+			lines[index] = line[:comment]
+		}
+	}
+	return strings.Join(lines, "\n")
 }
