@@ -147,9 +147,25 @@ type repoTemplateData struct {
 
 type bootstrapTemplateData struct {
 	templateBase
-	Module      string
-	ServiceName string
-	AppName     string
+	Module          string
+	ServiceName     string
+	AppName         string
+	ServerImport    string
+	DataBootImport  string
+	RepoImport      string
+	ServiceImport   string
+	RepoResources   []bootstrapResourceData
+	ServerResources []bootstrapResourceData
+}
+
+type bootstrapResourceData struct {
+	FieldName       string
+	RepoVar         string
+	RepoConstructor string
+	ServiceVar      string
+	ServiceName     string
+	Constructor     string
+	ExtraRepoVars   []string
 }
 
 type repoMethodData struct {
@@ -542,12 +558,88 @@ func (r *Runner) internalImport(parts ...string) string {
 	return filepath.ToSlash(filepath.Join(pathParts...))
 }
 
+func (r *Runner) bootstrapResources(plans []resourcePlan) []bootstrapResourceData {
+	resourceIndex := make(map[string]resourcePlan, len(plans))
+	for _, plan := range plans {
+		resourceIndex[plan.Resource.Name] = plan
+	}
+
+	resources := make([]bootstrapResourceData, 0, len(plans))
+	for _, plan := range plans {
+		if !plan.Resource.Generate.EffectiveServiceStub() {
+			continue
+		}
+		entityName := strings.TrimSuffix(plan.Binding.ServiceName, "Service")
+		data := bootstrapResourceData{
+			FieldName:       plan.ResourceField,
+			RepoVar:         lowerFirst(entityName) + "Repo",
+			RepoConstructor: "New" + entityName + "Repo",
+			ServiceVar:      lowerFirst(entityName) + "Service",
+			ServiceName:     plan.Binding.ServiceName,
+			Constructor:     "New" + plan.Binding.ServiceName,
+		}
+
+		for _, method := range plan.Resource.ServiceMethods {
+			for _, extraRepo := range method.Repos {
+				extraPlan, ok := findPlanByRepoInterface(resourceIndex, extraRepo.Interface)
+				if !ok {
+					continue
+				}
+				extraEntityName := strings.TrimSuffix(extraPlan.Binding.ServiceName, "Service")
+				extraRepoVar := lowerFirst(extraEntityName) + "Repo"
+				if !slices.Contains(data.ExtraRepoVars, extraRepoVar) {
+					data.ExtraRepoVars = append(data.ExtraRepoVars, extraRepoVar)
+				}
+			}
+		}
+
+		resources = append(resources, data)
+	}
+	return resources
+}
+
+func (r *Runner) bootstrapRepoResources(plans []resourcePlan) []bootstrapResourceData {
+	resources := make([]bootstrapResourceData, 0, len(plans))
+	for _, plan := range plans {
+		if !plan.Resource.Generate.EffectiveRepoCRUD() {
+			continue
+		}
+		entityName := strings.TrimSuffix(plan.Binding.ServiceName, "Service")
+		resources = append(resources, bootstrapResourceData{
+			FieldName:       plan.ResourceField,
+			RepoVar:         lowerFirst(entityName) + "Repo",
+			RepoConstructor: "New" + entityName + "Repo",
+		})
+	}
+	return resources
+}
+
+func findPlanByRepoInterface(resourceIndex map[string]resourcePlan, repoInterface string) (resourcePlan, bool) {
+	for _, plan := range resourceIndex {
+		if plan.Resource.RepoInterface == repoInterface {
+			return plan, true
+		}
+	}
+	return resourcePlan{}, false
+}
+
 func (r *Runner) generateBootstrapFiles() (Result, error) {
+	plans, err := r.plans()
+	if err != nil {
+		return Result{}, err
+	}
+
 	data := bootstrapTemplateData{
-		templateBase: r.templateBase(),
-		Module:       r.project.Module,
-		ServiceName:  r.config.Service,
-		AppName:      r.project.Module,
+		templateBase:    r.templateBase(),
+		Module:          r.project.Module,
+		ServiceName:     r.config.Service,
+		AppName:         r.project.Module,
+		ServerImport:    r.internalImport("server"),
+		DataBootImport:  r.internalImport("data", "bootstrap"),
+		RepoImport:      r.internalImport("data", "repo"),
+		ServiceImport:   r.internalImport("service"),
+		RepoResources:   r.bootstrapRepoResources(plans),
+		ServerResources: r.bootstrapResources(plans),
 	}
 
 	files := []struct {

@@ -12,6 +12,11 @@ import (
 	conf "github.com/chnxq/xkitpkg/conf/v1"
 	"github.com/chnxq/xkitpkg/config"
 	"github.com/chnxq/xkitpkg/transport"
+
+	databootstrap "{{ .DataBootImport }}"
+	"{{ .RepoImport }}"
+	"{{ .ServerImport }}"
+	"{{ .ServiceImport }}"
 )
 
 type Options struct {
@@ -82,6 +87,29 @@ func Initialize(ctx context.Context, opts Options) (*app.App, func(), error) {
 }
 
 func NewServers(appCtx *app.AppCtx) ([]transport.Server, func(), error) {
-	// TODO: build HTTP/gRPC servers after provider wiring is generated.
-	return nil, func() {}, nil
+	entClient, entCleanup, err := databootstrap.NewEntClient(appCtx)
+	if err != nil {
+		return nil, entCleanup, err
+	}
+
+{{- range .RepoResources }}
+	{{ .RepoVar }} := repo.{{ .RepoConstructor }}(appCtx, entClient)
+{{- end }}
+
+{{- range .ServerResources }}
+	{{ .ServiceVar }} := service.{{ .Constructor }}(appCtx, {{ .RepoVar }}{{ range .ExtraRepoVars }}, {{ . }}{{ end }})
+{{- end }}
+
+	httpServer := server.NewHTTPServer(appCtx, server.GeneratedHTTPServices{
+{{- range .ServerResources }}
+		{{ .FieldName }}: {{ .ServiceVar }},
+{{- end }}
+	})
+	grpcServer := server.NewGRPCServer(appCtx, server.GeneratedGRPCServices{
+{{- range .ServerResources }}
+		{{ .FieldName }}: {{ .ServiceVar }},
+{{- end }}
+	})
+
+	return []transport.Server{httpServer, grpcServer}, entCleanup, nil
 }

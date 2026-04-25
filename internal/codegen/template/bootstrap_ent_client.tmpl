@@ -12,6 +12,8 @@ import (
 
 	entCrud "github.com/chnxq/x-crud/entgo"
 	"github.com/chnxq/xkitpkg/app"
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 
 	"{{ .Module }}/internal/data/ent"
 	"{{ .Module }}/internal/data/ent/migrate"
