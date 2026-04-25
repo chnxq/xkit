@@ -215,14 +215,14 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 8 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 8)
+	if len(result.Written) != 16 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 16)
 	}
 
 	expectedPaths := []string{
 		filepath.Join(root, "internal", "service", "user_service.gen.go"),
 		filepath.Join(root, "internal", "service", "user_service_ext.go"),
-		filepath.Join(root, "internal", "data", "user_repo.gen.go"),
+		filepath.Join(root, "internal", "data", "repo", "user_repo.gen.go"),
 		filepath.Join(root, "internal", "server", "rest_register.gen.go"),
 		filepath.Join(root, "internal", "server", "grpc_register.gen.go"),
 		filepath.Join(root, "internal", "service", "providers", "wire_set.gen.go"),
@@ -244,10 +244,10 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(serviceFile, "UserServiceHTTPServer") {
 		t.Fatalf("service file is missing embedded HTTP server")
 	}
-	if !strings.Contains(serviceFile, "func NewUserService(ctx *app.AppCtx, userRepo data.UserRepo, userCredentialRepo data.UserCredentialRepo) *UserService") {
+	if !strings.Contains(serviceFile, "func NewUserService(ctx *app.AppCtx, userRepo repo.UserRepo, userCredentialRepo repo.UserCredentialRepo) *UserService") {
 		t.Fatalf("service file is missing repo-injected constructor")
 	}
-	if !strings.Contains(serviceFile, "log *log.Helper") || !strings.Contains(serviceFile, "userRepo data.UserRepo") || !strings.Contains(serviceFile, "userCredentialRepo data.UserCredentialRepo") {
+	if !strings.Contains(serviceFile, "log *log.Helper") || !strings.Contains(serviceFile, "userRepo repo.UserRepo") || !strings.Contains(serviceFile, "userCredentialRepo repo.UserCredentialRepo") {
 		t.Fatalf("service file is missing log or repo fields")
 	}
 	if !strings.Contains(serviceFile, "return s.userRepo.List(ctx, req)") || !strings.Contains(serviceFile, "return s.userRepo.UserExists(ctx, req)") {
@@ -259,11 +259,11 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(serviceFile, "s.userRepo.Get(ctx,") || !strings.Contains(serviceFile, "GetUserRequest{") {
 		t.Fatalf("service file is missing generated EditUserPassword user lookup")
 	}
-	if !strings.Contains(serviceFile, "userCredentialRepo data.UserCredentialRepo") || !strings.Contains(serviceFile, "s.userCredentialRepo.ResetCredential") {
+	if !strings.Contains(serviceFile, "userCredentialRepo repo.UserCredentialRepo") || !strings.Contains(serviceFile, "s.userCredentialRepo.ResetCredential") {
 		t.Fatalf("service file is missing generated EditUserPassword credential reset")
 	}
 
-	repoFile := readFile(t, filepath.Join(root, "internal", "data", "user_repo.gen.go"))
+	repoFile := readFile(t, filepath.Join(root, "internal", "data", "repo", "user_repo.gen.go"))
 	if !strings.Contains(repoFile, "func NewUserRepo") {
 		t.Fatalf("repo file is missing constructor")
 	}
@@ -319,7 +319,7 @@ return {{successReturn}}, nil`,
 		t.Fatalf("repo file is missing generated query_by exists body")
 	}
 
-	credentialRepoFile := readFile(t, filepath.Join(root, "internal", "data", "user_credential_repo.gen.go"))
+	credentialRepoFile := readFile(t, filepath.Join(root, "internal", "data", "repo", "user_credential_repo.gen.go"))
 	if !strings.Contains(credentialRepoFile, "func (r *userCredentialRepo) ResetCredential") || !strings.Contains(credentialRepoFile, "SetCredential(credential)") {
 		t.Fatalf("credential repo file is missing generated ResetCredential body")
 	}
@@ -336,7 +336,7 @@ return {{successReturn}}, nil`,
 	}
 
 	dataWireFile := readFile(t, filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go"))
-	if !strings.Contains(dataWireFile, "datapkg.NewUserRepo") {
+	if !strings.Contains(dataWireFile, "repopkg.NewUserRepo") {
 		t.Fatalf("data wire file is missing repo constructor")
 	}
 

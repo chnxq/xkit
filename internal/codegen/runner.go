@@ -145,6 +145,13 @@ type repoTemplateData struct {
 	UsesFilters     bool
 }
 
+type bootstrapTemplateData struct {
+	templateBase
+	Module      string
+	ServiceName string
+	AppName     string
+}
+
 type repoMethodData struct {
 	Name           string
 	Params         []namedType
@@ -225,6 +232,8 @@ func (r *Runner) Generate(target string) (Result, error) {
 		return r.generateRegisterFiles()
 	case "wire":
 		return r.generateWireFiles()
+	case "bootstrap":
+		return r.generateBootstrapFiles()
 	case "all":
 		return r.generateAll()
 	default:
@@ -234,7 +243,7 @@ func (r *Runner) Generate(target string) (Result, error) {
 
 func (r *Runner) generateAll() (Result, error) {
 	var result Result
-	parts := []string{"service", "repo", "register", "wire"}
+	parts := []string{"service", "repo", "register", "wire", "bootstrap"}
 	for _, part := range parts {
 		partResult, err := r.Generate(part)
 		if err != nil {
@@ -308,7 +317,7 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 		}
 
 		repoPath := filepath.Join(
-			r.internalDir("data"),
+			r.internalDir("data", "repo"),
 			plan.FileBase+"_repo.gen.go",
 		)
 		if err := r.writeGeneratedFile(repoPath, content, &result); err != nil {
@@ -438,8 +447,8 @@ func (r *Runner) generateWireFiles() (Result, error) {
 	dataImports := []importSpec{{Path: "github.com/google/wire"}}
 	if len(dataConstructors) > 0 {
 		dataImports = append(dataImports, importSpec{
-			Alias: "datapkg",
-			Path:  r.internalImport("data"),
+			Alias: "repopkg",
+			Path:  r.internalImport("data", "repo"),
 		})
 	}
 
@@ -458,8 +467,8 @@ func (r *Runner) generateWireFiles() (Result, error) {
 		templateBase: r.templateBase(),
 		Imports:      dataImports,
 		Constructors: dataConstructors,
-		Alias:        "datapkg",
-		Layer:        "data",
+		Alias:        "repopkg",
+		Layer:        "data repo",
 	})
 	if err != nil {
 		return Result{}, err
@@ -523,12 +532,57 @@ func (r *Runner) plans() ([]resourcePlan, error) {
 	return plans, nil
 }
 
-func (r *Runner) internalDir(layer string) string {
-	return filepath.Join(r.project.Root, "internal", layer)
+func (r *Runner) internalDir(parts ...string) string {
+	pathParts := append([]string{r.project.Root, "internal"}, parts...)
+	return filepath.Join(pathParts...)
 }
 
-func (r *Runner) internalImport(layer string) string {
-	return filepath.ToSlash(filepath.Join(r.project.Module, "internal", layer))
+func (r *Runner) internalImport(parts ...string) string {
+	pathParts := append([]string{r.project.Module, "internal"}, parts...)
+	return filepath.ToSlash(filepath.Join(pathParts...))
+}
+
+func (r *Runner) generateBootstrapFiles() (Result, error) {
+	data := bootstrapTemplateData{
+		templateBase: r.templateBase(),
+		Module:       r.project.Module,
+		ServiceName:  r.config.Service,
+		AppName:      r.project.Module,
+	}
+
+	files := []struct {
+		path     string
+		template string
+		skip     bool
+	}{
+		{path: filepath.Join(r.project.Root, "cmd", "server", "main.go"), template: codegentemplate.BootstrapMain, skip: false},
+		{path: filepath.Join(r.project.Root, "cmd", "server", "server.go"), template: codegentemplate.BootstrapServerCmd, skip: false},
+		{path: filepath.Join(r.project.Root, "internal", "bootstrap", "app.go"), template: codegentemplate.BootstrapApp, skip: false},
+		{path: filepath.Join(r.project.Root, "internal", "data", "bootstrap", "data.go"), template: codegentemplate.BootstrapData, skip: false},
+		{path: filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.go"), template: codegentemplate.BootstrapEntClient, skip: false},
+		{path: filepath.Join(r.project.Root, "internal", "server", "server.go"), template: codegentemplate.BootstrapServer, skip: false},
+		{path: filepath.Join(r.project.Root, "internal", "server", "http.go"), template: codegentemplate.BootstrapHTTPServer, skip: false},
+		{path: filepath.Join(r.project.Root, "internal", "server", "grpc.go"), template: codegentemplate.BootstrapGRPCServer, skip: false},
+	}
+
+	var result Result
+	for _, file := range files {
+		content, err := renderTemplate(file.template, data)
+		if err != nil {
+			return result, err
+		}
+		if file.skip {
+			if err := r.writeExtensionFile(file.path, content, &result); err != nil {
+				return result, err
+			}
+			continue
+		}
+		if err := r.writeGeneratedFile(file.path, content, &result); err != nil {
+			return result, err
+		}
+	}
+
+	return result, nil
 }
 
 func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
@@ -545,14 +599,14 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 		repoName = entityName + "Repo"
 	}
 	repoField := lowerFirst(strings.TrimSuffix(repoName, "Repo")) + "Repo"
-	repoType := "data." + repoName
+	repoType := "repo." + repoName
 	hasRepo := plan.Resource.Generate.EffectiveRepoCRUD()
 	extraRepos := r.extraServiceRepos(plan)
 	if hasRepo {
 		imports = append(imports,
 			importSpec{Path: "github.com/chnxq/xkitmod/log"},
 			importSpec{Path: "github.com/chnxq/xkitpkg/app"},
-			importSpec{Path: r.internalImport("data")},
+			importSpec{Path: r.internalImport("data", "repo")},
 		)
 	}
 	imports = append(imports, r.serviceConfiguredImports(plan)...)
@@ -646,7 +700,7 @@ func (r *Runner) extraServiceRepos(plan resourcePlan) []serviceRepoData {
 				continue
 			}
 			seen[key] = struct{}{}
-			repos = append(repos, serviceRepoData{Field: field, Type: "data." + typeName})
+			repos = append(repos, serviceRepoData{Field: field, Type: "repo." + typeName})
 		}
 	}
 	return repos

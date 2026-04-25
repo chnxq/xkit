@@ -1,4 +1,4 @@
-service: admin
+﻿service: admin
 module: xadmin-web
 
 resources:
@@ -117,3 +117,4 @@ resources:
     generate:
       repo_crud: true
       wire: true
+
