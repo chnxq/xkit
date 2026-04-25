@@ -48,7 +48,7 @@ func (s *{{ $.StructName }}) {{ .Name }}({{range $index, $param := .Params}}{{if
 	_ = {{.Name}}
 {{- end}}
 
-	var out {{ .ResponseType }}
+	// TODO: implement {{ $.StructName }}.{{ .Name }} business logic manually or move it to a manual extension.
 	return out, {{ $.ErrorHelperName }}("{{ .Name }}")
 {{- end}}
 }

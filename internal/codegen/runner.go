@@ -66,18 +66,16 @@ type importSpec struct {
 
 type serviceTemplateData struct {
 	templateBase
-	Imports                 []importSpec
-	StructName              string
-	ConstructorName         string
-	APIPackageAlias         string
-	Embeds                  []string
-	ErrorHelperName         string
-	Methods                 []serviceMethodData
-	HasRepo                 bool
-	RepoField               string
-	RepoType                string
-	ResourceName            string
-	HasUnimplementedMethods bool
+	Imports         []importSpec
+	StructName      string
+	ConstructorName string
+	APIPackageAlias string
+	Embeds          []string
+	Methods         []serviceMethodData
+	HasRepo         bool
+	RepoField       string
+	RepoType        string
+	ResourceName    string
 }
 
 type serviceMethodData struct {
@@ -87,6 +85,7 @@ type serviceMethodData struct {
 	ResponseType   string
 	Delegate       bool
 	RepoField      string
+	SuccessReturn  string
 }
 
 type namedType struct {
@@ -133,6 +132,8 @@ type repoTemplateData struct {
 	Fields          []entschema.Field
 	UsesEnumSetter  bool
 	UsesTimeSetter  bool
+	EnumHelperName  string
+	TimeHelperName  string
 	Filters         []filterData
 	UsesFilters     bool
 }
@@ -397,26 +398,47 @@ func (r *Runner) generateWireFiles() (Result, error) {
 		return Result{}, err
 	}
 
-	var constructors []string
+	var serviceConstructors []string
+	var dataConstructors []string
 	for _, plan := range plans {
-		if !plan.Resource.Generate.EffectiveWire() || !plan.Resource.Generate.EffectiveServiceStub() {
+		if !plan.Resource.Generate.EffectiveWire() {
 			continue
 		}
-		constructors = append(constructors, "New"+plan.Binding.ServiceName)
+		if plan.Resource.Generate.EffectiveServiceStub() {
+			serviceConstructors = append(serviceConstructors, "New"+plan.Binding.ServiceName)
+		}
+		if plan.Resource.Generate.EffectiveRepoCRUD() {
+			repoName := strings.TrimSpace(plan.Resource.RepoInterface)
+			if repoName == "" {
+				entityName := strings.TrimSpace(plan.Resource.Entity)
+				if entityName == "" {
+					entityName = strings.TrimSuffix(plan.Binding.ServiceName, "Service")
+				}
+				repoName = entityName + "Repo"
+			}
+			dataConstructors = append(dataConstructors, "New"+repoName)
+		}
 	}
 
 	serviceImports := []importSpec{{Path: "github.com/google/wire"}}
-	if len(constructors) > 0 {
+	if len(serviceConstructors) > 0 {
 		serviceImports = append(serviceImports, importSpec{
 			Alias: "servicepkg",
 			Path:  r.internalImport("service"),
+		})
+	}
+	dataImports := []importSpec{{Path: "github.com/google/wire"}}
+	if len(dataConstructors) > 0 {
+		dataImports = append(dataImports, importSpec{
+			Alias: "datapkg",
+			Path:  r.internalImport("data"),
 		})
 	}
 
 	serviceWireContent, err := renderTemplate(codegentemplate.WireFile, wireTemplateData{
 		templateBase: r.templateBase(),
 		Imports:      serviceImports,
-		Constructors: constructors,
+		Constructors: serviceConstructors,
 		Alias:        "servicepkg",
 		Layer:        "service",
 	})
@@ -426,8 +448,9 @@ func (r *Runner) generateWireFiles() (Result, error) {
 
 	dataWireContent, err := renderTemplate(codegentemplate.WireFile, wireTemplateData{
 		templateBase: r.templateBase(),
-		Imports:      []importSpec{{Path: "github.com/google/wire"}},
-		Constructors: nil,
+		Imports:      dataImports,
+		Constructors: dataConstructors,
+		Alias:        "datapkg",
 		Layer:        "data",
 	})
 	if err != nil {
@@ -526,7 +549,6 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 
 	usedAliases := make(map[string]struct{})
 	methods := make([]serviceMethodData, 0, len(plan.Binding.Methods))
-	hasUnimplementedMethods := false
 	for _, method := range plan.Binding.Methods {
 		for _, typeText := range append(slices.Clone(method.Params), method.Results...) {
 			for _, alias := range aliasesInType(typeText) {
@@ -536,21 +558,17 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 
 		kind := repoMethodKind(method.Name)
 		delegate := hasRepo && isCRUDMethod(method.Name) && resourceOperationEnabled(plan.Resource, kind)
-		if !delegate {
-			hasUnimplementedMethods = true
-		}
 		classification := lookupClassification(plan.Proto.Methods, method.Name)
+		responseType := firstResult(method.Results)
 		methods = append(methods, serviceMethodData{
 			Name:           method.Name,
 			Classification: classification,
 			Params:         nameParams(method.Params),
-			ResponseType:   firstResult(method.Results),
+			ResponseType:   responseType,
 			Delegate:       delegate,
 			RepoField:      repoField,
+			SuccessReturn:  serviceSuccessReturn(responseType),
 		})
-	}
-	if hasUnimplementedMethods {
-		imports = append(imports, importSpec{Path: "fmt"})
 	}
 
 	for alias := range usedAliases {
@@ -562,19 +580,17 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 	}
 
 	data := serviceTemplateData{
-		templateBase:            r.templateBase(),
-		Imports:                 uniqueImports(imports),
-		StructName:              plan.Binding.ServiceName,
-		ConstructorName:         "New" + plan.Binding.ServiceName,
-		APIPackageAlias:         plan.APIPackageAlias,
-		Embeds:                  serviceEmbeds(plan.APIPackageAlias, plan.Binding.ServiceName),
-		ErrorHelperName:         lowerFirst(plan.Binding.ServiceName) + "MethodNotImplemented",
-		Methods:                 methods,
-		HasRepo:                 hasRepo,
-		RepoField:               repoField,
-		RepoType:                repoType,
-		ResourceName:            plan.Resource.Name,
-		HasUnimplementedMethods: hasUnimplementedMethods,
+		templateBase:    r.templateBase(),
+		Imports:         uniqueImports(imports),
+		StructName:      plan.Binding.ServiceName,
+		ConstructorName: "New" + plan.Binding.ServiceName,
+		APIPackageAlias: plan.APIPackageAlias,
+		Embeds:          serviceEmbeds(plan.APIPackageAlias, plan.Binding.ServiceName),
+		Methods:         methods,
+		HasRepo:         hasRepo,
+		RepoField:       repoField,
+		RepoType:        repoType,
+		ResourceName:    plan.Resource.Name,
 	}
 
 	return renderTemplate(codegentemplate.ServiceFile, data)
@@ -637,7 +653,9 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		}
 		normalizedParams := normalizeTypeAliases(method.Params, plan.Binding.Imports, dtoImport, dtoAlias)
 		normalizedResults := normalizeTypeAliases(method.Results, plan.Binding.Imports, dtoImport, dtoAlias)
-		setters := repoSetters(plan.Schema.Fields, method.Name, strings.ToLower(entityName))
+		enumHelperName := lowerFirst(entityName) + "EnumPtrFromProto"
+		timeHelperName := lowerFirst(entityName) + "TimePtrFromProto"
+		setters := repoSetters(plan.Schema.Fields, method.Name, strings.ToLower(entityName), enumHelperName, timeHelperName)
 		usesEnumSetter = usesEnumSetter || settersUseKind(setters, "Enum")
 		usesTimeSetter = usesTimeSetter || settersUseKind(setters, "Time")
 		methodData := repoMethodData{
@@ -694,6 +712,8 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		Fields:          plan.Schema.Fields,
 		UsesEnumSetter:  usesEnumSetter,
 		UsesTimeSetter:  usesTimeSetter,
+		EnumHelperName:  lowerFirst(entityName) + "EnumPtrFromProto",
+		TimeHelperName:  lowerFirst(entityName) + "TimePtrFromProto",
 		Filters:         filters,
 		UsesFilters:     usesFilters,
 	}
@@ -928,6 +948,13 @@ func nilReturn(typeText string) string {
 	return zeroReturn(typeText)
 }
 
+func serviceSuccessReturn(typeText string) string {
+	if strings.HasPrefix(typeText, "*") {
+		return "&" + trimPointer(typeText) + "{}"
+	}
+	return zeroReturn(typeText)
+}
+
 func zeroReturn(typeText string) string {
 	if strings.HasPrefix(typeText, "*") || strings.HasPrefix(typeText, "[]") || typeText == "any" || typeText == "interface{}" {
 		return "nil"
@@ -959,7 +986,7 @@ func normalizeTypeAliases(types []string, imports map[string]string, targetImpor
 	return out
 }
 
-func repoSetters(fields []entschema.Field, methodName, entPackage string) []setterData {
+func repoSetters(fields []entschema.Field, methodName, entPackage, enumHelperName, timeHelperName string) []setterData {
 	setters := make([]setterData, 0, len(fields))
 	for _, field := range fields {
 		if field.Name == "id" {
@@ -973,14 +1000,26 @@ func repoSetters(fields []entschema.Field, methodName, entPackage string) []sett
 		}
 		entName := toGoName(field.Name)
 		dtoName := toPascal(field.Name)
-		method := "SetNillable" + entName
+		method := "Set" + entName
 		expr := "req.Data." + dtoName
 		kind := field.Kind
+		if field.Optional {
+			method = "SetNillable" + entName
+		}
 		switch field.Kind {
 		case "Enum":
-			expr = fmt.Sprintf("enumPtrFromProto[%s.%s](req.Data.%s)", entPackage, entName, dtoName)
+			expr = fmt.Sprintf("%s[%s.%s](req.Data.%s)", enumHelperName, entPackage, entName, dtoName)
 		case "Time":
-			expr = "timePtrFromProto(req.Data." + dtoName + ")"
+			expr = timeHelperName + "(req.Data." + dtoName + ")"
+		}
+		if !field.Optional {
+			expr = "req.Data.Get" + dtoName + "()"
+			switch field.Kind {
+			case "Enum":
+				expr = fmt.Sprintf("%s.%s(req.Data.Get%s().String())", entPackage, entName, dtoName)
+			case "Time":
+				expr = "req.Data.Get" + dtoName + "().AsTime()"
+			}
 		}
 		setters = append(setters, setterData{
 			Method: method,

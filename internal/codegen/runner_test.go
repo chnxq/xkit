@@ -26,6 +26,7 @@ service UserService {
   rpc Create (CreateUserRequest) returns (User) {}
   rpc Delete (DeleteUserRequest) returns (Empty) {}
   rpc UserExists (UserExistsRequest) returns (UserExistsResponse) {}
+  rpc EditUserPassword (EditUserPasswordRequest) returns (Empty) {}
 }`)
 	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_user_grpc.pb.go"), `package admin
 
@@ -41,6 +42,7 @@ type UserServiceServer interface {
 	Create(context.Context, *v1.CreateUserRequest) (*v1.User, error)
 	Delete(context.Context, *v1.DeleteUserRequest) (*v1.Empty, error)
 	UserExists(context.Context, *v1.UserExistsRequest) (*v1.UserExistsResponse, error)
+	EditUserPassword(context.Context, *v1.EditUserPasswordRequest) (*v1.Empty, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -158,6 +160,12 @@ func (User) Fields() []ent.Field {
 	if !strings.Contains(serviceFile, "return s.userRepo.List(ctx, req)") || !strings.Contains(serviceFile, "return s.userRepo.UserExists(ctx, req)") {
 		t.Fatalf("service file is missing CRUD repo delegation")
 	}
+	if strings.Contains(serviceFile, "not implemented") || strings.Contains(serviceFile, "MethodNotImplemented") {
+		t.Fatalf("service file should not contain not implemented stubs")
+	}
+	if !strings.Contains(serviceFile, "TODO: implement UserService.EditUserPassword business logic manually") {
+		t.Fatalf("service file is missing TODO for manual business logic")
+	}
 
 	repoFile := readFile(t, filepath.Join(root, "internal", "data", "user_repo.gen.go"))
 	if !strings.Contains(repoFile, "func NewUserRepo") {
@@ -199,10 +207,10 @@ func (User) Fields() []ent.Field {
 	if strings.Contains(repoFile, "SetNillableCreatedAt") || strings.Contains(repoFile, "SetNillableDeletedAt") || strings.Contains(repoFile, "SetNillableDeletedBy") {
 		t.Fatalf("repo file should not generate unsafe audit/delete setters")
 	}
-	if !strings.Contains(repoFile, "func enumPtrFromProto") || !strings.Contains(repoFile, "builder.SetNillableStatus(enumPtrFromProto[user.Status](req.Data.Status))") {
+	if !strings.Contains(repoFile, "func userEnumPtrFromProto") || !strings.Contains(repoFile, "builder.SetNillableStatus(userEnumPtrFromProto[user.Status](req.Data.Status))") {
 		t.Fatalf("repo file is missing generated enum setter conversion")
 	}
-	if !strings.Contains(repoFile, "func timePtrFromProto") || !strings.Contains(repoFile, "builder.SetNillableLastLoginAt(timePtrFromProto(req.Data.LastLoginAt))") {
+	if !strings.Contains(repoFile, "func userTimePtrFromProto") || !strings.Contains(repoFile, "builder.SetNillableLastLoginAt(userTimePtrFromProto(req.Data.LastLoginAt))") {
 		t.Fatalf("repo file is missing generated time setter conversion")
 	}
 	if strings.Contains(repoFile, "*v1.") {
@@ -218,6 +226,14 @@ func (User) Fields() []ent.Field {
 	serviceWireFile := readFile(t, filepath.Join(root, "internal", "service", "providers", "wire_set.gen.go"))
 	if !strings.Contains(serviceWireFile, "var ProviderSet = wire.NewSet") {
 		t.Fatalf("service wire file is missing ProviderSet")
+	}
+	if !strings.Contains(serviceWireFile, "servicepkg.NewUserService") {
+		t.Fatalf("service wire file is missing service constructor")
+	}
+
+	dataWireFile := readFile(t, filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go"))
+	if !strings.Contains(dataWireFile, "datapkg.NewUserRepo") {
+		t.Fatalf("data wire file is missing repo constructor")
 	}
 
 	registerFile := readFile(t, filepath.Join(root, "internal", "server", "grpc_register.gen.go"))

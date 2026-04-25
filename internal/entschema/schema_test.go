@@ -68,6 +68,13 @@ func (User) Mixin() []ent.Mixin {
 	assertField(t, user.Fields, Field{Name: "remark", Kind: "String", Optional: true, Nillable: true})
 }
 
+func TestKnownMixinFields_PositionMixins(t *testing.T) {
+	t.Parallel()
+
+	assertField(t, knownMixinFields("SortOrder"), Field{Name: "sort_order", Kind: "Uint32", Optional: true, Nillable: true})
+	assertField(t, knownMixinFields("SwitchStatus"), Field{Name: "status", Kind: "Enum", Nillable: true})
+}
+
 func assertField(t *testing.T, fields []Field, want Field) {
 	t.Helper()
 

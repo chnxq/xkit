@@ -59,7 +59,7 @@ func (r *{{ .RepoStructName }}) init() {
 }
 
 {{if .UsesEnumSetter}}
-func enumPtrFromProto[T ~string, P interface{ String() string }](value *P) *T {
+func {{ .EnumHelperName }}[T ~string, P interface{ String() string }](value *P) *T {
 	if value == nil {
 		return nil
 	}
@@ -68,7 +68,7 @@ func enumPtrFromProto[T ~string, P interface{ String() string }](value *P) *T {
 }
 {{end}}
 {{if .UsesTimeSetter}}
-func timePtrFromProto(value *timestamppb.Timestamp) *time.Time {
+func {{ .TimeHelperName }}(value *timestamppb.Timestamp) *time.Time {
 	if value == nil {
 		return nil
 	}
@@ -289,6 +289,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	_ = {{.Name}}
 {{end}}
 
+	// TODO: implement {{ $.RepoName }}.{{ .Name }} data access manually or exclude it from generated CRUD operations.
 	var out {{ .ResponseType }}
 	return out, fmt.Errorf("{{ $.RepoName }}.{{ .Name }} not implemented")
 {{end}}

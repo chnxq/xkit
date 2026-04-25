@@ -34,3 +34,32 @@ resources:
       rest_register: true
       grpc_register: true
       wire: true
+
+  - name: position
+    proto_service: admin.service.v1.PositionService
+    entity: Position
+    dto_import: xadmin-web/api/gen/identity/v1
+    dto_type: Position
+    repo_interface: PositionRepo
+
+    filters:
+      allow:
+        - id
+        - name
+        - code
+        - tenant_id
+        - status
+
+    operations:
+      list: true
+      get: true
+      create: true
+      update: true
+      delete: true
+
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+      wire: true

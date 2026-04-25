@@ -135,6 +135,10 @@ func knownMixinFields(name string) []Field {
 		return []Field{{Name: "remark", Kind: "String", Optional: true, Nillable: true}}
 	case "TenantID":
 		return []Field{{Name: "tenant_id", Kind: "Uint32", Optional: true, Nillable: true, Immutable: true}}
+	case "SortOrder":
+		return []Field{{Name: "sort_order", Kind: "Uint32", Optional: true, Nillable: true}}
+	case "SwitchStatus":
+		return []Field{{Name: "status", Kind: "Enum", Nillable: true}}
 	default:
 		return nil
 	}
