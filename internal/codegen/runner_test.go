@@ -22,6 +22,7 @@ package admin.service.v1;
 service UserService {
   rpc List (ListRequest) returns (ListResponse) {}
   rpc Get (GetRequest) returns (GetResponse) {}
+  rpc Create (CreateUserRequest) returns (User) {}
 }`)
 	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_user_grpc.pb.go"), `package admin
 
@@ -33,6 +34,7 @@ import (
 type UserServiceServer interface {
 	List(context.Context, *v1.ListRequest) (*v1.ListResponse, error)
 	Get(context.Context, *v1.GetRequest) (*v1.GetResponse, error)
+	Create(context.Context, *v1.CreateUserRequest) (*v1.User, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -139,6 +141,15 @@ func (User) Fields() []ent.Field {
 	}
 	if !strings.Contains(repoFile, "func (r *userRepo) List") {
 		t.Fatalf("repo file is missing List method skeleton")
+	}
+	if !strings.Contains(repoFile, "func (r *userRepo) Create") {
+		t.Fatalf("repo file is missing Create method")
+	}
+	if !strings.Contains(repoFile, "builder.SetNillableUsername(req.Data.Username)") {
+		t.Fatalf("repo file is missing generated username setter")
+	}
+	if strings.Contains(repoFile, "*v1.") {
+		t.Fatalf("repo file contains unnormalized generated alias: %s", repoFile)
 	}
 
 	serviceWireFile := readFile(t, filepath.Join(root, "app", "admin", "service", "internal", "service", "providers", "wire_set.gen.go"))

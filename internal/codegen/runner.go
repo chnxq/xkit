@@ -113,6 +113,14 @@ type repoMethodData struct {
 	Name         string
 	Params       []namedType
 	ResponseType string
+	Kind         string
+	Setters      []setterData
+	ReturnsValue bool
+}
+
+type setterData struct {
+	Method string
+	Expr   string
 }
 
 var aliasPattern = regexp.MustCompile(`\b([A-Za-z_][A-Za-z0-9_]*)\.`)
@@ -270,12 +278,62 @@ func (r *{{ .RepoStructName }}) init() {
 {{range .Methods}}
 // {{ .Name }} is generated from the source proto contract.
 func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error) {
+{{if eq .Kind "create"}}
+	if req == nil || req.Data == nil {
+		var out {{ .ResponseType }}
+		return out, fmt.Errorf("invalid parameter")
+	}
+
+	builder := r.entClient.Client().{{ $.EntityName }}.Create()
+{{range .Setters}}
+	builder.{{ .Method }}({{ .Expr }})
+{{end}}
+
+	entity, err := builder.Save(ctx)
+	if err != nil {
+		r.log.Errorf("insert {{ $.ResourceName }} failed: %s", err.Error())
+		var out {{ .ResponseType }}
+		return out, err
+	}
+
+{{if .ReturnsValue}}
+	return r.mapper.ToDTO(entity), nil
+{{else}}
+	_ = entity
+	return nil
+{{end}}
+{{else if eq .Kind "update"}}
+	if req == nil || req.Data == nil {
+		var out {{ .ResponseType }}
+		return out, fmt.Errorf("invalid parameter")
+	}
+
+	builder := r.entClient.Client().{{ $.EntityName }}.UpdateOneID(req.GetId())
+{{range .Setters}}
+	builder.{{ .Method }}({{ .Expr }})
+{{end}}
+
+	entity, err := builder.Save(ctx)
+	if err != nil {
+		r.log.Errorf("update {{ $.ResourceName }} failed: %s", err.Error())
+		var out {{ .ResponseType }}
+		return out, err
+	}
+
+{{if .ReturnsValue}}
+	return r.mapper.ToDTO(entity), nil
+{{else}}
+	_ = entity
+	return nil
+{{end}}
+{{else}}
 {{range .Params}}
 	_ = {{.Name}}
 {{end}}
 
 	var out {{ .ResponseType }}
 	return out, fmt.Errorf("{{ $.RepoName }}.{{ .Name }} not implemented")
+{{end}}
 }
 
 {{end}}
@@ -715,11 +773,24 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		{Alias: dtoAlias, Path: dtoImport},
 	}
 	usedAliases := make(map[string]struct{})
+	var methods []repoMethodData
 	for _, method := range plan.Binding.Methods {
 		if !isCRUDMethod(method.Name) {
 			continue
 		}
-		for _, typeText := range append(slices.Clone(method.Params), method.Results...) {
+		normalizedParams := normalizeTypeAliases(method.Params, plan.Binding.Imports, dtoImport, dtoAlias)
+		normalizedResults := normalizeTypeAliases(method.Results, plan.Binding.Imports, dtoImport, dtoAlias)
+		methodData := repoMethodData{
+			Name:         method.Name,
+			Params:       nameParams(normalizedParams),
+			ResponseType: firstResult(normalizedResults),
+			Kind:         strings.ToLower(method.Name),
+			Setters:      repoSetters(plan.Schema.Fields, method.Name),
+			ReturnsValue: firstResult(normalizedResults) == "*"+dtoType,
+		}
+		methods = append(methods, methodData)
+
+		for _, typeText := range append(slices.Clone(normalizedParams), normalizedResults...) {
 			for _, alias := range aliasesInType(typeText) {
 				usedAliases[alias] = struct{}{}
 			}
@@ -744,16 +815,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		DTOType:         dtoType,
 		Fields:          plan.Schema.Fields,
 	}
-	for _, method := range plan.Binding.Methods {
-		if !isCRUDMethod(method.Name) {
-			continue
-		}
-		data.Methods = append(data.Methods, repoMethodData{
-			Name:         method.Name,
-			Params:       nameParams(method.Params),
-			ResponseType: firstResult(method.Results),
-		})
-	}
+	data.Methods = methods
 
 	return renderTemplate(repoFileTemplate, data)
 }
@@ -870,6 +932,43 @@ func isCRUDMethod(name string) bool {
 		return true
 	}
 	return strings.HasSuffix(name, "Exists") || strings.HasPrefix(name, "Count")
+}
+
+func normalizeTypeAliases(types []string, imports map[string]string, targetImport, targetAlias string) []string {
+	out := make([]string, 0, len(types))
+	for _, typeText := range types {
+		normalized := typeText
+		for alias, importPath := range imports {
+			if importPath != targetImport || alias == targetAlias {
+				continue
+			}
+			normalized = strings.ReplaceAll(normalized, alias+".", targetAlias+".")
+		}
+		out = append(out, normalized)
+	}
+	return out
+}
+
+func repoSetters(fields []entschema.Field, methodName string) []setterData {
+	setters := make([]setterData, 0, len(fields))
+	for _, field := range fields {
+		if field.Name == "id" || field.Kind == "Enum" || field.Kind == "Time" {
+			continue
+		}
+		if methodName == "Update" && field.Immutable {
+			continue
+		}
+		goName := toPascal(field.Name)
+		method := "Set" + goName
+		if field.Optional || field.Nillable {
+			method = "SetNillable" + goName
+		}
+		setters = append(setters, setterData{
+			Method: method,
+			Expr:   "req.Data." + goName,
+		})
+	}
+	return setters
 }
 
 func sanitizeIdentifier(value string) string {
