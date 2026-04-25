@@ -1,0 +1,7 @@
+﻿config:
+  type: "etcd"
+  etcd:
+    endpoints:
+      - "localhost:2379"
+    timeout: "5s"
+    key: "/{{ .AppName }}"

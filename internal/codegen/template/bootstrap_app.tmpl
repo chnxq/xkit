@@ -8,9 +8,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/chnxq/xkitmod/log"
 	"github.com/chnxq/xkitpkg/app"
 	conf "github.com/chnxq/xkitpkg/conf/v1"
+	"github.com/chnxq/xkitpkg/config"
 	"github.com/chnxq/xkitpkg/transport"
 )
 
@@ -29,11 +29,37 @@ func Initialize(ctx context.Context, opts Options) (*app.App, func(), error) {
 	if opts.Version == "" {
 		opts.Version = "dev"
 	}
+	if opts.ConfigPath == "" {
+		opts.ConfigPath = "./configs"
+	}
 
-	// TODO: load local/remote config from opts.ConfigPath using xkitpkg/config.
-	// TODO: initialize configured logger provider and replace log.DefaultLogger.
-	// TODO: initialize registry registrar for multi-instance service discovery.
-	// TODO: initialize tracer provider for distributed tracing.
+	if err := config.LoadServerConfig(opts.ConfigPath); err != nil {
+		return nil, func() {}, fmt.Errorf("load server config: %w", err)
+	}
+	serverConfig := config.GetServerConfig()
+
+	logger, loggerCleanup, err := NewLogger(serverConfig)
+	if err != nil {
+		return nil, loggerCleanup, err
+	}
+	registrar, registrarCleanup, err := NewRegistrar(serverConfig)
+	if err != nil {
+		loggerCleanup()
+		return nil, registrarCleanup, err
+	}
+	tracerCleanup, err := NewTracer(serverConfig, logger)
+	if err != nil {
+		registrarCleanup()
+		loggerCleanup()
+		return nil, tracerCleanup, err
+	}
+
+	cleanup := func() {
+		tracerCleanup()
+		registrarCleanup()
+		loggerCleanup()
+	}
+
 	appCtx := app.NewAppCtx(ctx, &conf.AppInfo{
 		Project:   "{{ .Module }}",
 		AppId:     "service/{{ .ServiceName }}",
@@ -41,14 +67,18 @@ func Initialize(ctx context.Context, opts Options) (*app.App, func(), error) {
 		Version:   opts.Version,
 		BuildId:   fmt.Sprintf("%s-%s", opts.Version, opts.BuildTime),
 		GitCommit: opts.GitCommit,
-	}, &conf.ServerConfig{}, log.DefaultLogger, nil)
+	}, serverConfig, logger, registrar)
 
-	servers, cleanup, err := NewServers(appCtx)
+	servers, serverCleanup, err := NewServers(appCtx)
 	if err != nil {
-		return nil, cleanup, err
+		cleanup()
+		return nil, serverCleanup, err
 	}
 
-	return app.NewApp(appCtx, servers...), cleanup, nil
+	return app.NewApp(appCtx, servers...), func() {
+		serverCleanup()
+		cleanup()
+	}, nil
 }
 
 func NewServers(appCtx *app.AppCtx) ([]transport.Server, func(), error) {

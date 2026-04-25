@@ -1,0 +1,22 @@
+﻿data:
+  database:
+    driver: "postgres"
+    source: "host=localhost port=5432 user=postgres password=*Abcd123456 dbname=admin sslmode=disable"
+    # driver: "mysql"
+    # source: "root:112233@tcp(localhost:3306)/admin?parseTime=true&charset=utf8mb4&loc=Asia%2FShanghai"
+    migrate: true
+    debug: true
+    enable_trace: true
+    enable_metrics: false
+    max_idle_connections: 25
+    max_open_connections: 25
+    connection_max_lifetime: "300s"
+
+  redis:
+    network: "tcp"
+    addr: "localhost:6379"
+    password: "*Abcd123456"
+    db: 0
+    dial_timeout: "10s"
+    read_timeout: "400ms"
+    write_timeout: "600ms"

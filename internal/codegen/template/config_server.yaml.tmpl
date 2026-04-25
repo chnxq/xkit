@@ -1,0 +1,43 @@
+﻿server:
+  grpc:
+    network: "tcp"
+    addr: "0.0.0.0:9090"
+    timeout: "10s"
+    middleware:
+      enable_logging: true
+      enable_recovery: true
+      enable_tracing: true
+      enable_validate: true
+      enable_circuit_breaker: true
+      enable_metadata: true
+
+  rest:
+    network: "tcp"
+    addr: ":7788"
+    timeout: "10s"
+    skip_redis_token_check: false
+    enable_db_logging: true
+    enable_swagger: true
+    enable_pprof: true
+    cors:
+      headers:
+        - "X-Requested-With"
+        - "X-Request-ID"
+        - "Content-Type"
+        - "Authorization"
+      methods:
+        - "GET"
+        - "POST"
+        - "PUT"
+        - "DELETE"
+        - "HEAD"
+        - "OPTIONS"
+      origins:
+        - "*"
+    middleware:
+      enable_logging: true
+      enable_recovery: true
+      enable_tracing: true
+      enable_validate: true
+      enable_circuit_breaker: true
+      enable_metadata: true

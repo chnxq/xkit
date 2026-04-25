@@ -558,16 +558,24 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		{path: filepath.Join(r.project.Root, "cmd", "server", "main.go"), template: codegentemplate.BootstrapMain, skip: false},
 		{path: filepath.Join(r.project.Root, "cmd", "server", "server.go"), template: codegentemplate.BootstrapServerCmd, skip: false},
 		{path: filepath.Join(r.project.Root, "internal", "bootstrap", "app.go"), template: codegentemplate.BootstrapApp, skip: false},
+		{path: filepath.Join(r.project.Root, "internal", "bootstrap", "infra.go"), template: codegentemplate.BootstrapInfra, skip: false},
 		{path: filepath.Join(r.project.Root, "internal", "data", "bootstrap", "data.go"), template: codegentemplate.BootstrapData, skip: false},
 		{path: filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.go"), template: codegentemplate.BootstrapEntClient, skip: false},
 		{path: filepath.Join(r.project.Root, "internal", "server", "server.go"), template: codegentemplate.BootstrapServer, skip: false},
 		{path: filepath.Join(r.project.Root, "internal", "server", "http.go"), template: codegentemplate.BootstrapHTTPServer, skip: false},
 		{path: filepath.Join(r.project.Root, "internal", "server", "grpc.go"), template: codegentemplate.BootstrapGRPCServer, skip: false},
+		{path: filepath.Join(r.project.Root, "configs", "server.yaml"), template: codegentemplate.ConfigServer, skip: true},
+		{path: filepath.Join(r.project.Root, "configs", "data.yaml"), template: codegentemplate.ConfigData, skip: true},
+		{path: filepath.Join(r.project.Root, "configs", "logger.yaml"), template: codegentemplate.ConfigLogger, skip: true},
+		{path: filepath.Join(r.project.Root, "configs", "trace.yaml"), template: codegentemplate.ConfigTrace, skip: true},
+		{path: filepath.Join(r.project.Root, "configs", "registry.yaml"), template: codegentemplate.ConfigRegistry, skip: true},
+		{path: filepath.Join(r.project.Root, "configs", "client.yaml"), template: codegentemplate.ConfigClient, skip: true},
+		{path: filepath.Join(r.project.Root, "configs", "remote_config.yaml"), template: codegentemplate.ConfigRemote, skip: true},
 	}
 
 	var result Result
 	for _, file := range files {
-		content, err := renderTemplate(file.template, data)
+		content, err := renderAnyTemplate(file.template, data)
 		if err != nil {
 			return result, err
 		}
@@ -963,6 +971,35 @@ func (r *Runner) writeFile(path string, content []byte, result *Result, skipIfEx
 }
 
 func renderTemplate(source string, data any) ([]byte, error) {
+	content, err := renderRawTemplate(source, data)
+	if err != nil {
+		return nil, err
+	}
+
+	formatted, err := format.Source(content)
+	if err != nil {
+		return nil, fmt.Errorf("format generated source: %w", err)
+	}
+
+	return formatted, nil
+}
+
+func renderAnyTemplate(source string, data any) ([]byte, error) {
+	content, err := renderRawTemplate(source, data)
+	if err != nil {
+		return nil, err
+	}
+	if looksLikeGoSource(content) {
+		formatted, err := format.Source(content)
+		if err != nil {
+			return nil, fmt.Errorf("format generated source: %w", err)
+		}
+		return formatted, nil
+	}
+	return content, nil
+}
+
+func renderRawTemplate(source string, data any) ([]byte, error) {
 	tmpl, err := template.New("file").Funcs(template.FuncMap{
 		"trimPointer": trimPointer,
 	}).Parse(source)
@@ -974,13 +1011,12 @@ func renderTemplate(source string, data any) ([]byte, error) {
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("execute template: %w", err)
 	}
+	return buf.Bytes(), nil
+}
 
-	formatted, err := format.Source(buf.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("format generated source: %w", err)
-	}
-
-	return formatted, nil
+func looksLikeGoSource(content []byte) bool {
+	trimmed := strings.TrimSpace(string(content))
+	return strings.Contains(trimmed, "\npackage ") || strings.HasPrefix(trimmed, "package ") || strings.Contains(trimmed, "\n\npackage ")
 }
 
 func uniqueImports(imports []importSpec) []importSpec {

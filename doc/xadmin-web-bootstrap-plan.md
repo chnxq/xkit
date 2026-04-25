@@ -104,3 +104,39 @@
 
 服务层现在导入 `xadmin-web/internal/data/repo`，构造函数使用 `repo.UserRepo`、`repo.UserCredentialRepo` 等接口类型。
 
+
+## EntClient 接入进展
+
+`internal/data/bootstrap/ent_client.go` 已由占位实现升级为真实 Ent 初始化骨架：
+
+- 从 `ctx.GetConfig().Data.Database` 读取 `driver`、`source`、连接池和 `migrate` 配置。
+- 使用 `entgo.io/ent/dialect/sql.Open` 创建 Ent SQL driver。
+- 创建 `ent.NewClient(ent.Driver(drv))`。
+- 包装为 `entCrud.NewEntClient[*ent.Client]`，供 repo 构造函数使用。
+- 支持 `migrate.WithForeignKeys(true)` 自动迁移。
+
+注意：模板不主动 blank import 具体数据库驱动。目标项目需要在主程序或独立 driver 文件中导入实际驱动，例如 MySQL、PostgreSQL 或 SQLite。
+
+## 配置系统生成规划与进展
+
+参考 `D:\GoProjects\chnxq\XAdmin\app\admin\service\configs`，配置文件生成到目标项目根目录的 `configs/`：
+
+- `configs/server.yaml`：REST/gRPC 协议监听、超时、中间件、CORS、pprof、swagger。
+- `configs/data.yaml`：数据库、Redis、迁移、连接池、数据库 tracing/metrics 开关。
+- `configs/logger.yaml`：统一日志 provider 配置，默认 zap。
+- `configs/trace.yaml`：OTLP trace exporter、采样率、batcher、trace context。
+- `configs/registry.yaml`：etcd 服务注册发现配置，用于多实例。
+- `configs/client.yaml`：gRPC client 超时与中间件配置。
+- `configs/remote_config.yaml`：远程配置中心配置。
+
+`internal/bootstrap/app.go` 已调用 `xkitpkg/config.LoadServerConfig(opts.ConfigPath)` 加载配置目录，并将 `config.GetServerConfig()` 注入 `app.AppCtx`。日志、注册中心、链路追踪 provider 仍保留 TODO，后续按配置逐项接入。
+
+## 基础设施 provider 接入进展
+
+已新增 `internal/bootstrap/infra.go`：
+
+- `NewLogger`：当前返回 `xkitmod/log.DefaultLogger`，后续在目标项目加入 `xkitpkg/logger` 模块后按 `configs/logger.yaml` 初始化。
+- `NewRegistrar`：已读取 `ServerConfig.Registry` 并调用 `xkitpkg/registry.NewRegistrar`，用于多实例服务注册发现。
+- `NewTracer`：当前保留 TODO，后续在目标项目加入 `xkitpkg/tracer` 模块后按 `configs/trace.yaml` 初始化。
+
+`internal/bootstrap/app.go` 已按顺序初始化 logger、registrar、tracer，并将 logger/registrar 注入 `app.NewAppCtx`。

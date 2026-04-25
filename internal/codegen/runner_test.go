@@ -215,8 +215,8 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 16 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 16)
+	if len(result.Written) != 24 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 24)
 	}
 
 	expectedPaths := []string{
@@ -227,6 +227,13 @@ return {{successReturn}}, nil`,
 		filepath.Join(root, "internal", "server", "grpc_register.gen.go"),
 		filepath.Join(root, "internal", "service", "providers", "wire_set.gen.go"),
 		filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go"),
+		filepath.Join(root, "configs", "server.yaml"),
+		filepath.Join(root, "configs", "data.yaml"),
+		filepath.Join(root, "configs", "logger.yaml"),
+		filepath.Join(root, "configs", "trace.yaml"),
+		filepath.Join(root, "configs", "registry.yaml"),
+		filepath.Join(root, "configs", "client.yaml"),
+		filepath.Join(root, "configs", "remote_config.yaml"),
 	}
 	for _, path := range expectedPaths {
 		if _, err := os.Stat(path); err != nil {

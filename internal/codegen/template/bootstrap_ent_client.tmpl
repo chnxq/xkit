@@ -6,19 +6,62 @@ package bootstrap
 
 import (
 	"fmt"
+	"time"
+
+	entsql "entgo.io/ent/dialect/sql"
 
 	entCrud "github.com/chnxq/x-crud/entgo"
 	"github.com/chnxq/xkitpkg/app"
 
 	"{{ .Module }}/internal/data/ent"
+	"{{ .Module }}/internal/data/ent/migrate"
+	_ "{{ .Module }}/internal/data/ent/runtime"
 )
 
 func NewEntClient(ctx *app.AppCtx) (*entCrud.EntClient[*ent.Client], func(), error) {
-	_ = ctx
+	logger := ctx.NewLoggerHelper("ent/data")
+	cfg := ctx.GetConfig()
+	if cfg == nil || cfg.Data == nil || cfg.Data.Database == nil {
+		return nil, func() {}, fmt.Errorf("database config is required")
+	}
 
-	// TODO: initialize Ent client from app config and database driver.
-	// This placeholder keeps generated repositories wire-compatible until
-	// database config generation is enabled.
-	return nil, func() {}, fmt.Errorf("ent client is not configured")
+	database := cfg.Data.Database
+	if database.GetDriver() == "" || database.GetSource() == "" {
+		return nil, func() {}, fmt.Errorf("database driver and source are required")
+	}
+
+	drv, err := entsql.Open(database.GetDriver(), database.GetSource())
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("open database: %w", err)
+	}
+
+	client := ent.NewClient(ent.Driver(drv))
+	entClient := entCrud.NewEntClient[*ent.Client](client, drv)
+	if database.GetMaxIdleConnections() > 0 || database.GetMaxOpenConnections() > 0 || database.GetConnectionMaxLifetime() != nil {
+		entClient.SetConnectionOption(
+			int(database.GetMaxIdleConnections()),
+			int(database.GetMaxOpenConnections()),
+			connectionMaxLifetime(database.GetConnectionMaxLifetime()),
+		)
+	}
+
+	if database.GetMigrate() {
+		if err := client.Schema.Create(ctx.AppContext(), migrate.WithForeignKeys(true)); err != nil {
+			_ = client.Close()
+			return nil, func() {}, fmt.Errorf("create ent schema: %w", err)
+		}
+	}
+
+	return entClient, func() {
+		if err := entClient.Close(); err != nil {
+			logger.Errorf("close ent client failed: %v", err)
+		}
+	}, nil
 }
 
+func connectionMaxLifetime(value interface{ AsDuration() time.Duration }) time.Duration {
+	if value == nil {
+		return 0
+	}
+	return value.AsDuration()
+}
