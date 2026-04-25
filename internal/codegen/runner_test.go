@@ -23,6 +23,8 @@ service UserService {
   rpc List (ListRequest) returns (ListResponse) {}
   rpc Get (GetRequest) returns (GetResponse) {}
   rpc Create (CreateUserRequest) returns (User) {}
+  rpc Delete (DeleteUserRequest) returns (Empty) {}
+  rpc Exists (UserExistsRequest) returns (UserExistsResponse) {}
 }`)
 	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_user_grpc.pb.go"), `package admin
 
@@ -35,6 +37,8 @@ type UserServiceServer interface {
 	List(context.Context, *v1.ListRequest) (*v1.ListResponse, error)
 	Get(context.Context, *v1.GetRequest) (*v1.GetResponse, error)
 	Create(context.Context, *v1.CreateUserRequest) (*v1.User, error)
+	Delete(context.Context, *v1.DeleteUserRequest) (*v1.Empty, error)
+	Exists(context.Context, *v1.UserExistsRequest) (*v1.UserExistsResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -150,6 +154,12 @@ func (User) Fields() []ent.Field {
 	}
 	if strings.Contains(repoFile, "*v1.") {
 		t.Fatalf("repo file contains unnormalized generated alias: %s", repoFile)
+	}
+	if !strings.Contains(repoFile, "DeleteOneID(req.GetId()).Exec(ctx)") {
+		t.Fatalf("repo file is missing generated delete body")
+	}
+	if !strings.Contains(repoFile, "Where(user.IDEQ(req.GetId())).Exist(ctx)") {
+		t.Fatalf("repo file is missing generated exists body")
 	}
 
 	serviceWireFile := readFile(t, filepath.Join(root, "app", "admin", "service", "internal", "service", "providers", "wire_set.gen.go"))

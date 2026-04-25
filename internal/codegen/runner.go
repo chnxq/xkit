@@ -103,6 +103,7 @@ type repoTemplateData struct {
 	ConstructorName string
 	EntityName      string
 	ResourceName    string
+	EntPackage      string
 	PredicateType   string
 	DTOType         string
 	Methods         []repoMethodData
@@ -116,6 +117,8 @@ type repoMethodData struct {
 	Kind         string
 	Setters      []setterData
 	ReturnsValue bool
+	IDExpr       string
+	ExistField   string
 }
 
 type setterData struct {
@@ -326,6 +329,34 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	_ = entity
 	return nil
 {{end}}
+{{else if eq .Kind "delete"}}
+	if req == nil {
+		var out {{ .ResponseType }}
+		return out, fmt.Errorf("invalid parameter")
+	}
+
+	if err := r.entClient.Client().{{ $.EntityName }}.DeleteOneID({{ .IDExpr }}).Exec(ctx); err != nil {
+		r.log.Errorf("delete {{ $.ResourceName }} failed: %s", err.Error())
+		var out {{ .ResponseType }}
+		return out, err
+	}
+
+	var out {{ .ResponseType }}
+	return out, nil
+{{else if eq .Kind "exists"}}
+	if req == nil {
+		var out {{ .ResponseType }}
+		return out, fmt.Errorf("invalid parameter")
+	}
+
+	exist, err := r.entClient.Client().{{ $.EntityName }}.Query().Where({{ $.EntPackage }}.IDEQ({{ .IDExpr }})).Exist(ctx)
+	if err != nil {
+		r.log.Errorf("query {{ $.ResourceName }} exists failed: %s", err.Error())
+		var out {{ .ResponseType }}
+		return out, err
+	}
+
+	return &{{ .ResponseType | trimPointer }}{ {{ .ExistField }}: exist }, nil
 {{else}}
 {{range .Params}}
 	_ = {{.Name}}
@@ -769,6 +800,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		{Path: "github.com/chnxq/xkitmod/log"},
 		{Path: "github.com/chnxq/xkitpkg/app"},
 		{Path: filepath.ToSlash(filepath.Join(r.project.Module, "app", r.config.Service, "service", "internal", "data", "ent"))},
+		{Path: filepath.ToSlash(filepath.Join(r.project.Module, "app", r.config.Service, "service", "internal", "data", "ent", strings.ToLower(entityName)))},
 		{Path: filepath.ToSlash(filepath.Join(r.project.Module, "app", r.config.Service, "service", "internal", "data", "ent", "predicate"))},
 		{Alias: dtoAlias, Path: dtoImport},
 	}
@@ -784,9 +816,11 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 			Name:         method.Name,
 			Params:       nameParams(normalizedParams),
 			ResponseType: firstResult(normalizedResults),
-			Kind:         strings.ToLower(method.Name),
+			Kind:         repoMethodKind(method.Name),
 			Setters:      repoSetters(plan.Schema.Fields, method.Name),
 			ReturnsValue: firstResult(normalizedResults) == "*"+dtoType,
+			IDExpr:       "req.GetId()",
+			ExistField:   "Exist",
 		}
 		methods = append(methods, methodData)
 
@@ -811,6 +845,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		ConstructorName: "New" + repoName,
 		EntityName:      entityName,
 		ResourceName:    plan.Resource.Name,
+		EntPackage:      strings.ToLower(entityName),
 		PredicateType:   entityName,
 		DTOType:         dtoType,
 		Fields:          plan.Schema.Fields,
@@ -855,7 +890,9 @@ func (r *Runner) writeFile(path string, content []byte, result *Result, skipIfEx
 }
 
 func renderTemplate(source string, data any) ([]byte, error) {
-	tmpl, err := template.New("file").Parse(source)
+	tmpl, err := template.New("file").Funcs(template.FuncMap{
+		"trimPointer": trimPointer,
+	}).Parse(source)
 	if err != nil {
 		return nil, fmt.Errorf("parse template: %w", err)
 	}
@@ -932,6 +969,25 @@ func isCRUDMethod(name string) bool {
 		return true
 	}
 	return strings.HasSuffix(name, "Exists") || strings.HasPrefix(name, "Count")
+}
+
+func repoMethodKind(name string) string {
+	switch {
+	case name == "Create":
+		return "create"
+	case name == "Update":
+		return "update"
+	case name == "Delete":
+		return "delete"
+	case name == "Exists":
+		return "exists"
+	default:
+		return strings.ToLower(name)
+	}
+}
+
+func trimPointer(typeText string) string {
+	return strings.TrimPrefix(typeText, "*")
 }
 
 func normalizeTypeAliases(types []string, imports map[string]string, targetImport, targetAlias string) []string {
