@@ -30,6 +30,16 @@ func (User) Fields() []ent.Field {
 		field.Enum("status").Default("NORMAL").Optional().Nillable(),
 	}
 }
+
+func (User) Mixin() []ent.Mixin {
+	return []ent.Mixin{
+		mixin.AutoIncrementId{},
+		mixin.OperatorID{},
+		mixin.TimeAt{},
+		mixin.Remark{},
+		mixin.TenantID[uint32]{},
+	}
+}
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write schema: %v", err)
@@ -44,7 +54,7 @@ func (User) Fields() []ent.Field {
 	if !ok {
 		t.Fatalf("missing User schema")
 	}
-	if got, want := len(user.Fields), 2; got != want {
+	if got, want := len(user.Fields), 11; got != want {
 		t.Fatalf("field count mismatch: got %d want %d", got, want)
 	}
 	if !user.Fields[0].Optional || !user.Fields[0].Nillable || !user.Fields[0].Immutable {
@@ -53,4 +63,22 @@ func (User) Fields() []ent.Field {
 	if user.Fields[1].Kind != "Enum" || user.Fields[1].Name != "status" {
 		t.Fatalf("enum field mismatch: %+v", user.Fields[1])
 	}
+	assertField(t, user.Fields, Field{Name: "tenant_id", Kind: "Uint32", Optional: true, Nillable: true, Immutable: true})
+	assertField(t, user.Fields, Field{Name: "created_at", Kind: "Time", Optional: true, Nillable: true, Immutable: true})
+	assertField(t, user.Fields, Field{Name: "remark", Kind: "String", Optional: true, Nillable: true})
+}
+
+func assertField(t *testing.T, fields []Field, want Field) {
+	t.Helper()
+
+	for _, got := range fields {
+		if got.Name != want.Name {
+			continue
+		}
+		if got.Kind != want.Kind || got.Optional != want.Optional || got.Nillable != want.Nillable || got.Immutable != want.Immutable {
+			t.Fatalf("field %s mismatch: got %+v want %+v", want.Name, got, want)
+		}
+		return
+	}
+	t.Fatalf("missing field %s", want.Name)
 }

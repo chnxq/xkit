@@ -22,8 +22,13 @@ type Resource struct {
 	DTOType       string         `yaml:"dto_type"`
 	RepoInterface string         `yaml:"repo_interface"`
 	ExistsFields  []string       `yaml:"exists_fields"`
+	Filters       FilterConfig   `yaml:"filters"`
 	Operations    OperationFlags `yaml:"operations"`
 	Generate      GenerateFlags  `yaml:"generate"`
+}
+
+type FilterConfig struct {
+	Allow []string `yaml:"allow"`
 }
 
 type OperationFlags map[string]bool

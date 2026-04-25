@@ -9,7 +9,7 @@ The primary target project is `D:\GoProjects\XAdmin\xadmin-web`.
 The primary implementation reference for service/data/server code is `D:\GoProjects\chnxq\XAdmin`. Generator behavior, project discovery, scaffold conventions, and service output should follow the XAdmin reference first.
 
 The goal is not to generate complete business systems.
-The goal is to standardize and regenerate the highly repetitive parts of a GoWind-style Go service safely:
+The goal is to standardize and regenerate the highly repetitive parts of an XAdmin-style Go service safely:
 
 - service interface adapters
 - repository CRUD scaffolds
@@ -20,7 +20,7 @@ The design must preserve manual business logic and allow repeated generation wit
 
 ## Scope
 
-This specification targets XAdmin-aligned source inputs and GoWind-style generated service outputs.
+This specification targets XAdmin-aligned source inputs and generated service outputs.
 
 ### Current Source Layout In XAdmin
 
@@ -30,12 +30,15 @@ This specification targets XAdmin-aligned source inputs and GoWind-style generat
 
 ### Target Generated Layout
 
-- `app/<service>/service/internal/service/*`
-- `app/<service>/service/internal/data/*`
-- `app/<service>/service/internal/server/*`
+- `internal/service/*`
+- `internal/data/*`
+- `internal/server/*`
 
 Representative examples in the current target workspace:
 
+- `xadmin-web/internal/service/user_service.gen.go`
+- `xadmin-web/internal/data/user_repo.gen.go`
+- `xadmin-web/internal/server/rest_register.gen.go`
 - `xadmin-web/api/protos/admin/v1/i_user.proto`
 - `xadmin-web/api/gen/admin/v1/i_user.pb.go`
 - `xadmin-web/internal/data/ent/schema/user.go`
@@ -108,7 +111,8 @@ A per-service YAML file controls generation behavior that does not belong in pro
 
 Recommended path:
 
-- `app/<service>/service/gen/<domain>.yaml`
+- `xkit/examples/<target>/<service>.yaml` during generator development
+- `<target>/internal/gen/<service>.yaml` if the target project later owns generator config
 
 ## File Ownership Model
 
@@ -154,30 +158,29 @@ These files contain business orchestration, special handlers, authorization rule
 Recommended layout inside one generated microservice:
 
 ```text
-app/<service>/service/
+internal/
   gen/
-    <domain>.yaml
+    <service>.yaml
 
-  internal/
-    service/
-      <resource>_service.gen.go
-      <resource>_service_ext.go
-      <resource>_service_manual.go
-      providers/
-        wire_set.gen.go
+  service/
+    <resource>_service.gen.go
+    <resource>_service_ext.go
+    <resource>_service_manual.go
+    providers/
+      wire_set.gen.go
 
-    data/
-      <resource>_repo.gen.go
-      <resource>_repo_ext.go
-      <resource>_repo_manual.go
-      providers/
-        wire_set.gen.go
+  data/
+    <resource>_repo.gen.go
+    <resource>_repo_ext.go
+    <resource>_repo_manual.go
+    providers/
+      wire_set.gen.go
 
-    server/
-      rest_register.gen.go
-      grpc_register.gen.go
-      rest_server.go
-      grpc_server.go
+  server/
+    rest_register.gen.go
+    grpc_register.gen.go
+    rest_server.go
+    grpc_server.go
 ```
 
 ## Generation Boundaries
@@ -340,15 +343,20 @@ resources:
   - name: user
     proto_service: admin.service.v1.UserService
     entity: User
+    dto_import: xadmin-web/api/gen/identity/v1
+    dto_type: User
     repo_interface: UserRepo
+    exists_fields:
+      - id
+      - username
 
     operations:
       list: true
       get: true
+      count: true
       create: true
       update: true
       delete: true
-      count: true
       exists: true
 
     paging:
@@ -383,6 +391,14 @@ resources:
       wire: true
 ```
 
+Field notes:
+
+- `entity`: Ent schema/entity name used to discover fields and build query/create/update code.
+- `dto_import`: Go import path for the DTO type used by generated repo methods.
+- `dto_type`: DTO type name, for example `User`.
+- `repo_interface`: generated data-layer repository interface name.
+- `exists_fields`: allowed fields for generated existence queries; this avoids hardcoding business fields in the generator.
+
 ## Regeneration Rules
 
 These rules are mandatory.
@@ -415,33 +431,24 @@ Behavior:
 - `xkit gen register <service>`: generate HTTP and gRPC registration helpers
 - `xkit gen all <service>`: run the full pipeline, overwriting only `*.gen.go`
 
-## Minimum Viable Rollout
+## Current Rollout
 
-The first implementation should stay narrow.
+The first implementation has moved beyond the original phase-1 service-only
+slice and now covers the core generated service stack.
 
-### Phase 1
-
-Implement:
+### Implemented
 
 - proto-driven service method stubs
-- proto-driven transport registration files
+- proto-driven HTTP and gRPC registration files
 - constructor list generation for Wire
 - YAML-driven resource selection
+- Ent-schema-driven repository CRUD scaffolds
+- config-driven existence-query field selection via `exists_fields`
+- generated headers containing `xkit` version and generation timestamp
 
-Do not implement full repo CRUD generation in phase 1.
+### Next Additions
 
-### Phase 2
-
-Add:
-
-- ent-driven repo interface generation
-- base CRUD repo skeletons
 - standard filter and sort generation
-
-### Phase 3
-
-Add:
-
 - richer hook contracts
 - explicit safe patching for extension files
 - validation generation
@@ -455,10 +462,10 @@ The current combined reference context shows three realities:
 2. `xadmin-web` does not yet have a mature generated service/data/server layer, so the initial tool must create that structure instead of learning from local implementations.
 3. `D:\GoProjects\chnxq\XAdmin` contains the primary service/data/server implementation patterns that `xkit` should reproduce safely.
 
-That means the generator should first target the stable structural layer:
+That means the generator targets the stable structural layer first:
 
 - service shells
-- repo shells
+- repo CRUD scaffolds
 - wire provider lists
 - registration lists
 
@@ -466,27 +473,24 @@ It should not try to auto-solve the business-heavy parts until the generated own
 
 ## Open Questions
 
-These questions should be answered before implementing repo generation aggressively:
+These questions should be answered before expanding repo generation aggressively:
 
 - How much filter behavior should come from YAML versus ent metadata?
 - Should relation enrichment be declarative or always manual?
-- Should generated repos target `ent`, `gorm`, or both in the first implementation?
+- Should generated repos continue to target `ent` only, or later support `gorm` as well?
 - Should `xkit gen all` fail when required YAML metadata is missing?
 - Does `xkit` need a later compatibility wrapper for existing `gow` workflows?
 
 ## Recommended Next Step
 
-Implement phase 1 in `xkit` first:
+Continue hardening `xkit gen repo` against real XAdmin resources:
 
-- bootstrap the `xkit` CLI entry and `gen` command group
-- model output layout after `D:\GoProjects\chnxq\XAdmin\app\admin\service`
-- add generation for `service/*.gen.go`
-- add generation for `server/*_register.gen.go`
-- add generation for `providers/wire_set.gen.go`
-- validate the first slice against `xadmin-web/api/protos/admin/v1/i_user.proto`
-- prepare ent-driven repo generation against `xadmin-web/internal/data/ent/schema/user.go` after phase 1 is stable
+- broaden Ent field-to-DTO conversion coverage
+- add declarative filters and sorting
+- keep business-specific fields in YAML instead of generator code
+- validate generated output against `xadmin-web` service packages after each generator change
 
-That gives immediate value with low risk and establishes the file ownership model before repo generation is introduced.
+That keeps the generator useful while preserving explicit ownership boundaries between generated scaffolding and manual business logic.
 
 
 

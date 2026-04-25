@@ -26,6 +26,7 @@ type Field struct {
 var (
 	typePattern          = regexp.MustCompile(`type\s+([A-Z][A-Za-z0-9_]*)\s+struct\s*\{`)
 	fieldPattern         = regexp.MustCompile(`field\.([A-Za-z0-9_]+)\("([^"]+)"\)`)
+	mixinPattern         = regexp.MustCompile(`mixin\.([A-Za-z0-9_]+)(?:\[[^\]]+\])?\s*\{\s*\}`)
 	optionalCallPattern  = regexp.MustCompile(`\.\s*Optional\s*\(\s*\)`)
 	nillableCallPattern  = regexp.MustCompile(`\.\s*Nillable\s*\(\s*\)`)
 	immutableCallPattern = regexp.MustCompile(`\.\s*Immutable\s*\(\s*\)`)
@@ -89,8 +90,69 @@ func parseFile(path string) (Schema, error) {
 			Immutable: immutableCallPattern.MatchString(chain),
 		})
 	}
+	schema.Fields = appendMissingFields(schema.Fields, fieldsFromMixins(content)...)
 
 	return schema, nil
+}
+
+func fieldsFromMixins(content string) []Field {
+	matches := mixinPattern.FindAllStringSubmatch(content, -1)
+	fields := make([]Field, 0, len(matches))
+	for _, match := range matches {
+		if len(match) != 2 {
+			continue
+		}
+		fields = append(fields, knownMixinFields(match[1])...)
+	}
+	return fields
+}
+
+func knownMixinFields(name string) []Field {
+	switch name {
+	case "AutoIncrementId":
+		return []Field{{Name: "id", Kind: "Uint32", Nillable: true, Immutable: true}}
+	case "AutoIncrementId64":
+		return []Field{{Name: "id", Kind: "Uint64", Nillable: true, Immutable: true}}
+	case "OperatorID":
+		return []Field{
+			{Name: "created_by", Kind: "Uint32", Optional: true, Nillable: true},
+			{Name: "updated_by", Kind: "Uint32", Optional: true, Nillable: true},
+			{Name: "deleted_by", Kind: "Uint32", Optional: true, Nillable: true},
+		}
+	case "OperatorID64":
+		return []Field{
+			{Name: "created_by", Kind: "Uint64", Optional: true, Nillable: true},
+			{Name: "updated_by", Kind: "Uint64", Optional: true, Nillable: true},
+			{Name: "deleted_by", Kind: "Uint64", Optional: true, Nillable: true},
+		}
+	case "TimeAt":
+		return []Field{
+			{Name: "created_at", Kind: "Time", Optional: true, Nillable: true, Immutable: true},
+			{Name: "updated_at", Kind: "Time", Optional: true, Nillable: true},
+			{Name: "deleted_at", Kind: "Time", Optional: true, Nillable: true},
+		}
+	case "Remark":
+		return []Field{{Name: "remark", Kind: "String", Optional: true, Nillable: true}}
+	case "TenantID":
+		return []Field{{Name: "tenant_id", Kind: "Uint32", Optional: true, Nillable: true, Immutable: true}}
+	default:
+		return nil
+	}
+}
+
+func appendMissingFields(fields []Field, additions ...Field) []Field {
+	seen := make(map[string]struct{}, len(fields))
+	for _, field := range fields {
+		seen[field.Name] = struct{}{}
+	}
+	for _, field := range additions {
+		if _, ok := seen[field.Name]; ok {
+			continue
+		}
+		fields = append(fields, field)
+		seen[field.Name] = struct{}{}
+	}
+	return fields
 }
 
 func stripLineComments(content string) string {
