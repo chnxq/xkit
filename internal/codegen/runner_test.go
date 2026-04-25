@@ -52,10 +52,15 @@ type UserServiceHTTPServer interface{}
 		Module:  "example.com/xadmin-web",
 		Resources: []config.Resource{
 			{
-				Name:         "user",
-				ProtoService: "admin.service.v1.UserService",
+				Name:          "user",
+				ProtoService:  "admin.service.v1.UserService",
+				Entity:        "User",
+				DTOImport:     "example.com/xadmin-web/api/gen/identity/v1",
+				DTOType:       "User",
+				RepoInterface: "UserRepo",
 				Generate: config.GenerateFlags{
 					ServiceStub:  true,
+					RepoCRUD:     true,
 					RestRegister: true,
 					GRPCRegister: true,
 					Wire:         true,
@@ -77,13 +82,14 @@ type UserServiceHTTPServer interface{}
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 6 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 6)
+	if len(result.Written) != 7 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 7)
 	}
 
 	expectedPaths := []string{
 		filepath.Join(root, "app", "admin", "service", "internal", "service", "user_service.gen.go"),
 		filepath.Join(root, "app", "admin", "service", "internal", "service", "user_service_ext.go"),
+		filepath.Join(root, "app", "admin", "service", "internal", "data", "user_repo.gen.go"),
 		filepath.Join(root, "app", "admin", "service", "internal", "server", "rest_register.gen.go"),
 		filepath.Join(root, "app", "admin", "service", "internal", "server", "grpc_register.gen.go"),
 		filepath.Join(root, "app", "admin", "service", "internal", "service", "providers", "wire_set.gen.go"),
@@ -104,6 +110,14 @@ type UserServiceHTTPServer interface{}
 	}
 	if !strings.Contains(serviceFile, "func NewUserService() *UserService") {
 		t.Fatalf("service file is missing constructor")
+	}
+
+	repoFile := readFile(t, filepath.Join(root, "app", "admin", "service", "internal", "data", "user_repo.gen.go"))
+	if !strings.Contains(repoFile, "func NewUserRepo") {
+		t.Fatalf("repo file is missing constructor")
+	}
+	if !strings.Contains(repoFile, "entCrud.Repository") {
+		t.Fatalf("repo file is missing ent CRUD repository")
 	}
 
 	serviceWireFile := readFile(t, filepath.Join(root, "app", "admin", "service", "internal", "service", "providers", "wire_set.gen.go"))

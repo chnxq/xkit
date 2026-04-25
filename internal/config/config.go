@@ -18,6 +18,8 @@ type Resource struct {
 	Name          string         `yaml:"name"`
 	ProtoService  string         `yaml:"proto_service"`
 	Entity        string         `yaml:"entity"`
+	DTOImport     string         `yaml:"dto_import"`
+	DTOType       string         `yaml:"dto_type"`
 	RepoInterface string         `yaml:"repo_interface"`
 	Operations    OperationFlags `yaml:"operations"`
 	Generate      GenerateFlags  `yaml:"generate"`
@@ -73,6 +75,10 @@ func (cfg Config) Validate() error {
 
 func (g GenerateFlags) EffectiveServiceStub() bool {
 	return g.ServiceStub || (!g.ServiceStub && !g.RepoCRUD && !g.RestRegister && !g.GRPCRegister && !g.Wire)
+}
+
+func (g GenerateFlags) EffectiveRepoCRUD() bool {
+	return g.RepoCRUD || (!g.ServiceStub && !g.RepoCRUD && !g.RestRegister && !g.GRPCRegister && !g.Wire)
 }
 
 func (g GenerateFlags) EffectiveRestRegister() bool {

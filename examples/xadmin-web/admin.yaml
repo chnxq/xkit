@@ -5,6 +5,8 @@ resources:
   - name: user
     proto_service: admin.service.v1.UserService
     entity: User
+    dto_import: xadmin-web/api/gen/identity/v1
+    dto_type: User
     repo_interface: UserRepo
 
     operations:
@@ -17,6 +19,7 @@ resources:
 
     generate:
       service_stub: true
+      repo_crud: true
       rest_register: true
       grpc_register: true
       wire: true
