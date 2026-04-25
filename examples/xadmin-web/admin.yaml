@@ -19,6 +19,36 @@ resources:
         - tenant_id
         - status
 
+    service_methods:
+      EditUserPassword:
+        imports:
+          - alias: authenticationv1
+            path: '{{module}}/api/gen/authentication/v1'
+        repos:
+          - field: userCredentialRepo
+            interface: UserCredentialRepo
+        body: |
+          user, err := s.{{repoField}}.Get({{ctx}}, &v11.GetUserRequest{
+            QueryBy: &v11.GetUserRequest_Id{
+              Id: {{param.req}}.GetUserId(),
+            },
+          })
+          if err != nil {
+            return nil, err
+          }
+
+          if _, err = s.userCredentialRepo.ResetCredential({{ctx}}, &authenticationv1.ResetCredentialRequest{
+            IdentityType:  authenticationv1.UserCredential_USERNAME,
+            Identifier:    user.GetUsername(),
+            NewCredential: {{param.req}}.GetNewPassword(),
+            NeedDecrypt:   false,
+          }); err != nil {
+            s.log.Errorf("reset user password err: %v", err)
+            return nil, err
+          }
+
+          return {{successReturn}}, nil
+
     operations:
       list: true
       get: true
@@ -62,4 +92,28 @@ resources:
       repo_crud: true
       rest_register: true
       grpc_register: true
+      wire: true
+
+  - name: user_credential
+    proto_service: authentication.service.v1.UserCredentialService
+    entity: UserCredential
+    dto_import: xadmin-web/api/gen/authentication/v1
+    dto_type: UserCredential
+    repo_interface: UserCredentialRepo
+
+    filters:
+      allow:
+        - id
+        - user_id
+        - identity_type
+        - identifier
+        - credential_type
+        - tenant_id
+        - status
+
+    operations:
+      resetcredential: true
+
+    generate:
+      repo_crud: true
       wire: true

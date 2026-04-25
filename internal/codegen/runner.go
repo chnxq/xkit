@@ -75,7 +75,13 @@ type serviceTemplateData struct {
 	HasRepo         bool
 	RepoField       string
 	RepoType        string
+	ExtraRepos      []serviceRepoData
 	ResourceName    string
+}
+
+type serviceRepoData struct {
+	Field string
+	Type  string
 }
 
 type serviceMethodData struct {
@@ -86,6 +92,7 @@ type serviceMethodData struct {
 	Delegate       bool
 	RepoField      string
 	SuccessReturn  string
+	Body           string
 }
 
 type namedType struct {
@@ -143,6 +150,7 @@ type repoMethodData struct {
 	Params         []namedType
 	ResponseType   string
 	Kind           string
+	Body           string
 	Setters        []setterData
 	ReturnsValue   bool
 	IDExpr         string
@@ -539,6 +547,7 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 	repoField := lowerFirst(strings.TrimSuffix(repoName, "Repo")) + "Repo"
 	repoType := "data." + repoName
 	hasRepo := plan.Resource.Generate.EffectiveRepoCRUD()
+	extraRepos := r.extraServiceRepos(plan)
 	if hasRepo {
 		imports = append(imports,
 			importSpec{Path: "github.com/chnxq/xkitmod/log"},
@@ -546,6 +555,7 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 			importSpec{Path: r.internalImport("data")},
 		)
 	}
+	imports = append(imports, r.serviceConfiguredImports(plan)...)
 
 	usedAliases := make(map[string]struct{})
 	methods := make([]serviceMethodData, 0, len(plan.Binding.Methods))
@@ -560,14 +570,16 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 		delegate := hasRepo && isCRUDMethod(method.Name) && resourceOperationEnabled(plan.Resource, kind)
 		classification := lookupClassification(plan.Proto.Methods, method.Name)
 		responseType := firstResult(method.Results)
+		params := nameParams(method.Params)
 		methods = append(methods, serviceMethodData{
 			Name:           method.Name,
 			Classification: classification,
-			Params:         nameParams(method.Params),
+			Params:         params,
 			ResponseType:   responseType,
 			Delegate:       delegate,
 			RepoField:      repoField,
 			SuccessReturn:  serviceSuccessReturn(responseType),
+			Body:           r.serviceMethodBody(plan, method.Name, params, responseType, repoField, hasRepo),
 		})
 	}
 
@@ -590,10 +602,133 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 		HasRepo:         hasRepo,
 		RepoField:       repoField,
 		RepoType:        repoType,
+		ExtraRepos:      extraRepos,
 		ResourceName:    plan.Resource.Name,
 	}
 
 	return renderTemplate(codegentemplate.ServiceFile, data)
+}
+
+func (r *Runner) serviceMethodBody(plan resourcePlan, methodName string, params []namedType, responseType, repoField string, hasRepo bool) string {
+	methodConfig, ok := plan.Resource.ServiceMethods[methodName]
+	if !hasRepo || !ok || strings.TrimSpace(methodConfig.Body) == "" {
+		return ""
+	}
+	body := strings.TrimRight(methodConfig.Body, "\r\n")
+	replacements := map[string]string{
+		"{{repoField}}":     repoField,
+		"{{successReturn}}": serviceSuccessReturn(responseType),
+	}
+	for _, param := range params {
+		replacements["{{param."+param.Name+"}}"] = param.Name
+		if param.Type == "context.Context" {
+			replacements["{{ctx}}"] = param.Name
+		}
+	}
+	for key, value := range replacements {
+		body = strings.ReplaceAll(body, key, value)
+	}
+	return indentLines(body, "\t")
+}
+
+func (r *Runner) extraServiceRepos(plan resourcePlan) []serviceRepoData {
+	var repos []serviceRepoData
+	seen := make(map[string]struct{})
+	for _, methodConfig := range plan.Resource.ServiceMethods {
+		for _, repoConfig := range methodConfig.Repos {
+			field := strings.TrimSpace(repoConfig.Field)
+			typeName := strings.TrimSpace(repoConfig.Interface)
+			if field == "" || typeName == "" {
+				continue
+			}
+			key := field + ":" + typeName
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			repos = append(repos, serviceRepoData{Field: field, Type: "data." + typeName})
+		}
+	}
+	return repos
+}
+
+func (r *Runner) serviceConfiguredImports(plan resourcePlan) []importSpec {
+	var imports []importSpec
+	for _, methodConfig := range plan.Resource.ServiceMethods {
+		for _, importConfig := range methodConfig.Imports {
+			path := strings.TrimSpace(importConfig.Path)
+			if path == "" {
+				continue
+			}
+			path = strings.ReplaceAll(path, "{{module}}", r.project.Module)
+			imports = append(imports, importSpec{Alias: strings.TrimSpace(importConfig.Alias), Path: filepath.ToSlash(path)})
+		}
+	}
+	return imports
+}
+
+func indentLines(text, prefix string) string {
+	if text == "" {
+		return ""
+	}
+	lines := strings.Split(text, "\n")
+	for index, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		lines[index] = prefix + line
+	}
+	return strings.Join(lines, "\n")
+}
+
+func isSupportedRepoSpecialMethod(resource config.Resource, methodName string) bool {
+	return resource.Name == "user_credential" && methodName == "ResetCredential"
+}
+
+func (r *Runner) repoMethodBody(plan resourcePlan, methodName string, params []namedType, responseType string) string {
+	if !isSupportedRepoSpecialMethod(plan.Resource, methodName) {
+		return ""
+	}
+
+	ctxParam := ""
+	reqParam := ""
+	for _, param := range params {
+		if param.Type == "context.Context" {
+			ctxParam = param.Name
+		}
+		if strings.HasSuffix(param.Type, "ResetCredentialRequest") {
+			reqParam = param.Name
+		}
+	}
+	if ctxParam == "" || reqParam == "" {
+		return ""
+	}
+
+	successReturn := serviceSuccessReturn(responseType)
+	return fmt.Sprintf(`	if %s == nil {
+		return nil, fmt.Errorf("invalid parameter")
+	}
+
+	credential := %s.GetNewCredential()
+	// TODO: hash or encrypt credential before storage when password crypto is available.
+	if %s.GetNeedDecrypt() {
+		// TODO: decrypt credential before hashing.
+	}
+
+	_, err := r.entClient.Client().UserCredential.Update().
+		Where(
+			usercredential.IdentityTypeEQ(usercredential.IdentityTypeUsername),
+			usercredential.IdentifierEQ(%s.GetIdentifier()),
+			usercredential.CredentialTypeEQ(usercredential.CredentialTypePasswordHash),
+		).
+		SetCredential(credential).
+		Save(%s)
+	if err != nil {
+		r.log.Errorf("reset user credential failed: %%s", err.Error())
+		return nil, err
+	}
+
+	return %s, nil`, reqParam, reqParam, reqParam, reqParam, ctxParam, successReturn)
 }
 
 func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
@@ -644,7 +779,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	usesEnumSetter := false
 	usesTimeSetter := false
 	for _, method := range plan.Binding.Methods {
-		if !isCRUDMethod(method.Name) {
+		if !isCRUDMethod(method.Name) && !isSupportedRepoSpecialMethod(plan.Resource, method.Name) {
 			continue
 		}
 		kind := repoMethodKind(method.Name)
@@ -663,6 +798,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 			Params:         nameParams(normalizedParams),
 			ResponseType:   firstResult(normalizedResults),
 			Kind:           kind,
+			Body:           r.repoMethodBody(plan, method.Name, nameParams(normalizedParams), firstResult(normalizedResults)),
 			Setters:        setters,
 			ReturnsValue:   firstResult(normalizedResults) == "*"+dtoType,
 			IDExpr:         "req.GetId()",
@@ -981,9 +1117,24 @@ func normalizeTypeAliases(types []string, imports map[string]string, targetImpor
 			}
 			normalized = strings.ReplaceAll(normalized, alias+".", targetAlias+".")
 		}
+		if !strings.Contains(normalized, ".") && targetAlias != "" && looksLikeGeneratedType(normalized) {
+			normalized = addTypeAlias(normalized, targetAlias)
+		}
 		out = append(out, normalized)
 	}
 	return out
+}
+
+func looksLikeGeneratedType(typeText string) bool {
+	name := trimPointer(typeText)
+	return strings.HasSuffix(name, "Request") || strings.HasSuffix(name, "Response") || name == "UserCredential"
+}
+
+func addTypeAlias(typeText, alias string) string {
+	if strings.HasPrefix(typeText, "*") {
+		return "*" + alias + "." + strings.TrimPrefix(typeText, "*")
+	}
+	return alias + "." + typeText
 }
 
 func repoSetters(fields []entschema.Field, methodName, entPackage, enumHelperName, timeHelperName string) []setterData {
@@ -1127,17 +1278,29 @@ func toPascal(value string) string {
 }
 
 func toGoName(value string) string {
-	name := toPascal(value)
+	if value == "" {
+		return ""
+	}
 	initialisms := map[string]string{
-		"Id":  "ID",
-		"Ip":  "IP",
-		"Url": "URL",
-		"Uri": "URI",
+		"id":  "ID",
+		"ip":  "IP",
+		"url": "URL",
+		"uri": "URI",
 	}
-	for old, replacement := range initialisms {
-		name = strings.ReplaceAll(name, old, replacement)
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == '_' || r == '-' || r == ' '
+	})
+	for index, part := range parts {
+		if part == "" {
+			continue
+		}
+		if replacement, ok := initialisms[strings.ToLower(part)]; ok {
+			parts[index] = replacement
+			continue
+		}
+		parts[index] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
 	}
-	return name
+	return strings.Join(parts, "")
 }
 
 func lowerFirst(value string) string {

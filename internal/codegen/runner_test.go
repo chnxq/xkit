@@ -56,6 +56,51 @@ var UserService_ServiceDesc = struct{
 
 type UserServiceHTTPServer interface{}
 `)
+	writeFile(t, filepath.Join(root, "api", "protos", "authentication", "v1", "user_credential.proto"), `syntax = "proto3";
+
+package authentication.service.v1;
+
+service UserCredentialService {
+  rpc ResetCredential (ResetCredentialRequest) returns (Empty) {}
+}`)
+	writeFile(t, filepath.Join(root, "api", "gen", "authentication", "v1", "user_credential_grpc.pb.go"), `package authenticationv1
+
+import context "context"
+
+type UserCredentialServiceServer interface {
+	ResetCredential(context.Context, *ResetCredentialRequest) (*Empty, error)
+}
+
+var UserCredentialService_ServiceDesc = struct{
+	ServiceName string
+}{
+	ServiceName: "authentication.service.v1.UserCredentialService",
+}
+
+type ResetCredentialRequest struct{}
+type UserCredential struct{}
+type Empty struct{}
+`)
+	writeFile(t, filepath.Join(root, "internal", "data", "ent", "schema", "user_credential.go"), `package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/field"
+)
+
+type UserCredential struct { ent.Schema }
+
+func (UserCredential) Fields() []ent.Field {
+	return []ent.Field{
+		field.Uint32("user_id").Optional().Nillable(),
+		field.Enum("identity_type").Optional().Nillable(),
+		field.String("identifier").Optional().Nillable(),
+		field.Enum("credential_type").Optional().Nillable(),
+		field.String("credential").Optional().Nillable(),
+		field.Enum("status").Optional().Nillable(),
+	}
+}
+`)
 	writeFile(t, filepath.Join(root, "internal", "data", "ent", "schema", "user.go"), `package schema
 
 import (
@@ -89,6 +134,36 @@ func (User) Fields() []ent.Field {
 				Filters: config.FilterConfig{
 					Allow: []string{"id", "username", "status"},
 				},
+				ServiceMethods: map[string]config.ServiceMethodConfig{
+					"EditUserPassword": {
+						Imports: []config.ImportConfig{
+							{Alias: "authenticationv1", Path: "{{module}}/api/gen/authentication/v1"},
+						},
+						Repos: []config.RepoConfig{
+							{Field: "userCredentialRepo", Interface: "UserCredentialRepo"},
+						},
+						Body: `user, err := s.{{repoField}}.Get({{ctx}}, &v1.GetUserRequest{
+	QueryBy: &v1.GetUserRequest_Id{
+		Id: {{param.req}}.GetUserId(),
+	},
+})
+if err != nil {
+	return nil, err
+}
+
+if _, err = s.userCredentialRepo.ResetCredential({{ctx}}, &authenticationv1.ResetCredentialRequest{
+	IdentityType:  authenticationv1.UserCredential_USERNAME,
+	Identifier:    user.GetUsername(),
+	NewCredential: {{param.req}}.GetNewPassword(),
+	NeedDecrypt:   false,
+}); err != nil {
+	s.log.Errorf("reset user password err: %v", err)
+	return nil, err
+}
+
+return {{successReturn}}, nil`,
+					},
+				},
 				Operations: config.OperationFlags{
 					"list":   true,
 					"get":    true,
@@ -104,6 +179,24 @@ func (User) Fields() []ent.Field {
 					RestRegister: true,
 					GRPCRegister: true,
 					Wire:         true,
+				},
+			},
+			{
+				Name:          "user_credential",
+				ProtoService:  "authentication.service.v1.UserCredentialService",
+				Entity:        "UserCredential",
+				DTOImport:     "example.com/xadmin-web/api/gen/authentication/v1",
+				DTOType:       "UserCredential",
+				RepoInterface: "UserCredentialRepo",
+				Filters: config.FilterConfig{
+					Allow: []string{"id", "identity_type", "identifier"},
+				},
+				Operations: config.OperationFlags{
+					"resetcredential": true,
+				},
+				Generate: config.GenerateFlags{
+					RepoCRUD: true,
+					Wire:     true,
 				},
 			},
 		},
@@ -122,8 +215,8 @@ func (User) Fields() []ent.Field {
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 7 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 7)
+	if len(result.Written) != 8 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 8)
 	}
 
 	expectedPaths := []string{
@@ -151,10 +244,10 @@ func (User) Fields() []ent.Field {
 	if !strings.Contains(serviceFile, "UserServiceHTTPServer") {
 		t.Fatalf("service file is missing embedded HTTP server")
 	}
-	if !strings.Contains(serviceFile, "func NewUserService(ctx *app.AppCtx, userRepo data.UserRepo) *UserService") {
+	if !strings.Contains(serviceFile, "func NewUserService(ctx *app.AppCtx, userRepo data.UserRepo, userCredentialRepo data.UserCredentialRepo) *UserService") {
 		t.Fatalf("service file is missing repo-injected constructor")
 	}
-	if !strings.Contains(serviceFile, "log *log.Helper") || !strings.Contains(serviceFile, "userRepo data.UserRepo") {
+	if !strings.Contains(serviceFile, "log *log.Helper") || !strings.Contains(serviceFile, "userRepo data.UserRepo") || !strings.Contains(serviceFile, "userCredentialRepo data.UserCredentialRepo") {
 		t.Fatalf("service file is missing log or repo fields")
 	}
 	if !strings.Contains(serviceFile, "return s.userRepo.List(ctx, req)") || !strings.Contains(serviceFile, "return s.userRepo.UserExists(ctx, req)") {
@@ -163,8 +256,11 @@ func (User) Fields() []ent.Field {
 	if strings.Contains(serviceFile, "not implemented") || strings.Contains(serviceFile, "MethodNotImplemented") {
 		t.Fatalf("service file should not contain not implemented stubs")
 	}
-	if !strings.Contains(serviceFile, "TODO: implement UserService.EditUserPassword business logic manually") {
-		t.Fatalf("service file is missing TODO for manual business logic")
+	if !strings.Contains(serviceFile, "s.userRepo.Get(ctx,") || !strings.Contains(serviceFile, "GetUserRequest{") {
+		t.Fatalf("service file is missing generated EditUserPassword user lookup")
+	}
+	if !strings.Contains(serviceFile, "userCredentialRepo data.UserCredentialRepo") || !strings.Contains(serviceFile, "s.userCredentialRepo.ResetCredential") {
+		t.Fatalf("service file is missing generated EditUserPassword credential reset")
 	}
 
 	repoFile := readFile(t, filepath.Join(root, "internal", "data", "user_repo.gen.go"))
@@ -223,6 +319,14 @@ func (User) Fields() []ent.Field {
 		t.Fatalf("repo file is missing generated query_by exists body")
 	}
 
+	credentialRepoFile := readFile(t, filepath.Join(root, "internal", "data", "user_credential_repo.gen.go"))
+	if !strings.Contains(credentialRepoFile, "func (r *userCredentialRepo) ResetCredential") || !strings.Contains(credentialRepoFile, "SetCredential(credential)") {
+		t.Fatalf("credential repo file is missing generated ResetCredential body")
+	}
+	if strings.Contains(credentialRepoFile, "IDentity") || strings.Contains(credentialRepoFile, "IDentifier") {
+		t.Fatalf("credential repo file has broken initialism conversion")
+	}
+
 	serviceWireFile := readFile(t, filepath.Join(root, "internal", "service", "providers", "wire_set.gen.go"))
 	if !strings.Contains(serviceWireFile, "var ProviderSet = wire.NewSet") {
 		t.Fatalf("service wire file is missing ProviderSet")
@@ -267,6 +371,22 @@ func TestResourceOperationEnabled(t *testing.T) {
 	}
 	if !resourceOperationEnabled(config.Resource{}, "delete") {
 		t.Fatalf("empty operations should keep backward-compatible generation enabled")
+	}
+}
+
+func TestServiceMethodBodyWithoutConfigFallsBackToTODO(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	body := runner.serviceMethodBody(resourcePlan{
+		Resource: config.Resource{Name: "user"},
+	}, "EditUserPassword", []namedType{
+		{Name: "ctx", Type: "context.Context"},
+		{Name: "req", Type: "*identityv1.EditUserPasswordRequest"},
+	}, "*emptypb.Empty", "userRepo", true)
+
+	if body != "" {
+		t.Fatalf("service method body should be empty without service_methods config, got %q", body)
 	}
 }
 

@@ -19,23 +19,23 @@ type {{ .StructName }} struct {
 	log *log.Helper
 
 	{{ .RepoField }} {{ .RepoType }}
+{{- range .ExtraRepos}}
+	{{ .Field }} {{ .Type }}
+{{- end}}
 {{end}}
 }
 
-func {{ .ConstructorName }}({{if .HasRepo}}ctx *app.AppCtx, {{ .RepoField }} {{ .RepoType }}{{end}}) *{{ .StructName }} {
+func {{ .ConstructorName }}({{if .HasRepo}}ctx *app.AppCtx, {{ .RepoField }} {{ .RepoType }}{{range .ExtraRepos}}, {{ .Field }} {{ .Type }}{{end}}{{end}}) *{{ .StructName }} {
 	return &{{ .StructName }}{
 {{- if .HasRepo}}
 		log: ctx.NewLoggerHelper("{{ .ResourceName }}/service"),
 		{{ .RepoField }}: {{ .RepoField }},
+{{- range .ExtraRepos}}
+		{{ .Field }}: {{ .Field }},
+{{- end}}
 {{- end}}
 	}
 }
-
-{{if .HasUnimplementedMethods}}
-func {{ .ErrorHelperName }}(method string) error {
-	return fmt.Errorf("{{ .StructName }}.%s not implemented", method)
-}
-{{end}}
 
 {{range .Methods}}
 // {{ .Name }} is generated from the source proto contract.
@@ -43,13 +43,15 @@ func {{ .ErrorHelperName }}(method string) error {
 func (s *{{ $.StructName }}) {{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error) {
 {{- if .Delegate}}
 	return s.{{ .RepoField }}.{{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }}{{end}})
+{{- else if .Body}}
+{{ .Body }}
 {{- else}}
 {{- range .Params}}
 	_ = {{.Name}}
 {{- end}}
 
 	// TODO: implement {{ $.StructName }}.{{ .Name }} business logic manually or move it to a manual extension.
-	return out, {{ $.ErrorHelperName }}("{{ .Name }}")
+	return {{ .SuccessReturn }}, nil
 {{- end}}
 }
 

@@ -15,16 +15,33 @@ type Config struct {
 }
 
 type Resource struct {
-	Name          string         `yaml:"name"`
-	ProtoService  string         `yaml:"proto_service"`
-	Entity        string         `yaml:"entity"`
-	DTOImport     string         `yaml:"dto_import"`
-	DTOType       string         `yaml:"dto_type"`
-	RepoInterface string         `yaml:"repo_interface"`
-	ExistsFields  []string       `yaml:"exists_fields"`
-	Filters       FilterConfig   `yaml:"filters"`
-	Operations    OperationFlags `yaml:"operations"`
-	Generate      GenerateFlags  `yaml:"generate"`
+	Name           string                         `yaml:"name"`
+	ProtoService   string                         `yaml:"proto_service"`
+	Entity         string                         `yaml:"entity"`
+	DTOImport      string                         `yaml:"dto_import"`
+	DTOType        string                         `yaml:"dto_type"`
+	RepoInterface  string                         `yaml:"repo_interface"`
+	ExistsFields   []string                       `yaml:"exists_fields"`
+	Filters        FilterConfig                   `yaml:"filters"`
+	ServiceMethods map[string]ServiceMethodConfig `yaml:"service_methods"`
+	Operations     OperationFlags                 `yaml:"operations"`
+	Generate       GenerateFlags                  `yaml:"generate"`
+}
+
+type ServiceMethodConfig struct {
+	Imports []ImportConfig `yaml:"imports"`
+	Repos   []RepoConfig   `yaml:"repos"`
+	Body    string         `yaml:"body"`
+}
+
+type ImportConfig struct {
+	Alias string `yaml:"alias"`
+	Path  string `yaml:"path"`
+}
+
+type RepoConfig struct {
+	Field     string `yaml:"field"`
+	Interface string `yaml:"interface"`
 }
 
 type FilterConfig struct {

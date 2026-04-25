@@ -132,7 +132,9 @@ func (r *{{ .RepoStructName }}) applyGeneratedFilters(builder *ent.{{ .EntityNam
 {{range .Methods}}
 // {{ .Name }} is generated from the source proto contract.
 func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error) {
-{{if eq .Kind "create"}}
+{{if .Body}}
+{{ .Body }}
+{{else if eq .Kind "create"}}
 	if req == nil || req.Data == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
 	}
