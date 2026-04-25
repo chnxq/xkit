@@ -1,0 +1,22 @@
+service: admin
+module: xadmin-web
+
+resources:
+  - name: user
+    proto_service: admin.service.v1.UserService
+    entity: User
+    repo_interface: UserRepo
+
+    operations:
+      list: true
+      get: true
+      create: true
+      update: true
+      delete: true
+      exists: true
+
+    generate:
+      service_stub: true
+      rest_register: true
+      grpc_register: true
+      wire: true
