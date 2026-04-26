@@ -215,8 +215,8 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 19 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 19)
+	if len(result.Written) != 12 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 12)
 	}
 
 	expectedPaths := []string{
@@ -231,13 +231,6 @@ return {{successReturn}}, nil`,
 		filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go"),
 		filepath.Join(root, "internal", "bootstrap", "generated_servers.gen.go"),
 		filepath.Join(root, "internal", "data", "bootstrap", "ent_client.gen.go"),
-		filepath.Join(root, "configs", "server.yaml"),
-		filepath.Join(root, "configs", "data.yaml"),
-		filepath.Join(root, "configs", "logger.yaml"),
-		filepath.Join(root, "configs", "trace.yaml"),
-		filepath.Join(root, "configs", "registry.yaml"),
-		filepath.Join(root, "configs", "client.yaml"),
-		filepath.Join(root, "configs", "remote_config.yaml"),
 	}
 	for _, path := range expectedPaths {
 		if _, err := os.Stat(path); err != nil {
@@ -349,6 +342,10 @@ return {{successReturn}}, nil`,
 	dataWireFile := readFile(t, filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go"))
 	if !strings.Contains(dataWireFile, "repopkg.NewUserRepo") {
 		t.Fatalf("data wire file is missing repo constructor")
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "configs", "server.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("gen all should not create static config files, stat err=%v", err)
 	}
 
 	bootstrapFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_servers.gen.go"))

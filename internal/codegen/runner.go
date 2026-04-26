@@ -663,17 +663,9 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 	files := []struct {
 		path     string
 		template string
-		skip     bool
 	}{
-		{path: filepath.Join(r.project.Root, "internal", "bootstrap", "generated_servers.gen.go"), template: codegentemplate.BootstrapGeneratedServers, skip: false},
-		{path: filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.gen.go"), template: codegentemplate.BootstrapEntClient, skip: false},
-		{path: filepath.Join(r.project.Root, "configs", "server.yaml"), template: codegentemplate.ConfigServer, skip: true},
-		{path: filepath.Join(r.project.Root, "configs", "data.yaml"), template: codegentemplate.ConfigData, skip: true},
-		{path: filepath.Join(r.project.Root, "configs", "logger.yaml"), template: codegentemplate.ConfigLogger, skip: true},
-		{path: filepath.Join(r.project.Root, "configs", "trace.yaml"), template: codegentemplate.ConfigTrace, skip: true},
-		{path: filepath.Join(r.project.Root, "configs", "registry.yaml"), template: codegentemplate.ConfigRegistry, skip: true},
-		{path: filepath.Join(r.project.Root, "configs", "client.yaml"), template: codegentemplate.ConfigClient, skip: true},
-		{path: filepath.Join(r.project.Root, "configs", "remote_config.yaml"), template: codegentemplate.ConfigRemote, skip: true},
+		{path: filepath.Join(r.project.Root, "internal", "bootstrap", "generated_servers.gen.go"), template: codegentemplate.BootstrapGeneratedServers},
+		{path: filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.gen.go"), template: codegentemplate.BootstrapEntClient},
 	}
 
 	var result Result
@@ -681,12 +673,6 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		content, err := renderAnyTemplate(file.template, data)
 		if err != nil {
 			return result, err
-		}
-		if file.skip {
-			if err := r.writeExtensionFile(file.path, content, &result); err != nil {
-				return result, err
-			}
-			continue
 		}
 		if err := r.writeGeneratedFile(file.path, content, &result); err != nil {
 			return result, err
