@@ -17,12 +17,15 @@ The template repository owns stable startup structure:
 - `cmd/server/main.go`
 - `cmd/server/server.go`
 - `internal/bootstrap/app.go`
+- `internal/bootstrap/cleanup.go`
 - `internal/bootstrap/infra.go`
 - `internal/bootstrap/hooks.go`
 - `internal/server/http.go`
 - `internal/server/grpc.go`
 - `internal/server/manual.go`
+- `internal/server/options.go`
 - `internal/data/bootstrap/data.go`
+- `internal/data/bootstrap/resources.go`
 - `configs/*.yaml`
 - startup assets under `cmd/server/assets`
 
@@ -58,14 +61,20 @@ The following files are reserved for later handwritten changes and are created o
 - `internal/data/repo/*_repo_ext.go`
 - `internal/bootstrap/hooks.go`
 - `internal/server/manual.go`
+- `internal/server/options.go`
 - `internal/data/bootstrap/data.go`
+- `internal/data/bootstrap/resources.go`
 - `configs/*.yaml`
 
 `internal/bootstrap/hooks.go` is for extra transport servers or lifecycle additions.
 
 `internal/server/manual.go` is for custom HTTP/gRPC registrations that are not derived from proto resources.
 
+`internal/server/options.go` is for HTTP/gRPC transport options, middleware, stream middleware, and HTTP filters.
+
 `internal/data/bootstrap/data.go` is for shared data providers such as Redis, cache, object storage, queues, or domain-specific clients.
+
+`internal/data/bootstrap/resources.go` is for shared data resource lifecycle wiring.
 
 ## Template Init Flow
 
