@@ -215,18 +215,22 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 24 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 24)
+	if len(result.Written) != 19 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 19)
 	}
 
 	expectedPaths := []string{
 		filepath.Join(root, "internal", "service", "user_service.gen.go"),
 		filepath.Join(root, "internal", "service", "user_service_ext.go"),
 		filepath.Join(root, "internal", "data", "repo", "user_repo.gen.go"),
+		filepath.Join(root, "internal", "data", "repo", "user_repo_ext.go"),
+		filepath.Join(root, "internal", "data", "repo", "user_credential_repo_ext.go"),
 		filepath.Join(root, "internal", "server", "rest_register.gen.go"),
 		filepath.Join(root, "internal", "server", "grpc_register.gen.go"),
 		filepath.Join(root, "internal", "service", "providers", "wire_set.gen.go"),
 		filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go"),
+		filepath.Join(root, "internal", "bootstrap", "generated_servers.gen.go"),
+		filepath.Join(root, "internal", "data", "bootstrap", "ent_client.gen.go"),
 		filepath.Join(root, "configs", "server.yaml"),
 		filepath.Join(root, "configs", "data.yaml"),
 		filepath.Join(root, "configs", "logger.yaml"),
@@ -345,6 +349,11 @@ return {{successReturn}}, nil`,
 	dataWireFile := readFile(t, filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go"))
 	if !strings.Contains(dataWireFile, "repopkg.NewUserRepo") {
 		t.Fatalf("data wire file is missing repo constructor")
+	}
+
+	bootstrapFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_servers.gen.go"))
+	if !strings.Contains(bootstrapFile, "func NewGeneratedServers") || strings.Contains(bootstrapFile, "func Initialize") {
+		t.Fatalf("bootstrap generation should only write generated server glue")
 	}
 
 	registerFile := readFile(t, filepath.Join(root, "internal", "server", "grpc_register.gen.go"))

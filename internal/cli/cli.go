@@ -12,9 +12,11 @@ import (
 	"github.com/chnxq/xkit/internal/codegen"
 	"github.com/chnxq/xkit/internal/config"
 	"github.com/chnxq/xkit/internal/project"
+	"github.com/chnxq/xkit/internal/scaffold"
 )
 
 const usageText = `Usage:
+  xkit init template <template-path> [--project <path>] [--module <module>] [--app-name <name>] [--command-name <name>] [--service-name <name>] [--force] [--dry-run] [--skip-go-get-update-all]
   xkit gen service <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen repo <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
@@ -33,11 +35,103 @@ func Run(args []string, version string) error {
 	case "help", "-h", "--help":
 		printUsage(os.Stdout)
 		return nil
+	case "init":
+		return runInit(args[1:])
 	case "gen":
 		return runGen(args[1:], version)
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+type initOptions struct {
+	projectRoot string
+	module      string
+	appName     string
+	commandName string
+	serviceName string
+	force       bool
+	dryRun      bool
+	skipGoGet   bool
+}
+
+func runInit(args []string) error {
+	if len(args) < 1 {
+		return errors.New("init requires a kind")
+	}
+
+	kind := strings.TrimSpace(args[0])
+	switch kind {
+	case "template":
+		return runInitTemplate(args[1:])
+	default:
+		return fmt.Errorf("unknown init kind %q", kind)
+	}
+}
+
+func runInitTemplate(args []string) error {
+	if len(args) < 1 {
+		return errors.New("init template requires a template path")
+	}
+
+	templateRoot := strings.TrimSpace(args[0])
+	if templateRoot == "" {
+		return errors.New("init template requires a template path")
+	}
+
+	var options initOptions
+	flagSet := flag.NewFlagSet("init template", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&options.projectRoot, "project", "", "target project root")
+	flagSet.StringVar(&options.module, "module", "", "target module path")
+	flagSet.StringVar(&options.appName, "app-name", "", "target application name")
+	flagSet.StringVar(&options.commandName, "command-name", "", "target command name")
+	flagSet.StringVar(&options.serviceName, "service-name", "", "target service name")
+	flagSet.BoolVar(&options.force, "force", false, "overwrite existing non-preserved files")
+	flagSet.BoolVar(&options.dryRun, "dry-run", false, "plan file writes without modifying the target project")
+	flagSet.BoolVar(&options.skipGoGet, "skip-go-get-update-all", false, "skip running go get -u all after copying the template")
+	if err := flagSet.Parse(args[1:]); err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+	projectRoot := options.projectRoot
+	if strings.TrimSpace(projectRoot) == "" {
+		projectRoot = cwd
+	}
+
+	result, err := scaffold.ApplyTemplate(scaffold.TemplateOptions{
+		TemplateRoot: templateRoot,
+		ProjectRoot:  projectRoot,
+		Module:       options.module,
+		AppName:      options.appName,
+		CommandName:  options.commandName,
+		ServiceName:  options.serviceName,
+		Force:        options.force,
+		DryRun:       options.dryRun,
+	})
+	if err != nil {
+		return err
+	}
+
+	printScaffoldResult("template", options.dryRun, result)
+	if !options.dryRun && !options.skipGoGet {
+		output, err := scaffold.GoGetUpdateAll(projectRoot)
+		if output != "" {
+			fmt.Print(output)
+			if !strings.HasSuffix(output, "\n") {
+				fmt.Println()
+			}
+		}
+		if err != nil {
+			return err
+		}
+		fmt.Printf("ran go get -u all (%s)\n", projectRoot)
+	}
+	return nil
 }
 
 type genOptions struct {
@@ -121,6 +215,27 @@ func printResult(target string, dryRun bool, result codegen.Result) {
 	}
 	for _, path := range result.Skipped {
 		fmt.Printf("skipped %s (exists)\n", path)
+	}
+}
+
+func printScaffoldResult(target string, dryRun bool, result scaffold.TemplateResult) {
+	mode := "wrote"
+	if dryRun {
+		mode = "planned"
+	}
+
+	for _, path := range result.Written {
+		fmt.Printf("%s %s (%s)\n", mode, path, target)
+	}
+	for _, path := range result.Skipped {
+		fmt.Printf("skipped %s (exists)\n", path)
+	}
+	removeMode := "removed"
+	if dryRun {
+		removeMode = "planned remove"
+	}
+	for _, path := range result.Removed {
+		fmt.Printf("%s %s (%s)\n", removeMode, path, target)
 	}
 }
 

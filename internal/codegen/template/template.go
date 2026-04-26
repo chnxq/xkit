@@ -11,6 +11,9 @@ var ServiceExt string
 //go:embed repo_file.tmpl
 var RepoFile string
 
+//go:embed repo_ext.tmpl
+var RepoExt string
+
 //go:embed register_file.tmpl
 var RegisterFile string
 
@@ -25,6 +28,9 @@ var BootstrapServerCmd string
 
 //go:embed bootstrap_app.tmpl
 var BootstrapApp string
+
+//go:embed bootstrap_generated_servers.tmpl
+var BootstrapGeneratedServers string
 
 //go:embed bootstrap_infra.tmpl
 var BootstrapInfra string

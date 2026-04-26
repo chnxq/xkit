@@ -414,5 +414,45 @@ xkit gen all admin --config ...
    - `internal/bootstrap/generated_providers.gen.go`
    - `internal/data/bootstrap/ent_client.go`
 
-这个边界最清晰，也最便于后续维护。
+## 当前落地进展
 
+已先将 `xkit-template` 收敛为启动模板仓库：
+
+- `pkg/` 不再作为模板仓库内容维护，后续由 `xkit` 的独立生成能力或领域生成能力处理。
+- 模板仓库增加 `template.yaml`，描述模板名称、默认变量、忽略路径和保留路径。
+- 模板仓库保留启动入口、配置目录、Wire 入口和命令资产。
+- 默认关闭 registry 和 remote config，避免新项目初始化后依赖外部 etcd 服务才能启动。
+
+`xkit` 已新增模板落地命令：
+
+```text
+xkit init template <template-path> \
+  --project <target-project> \
+  --module <target-module> \
+  --app-name <display-name> \
+  --command-name <binary-name> \
+  --service-name <service-name>
+```
+
+命令行为：
+
+- 从模板目录复制文件到目标项目。
+- 读取模板目录下的 `template.yaml`。
+- 替换模板中的模块名、应用名、命令名和服务名。
+- 默认不覆盖目标项目已有文件。
+- `template.yaml` 中 `preserve` 列表里的文件即使带 `--force` 也不会覆盖。
+- 支持 `--dry-run` 查看写入计划。
+
+示例：
+
+```text
+xkit init template D:\GoProjects\XAdmin\xkit-template \
+  --project D:\GoProjects\XAdmin\xadmin-web \
+  --module xadmin-web \
+  --app-name XAdmin \
+  --command-name xadmin-web \
+  --service-name admin \
+  --dry-run
+```
+
+这个边界最清晰，也最便于后续维护。
