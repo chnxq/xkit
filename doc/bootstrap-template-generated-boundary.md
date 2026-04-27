@@ -20,16 +20,21 @@ The template repository owns stable startup structure:
 - `internal/bootstrap/cleanup.go`
 - `internal/bootstrap/infra.go`
 - `internal/bootstrap/hooks.go`
+- `internal/server/asynq.go`
 - `internal/server/http.go`
 - `internal/server/grpc.go`
 - `internal/server/manual.go`
 - `internal/server/options.go`
+- `internal/server/sse.go`
+- `internal/server/tls.go`
 - `internal/data/bootstrap/data.go`
 - `internal/data/bootstrap/resources.go`
 - `configs/*.yaml`
 - startup assets under `cmd/server/assets`
 
 These files are platform skeleton code. They define command entry, config loading, logger/registry/tracer initialization, transport construction, and handwritten hooks.
+
+Asynq and SSE are also treated as template-owned optional transports. The template builds them from `server.asynq` and `server.sse` config when present. Concrete task subscribers and domain-specific SSE handlers stay in handwritten hooks.
 
 They are copied by `xkit init template`, not produced by `xkit gen all`.
 
@@ -70,7 +75,9 @@ The following files are reserved for later handwritten changes and are created o
 
 `internal/server/manual.go` is for custom HTTP/gRPC registrations that are not derived from proto resources.
 
-`internal/server/options.go` is for HTTP/gRPC transport options, middleware, stream middleware, and HTTP filters.
+It is also for asynq task subscribers and custom SSE handlers.
+
+`internal/server/options.go` is for HTTP/gRPC/asynq/SSE transport options, middleware, stream middleware, and HTTP filters.
 
 `internal/data/bootstrap/data.go` is for shared data providers such as Redis, cache, object storage, queues, or domain-specific clients.
 
