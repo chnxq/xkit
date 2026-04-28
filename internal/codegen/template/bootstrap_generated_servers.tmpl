@@ -32,17 +32,22 @@ func NewGeneratedServers(appCtx *app.AppCtx) ([]transport.Server, func(), error)
 	{{ .ServiceVar }} := service.{{ .Constructor }}(appCtx, {{ .RepoVar }}{{ range .ExtraRepoVars }}, {{ . }}{{ end }})
 {{- end }}
 
-	httpServer := server.NewHTTPServer(appCtx, server.GeneratedHTTPServices{
+	httpServer, err := server.NewHTTPServer(appCtx, server.GeneratedHTTPServices{
 {{- range .ServerResources }}
 		{{ .FieldName }}: {{ .ServiceVar }},
 {{- end }}
 	})
-	grpcServer := server.NewGRPCServer(appCtx, server.GeneratedGRPCServices{
+	if err != nil {
+		return nil, entCleanup, err
+	}
+	grpcServer, err := server.NewGRPCServer(appCtx, server.GeneratedGRPCServices{
 {{- range .ServerResources }}
 		{{ .FieldName }}: {{ .ServiceVar }},
 {{- end }}
 	})
+	if err != nil {
+		return nil, entCleanup, err
+	}
 
 	return []transport.Server{httpServer, grpcServer}, entCleanup, nil
 }
-

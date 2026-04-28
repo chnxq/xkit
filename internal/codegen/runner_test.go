@@ -352,6 +352,9 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(bootstrapFile, "func NewGeneratedServers") || strings.Contains(bootstrapFile, "func Initialize") {
 		t.Fatalf("bootstrap generation should only write generated server glue")
 	}
+	if !strings.Contains(bootstrapFile, "httpServer, err := server.NewHTTPServer") || !strings.Contains(bootstrapFile, "grpcServer, err := server.NewGRPCServer") {
+		t.Fatalf("bootstrap generation should handle server constructor errors")
+	}
 
 	registerFile := readFile(t, filepath.Join(root, "internal", "server", "grpc_register.gen.go"))
 	if !strings.Contains(registerFile, "RegisterUserServiceServer") {
