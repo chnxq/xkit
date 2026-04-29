@@ -71,7 +71,13 @@ D:\GoProjects\XAdmin
   - `apps/web-antd/vite.config.ts` 已把 `/api` 代理到 `http://localhost:7788`。
   - `apps/web-antd/src/api/xadmin` 已新增 request handler、generated clients、auth、user、portal adapter。
   - `apps/web-antd/src/api/core/auth.ts`、`user.ts`、`menu.ts` 已改为转发到 xadmin adapter。
+  - `apps/web-antd/src/preferences.ts` 已切到 `backend` access mode。
+  - `apps/web-antd/src/views/_core/authentication/login.vue` 已去掉 Vben mock 账号下拉、滑块验证码和其他非当前登录方式。
+  - `xadmin/internal/server` 已增加临时 manual HTTP service 注册，用于闭环验证 login、me、routes、perm-codes、initial-context。
   - `pnpm -F @vben/web-antd run typecheck` 已通过。
+- 第一轮资源页重构已开始：
+  - `apps/web-antd/src/api/xadmin/users.ts` 已封装 `UserService` 的 list/create/update/delete/password API。
+  - `apps/web-antd/src/views/system/user/index.vue` 已新增用户管理页面，页面只依赖手写 xadmin adapter，不直接调用 generated client。
 
 ## 生成代码边界
 
@@ -146,6 +152,7 @@ apps/web-antd/src/api/xadmin/
   clients.ts               <- 统一创建 generated service clients
   auth.ts                  <- login/logout/refresh/access-codes adapter
   user.ts                  <- UserInfo adapter
+  users.ts                 <- UserService CRUD adapter
   portal.ts                <- menus/routes/permission codes adapter
   index.ts                 <- 手写导出入口
 ```
@@ -219,16 +226,21 @@ GET /admin/v1/me
 
 ## 菜单与权限
 
-第一阶段保持 Vben `frontend` access mode，先闭环登录和用户信息。
-
-第二阶段接入：
+当前已切到 Vben `backend` access mode，并接入：
 
 ```text
 GET /admin/v1/perm-codes
 GET /admin/v1/routes
 ```
 
-如果后端菜单的 `component` 能稳定匹配 `apps/web-antd/src/views/**/*.vue`，再把 `apps/web-antd/src/preferences.ts` 中的 access mode 切到 `backend` 或 `mixed`。
+后端下发菜单的 `component` 必须稳定匹配 `apps/web-antd/src/views/**/*.vue`，例如：
+
+```text
+/dashboard/analytics/index -> apps/web-antd/src/views/dashboard/analytics/index.vue
+/system/user/index         -> apps/web-antd/src/views/system/user/index.vue
+```
+
+当前 `xadmin/internal/server/manual_http.go` 中的 dashboard 与 system/user 菜单只是临时闭环实现；后续应替换为真实菜单数据。
 
 ## 分阶段实施
 
@@ -238,9 +250,10 @@ GET /admin/v1/routes
 4. 已完成：新增 `src/api/xadmin/auth.ts`、`user.ts`、`portal.ts`。
 5. 已完成：将 `src/api/core/auth.ts`、`user.ts`、`menu.ts` 改为调用 xadmin adapter。
 6. 已完成：类型检查前端 `pnpm -F @vben/web-antd run typecheck`。
-7. 下一步：启动后端和前端，验证登录、用户信息、权限码。
-8. 下一步：确认菜单 component 质量后切换后端菜单模式。
-9. 下一步：按 User、Role、Menu、Permission 等资源逐个实现 CRUD 页面。
+7. 已完成：启动后端和前端，验证登录、用户信息、权限码、菜单端点。
+8. 已完成：将 `preferences.app.accessMode` 切到 `backend`，后端临时菜单下发 dashboard 与 system/user。
+9. 已完成：新增 `src/api/xadmin/users.ts` 与 `views/system/user/index.vue`，开始 User CRUD 页面重构。
+10. 下一步：用真实后端数据验证 User CRUD；再按 Role、Menu、Permission 等资源逐个实现页面。
 
 ## 验证命令
 
@@ -266,7 +279,7 @@ pnpm -F @vben/web-antd run dev
 - 后端运行环境依赖是否已就绪，例如 PostgreSQL、Redis、OSS。
 - 登录响应是否始终为 OpenAPI 中的裸 `LoginResponse`，还是运行时会被统一包装为 `{ code, data, message }`。
 - `Logout` 是否只依赖 Authorization header，还是需要 refresh token。
-- 后端菜单 `component` 是否已经和 Vben views 路径一致。
+- 真实后端菜单 `component` 是否已经和 Vben views 路径一致；当前 manual 菜单仅覆盖 dashboard 与 system/user。
 - 后端权限码命名是否和 Vben `v-access` 使用规则一致。
 - 文件上传下载走 JSON、预签名 URL 还是二进制流。
 
