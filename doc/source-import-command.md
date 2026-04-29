@@ -54,10 +54,11 @@ api/protos/                   <- source api/protos or protos
 internal/data/ent/schema/     <- source schema, data/schema, or internal/data/ent/schema
 ```
 
-When copying `buf.gen.yaml`, `xkit init source` validates and forcibly rewrites Go package options under `managed.override`:
+When copying `buf*.gen.yaml` or `buf*.gen.yml`, `xkit init source` validates and forcibly rewrites Go package options under `managed.override`:
 
 - active `go_package_prefix` becomes `<target-module>/api/gen`
 - each `go_package` becomes `<target-module>/api/gen/<proto-path>;<go-package-name>`
+- local proto package names that collide with generated Ent packages are version-suffixed, such as `permission/v1;permissionv1` and `task/v1;taskv1`
 
 For example, `path: authentication/v1` in project `admin-01` is written as:
 
@@ -65,7 +66,9 @@ For example, `path: authentication/v1` in project `admin-01` is written as:
 value: admin-01/api/gen/authentication/v1;authentication
 ```
 
-This correction is applied even when the target `api/buf.gen.yaml` already exists, so stale module names copied from another project do not block `buf generate`.
+This correction is applied even when the target Buf generation YAML already exists, so stale module names copied from another project do not block `buf generate`.
+
+When copying schema `.go` files, local `*/api/gen/<domain>/...` imports are also normalized to the target module if `<domain>` exists under the imported proto root. External imports, such as `github.com/chnxq/x-crud/api/gen/pagination/v1`, are preserved.
 
 Existing files are skipped by default. Use `--force` to overwrite them. Use `--dry-run` to print the write plan without changing the project.
 

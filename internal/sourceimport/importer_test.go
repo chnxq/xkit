@@ -17,6 +17,14 @@ func TestImportCopiesSourceAndGeneratesConfig(t *testing.T) {
 
 	writeTestFile(t, filepath.Join(projectRoot, "go.mod"), "module xadmin-web\n")
 	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.yaml"), "version: v2\n")
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.admin.openapi.gen.yaml"), `version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: admin-01/api/gen
+plugins: []
+`)
 	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.gen.yaml"), `version: v2
 managed:
   enabled: true
@@ -32,6 +40,12 @@ managed:
     - file_option: go_package
       path: internal_message/v1
       value: wrong-module/api/gen/internal_message/v1;wrongmessage
+    - file_option: go_package
+      path: permission/v1
+      value: wrong-module/api/gen/permission/v1;permission
+    - file_option: go_package
+      path: task/v1
+      value: wrong-module/api/gen/task/v1;task
 plugins: []
 `)
 	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.lock"), "# lock\n")
@@ -99,7 +113,14 @@ message ResetCredentialRequest {}
 import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
+
+	paginationV1 "github.com/chnxq/x-crud/api/gen/pagination/v1"
+
+	identityV1 "admin-01/api/gen/identity/v1"
 )
+
+var _ *paginationV1.PagingRequest
+var _ *identityV1.User
 
 type User struct{ ent.Schema }
 
@@ -143,6 +164,7 @@ func (UserCredential) Fields() []ent.Field {
 
 	assertFileExists(t, filepath.Join(projectRoot, "api", "protos", "admin", "v1", "i_user.proto"))
 	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.yaml"))
+	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.admin.openapi.gen.yaml"))
 	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.gen.yaml"))
 	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.lock"))
 	assertFileExists(t, filepath.Join(projectRoot, "api", "README.md"))
@@ -153,6 +175,8 @@ func (UserCredential) Fields() []ent.Field {
 		"value: xadmin-web/api/gen/admin/v1;admin\n",
 		"value: xadmin-web/api/gen/authentication/v1;authentication\n",
 		"value: xadmin-web/api/gen/internal_message/v1;internalmessage\n",
+		"value: xadmin-web/api/gen/permission/v1;permissionv1\n",
+		"value: xadmin-web/api/gen/task/v1;taskv1\n",
 	} {
 		if !strings.Contains(bufGen, expected) {
 			t.Fatalf("buf.gen.yaml missing corrected value %q:\n%s", expected, bufGen)
@@ -161,7 +185,21 @@ func (UserCredential) Fields() []ent.Field {
 	if strings.Contains(bufGen, "admin-02") || strings.Contains(bufGen, "wrong-module") || strings.Contains(bufGen, "wrongauth") {
 		t.Fatalf("buf.gen.yaml should not keep stale go package values:\n%s", bufGen)
 	}
+	openapiBufGen := readTestFile(t, filepath.Join(projectRoot, "api", "buf.admin.openapi.gen.yaml"))
+	if !strings.Contains(openapiBufGen, "value: xadmin-web/api/gen\n") || strings.Contains(openapiBufGen, "admin-01") {
+		t.Fatalf("buf.*.gen.yaml should normalize go package values:\n%s", openapiBufGen)
+	}
 	assertFileExists(t, filepath.Join(projectRoot, "internal", "data", "ent", "schema", "user.go"))
+	userSchema := readTestFile(t, filepath.Join(projectRoot, "internal", "data", "ent", "schema", "user.go"))
+	if !strings.Contains(userSchema, `identityV1 "xadmin-web/api/gen/identity/v1"`) {
+		t.Fatalf("schema import should be corrected to target module:\n%s", userSchema)
+	}
+	if !strings.Contains(userSchema, `paginationV1 "github.com/chnxq/x-crud/api/gen/pagination/v1"`) {
+		t.Fatalf("external api/gen import should be preserved:\n%s", userSchema)
+	}
+	if strings.Contains(userSchema, `admin-01/api/gen/identity/v1`) {
+		t.Fatalf("schema import should not keep stale local module:\n%s", userSchema)
+	}
 	if result.ConfigPath != filepath.Join(sourceRoot, "xadmin-web-config", "admin.yaml") {
 		t.Fatalf("unexpected config path: %s", result.ConfigPath)
 	}

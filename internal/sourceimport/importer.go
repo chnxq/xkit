@@ -56,6 +56,7 @@ var (
 	yamlFileOptionPattern = regexp.MustCompile(`^(\s*(?:-\s*)?file_option:\s*)['"]?([A-Za-z0-9_]+)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
 	yamlPathPattern       = regexp.MustCompile(`^(\s*path:\s*)['"]?([^'"#\r\n]+)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
 	yamlValuePattern      = regexp.MustCompile(`^(\s*value:\s*)['"]?([^'"#\r\n]*)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
+	goAPIGenImportPattern = regexp.MustCompile(`"([^"\r\n]+/api/gen/([^"\r\n]+))"`)
 )
 
 func Import(options Options) (Result, error) {
@@ -129,7 +130,7 @@ func Import(options Options) (Result, error) {
 	if err := copyAPIRootFiles(roots.APIRoot, filepath.Join(projectInfo.Root, "api"), projectInfo.Module, options, &result); err != nil {
 		return result, err
 	}
-	if err := copyTree(roots.Schema, filepath.Join(projectInfo.Root, "internal", "data", "ent", "schema"), options, &result); err != nil {
+	if err := copySchemaTree(roots.Schema, filepath.Join(projectInfo.Root, "internal", "data", "ent", "schema"), roots.Proto, projectInfo.Module, options, &result); err != nil {
 		return result, err
 	}
 
@@ -202,7 +203,7 @@ func copyAPIRootFiles(sourceRoot, targetRoot, module string, options Options, re
 			return fmt.Errorf("read source file %s: %w", sourcePath, err)
 		}
 		alwaysCorrect := false
-		if strings.EqualFold(name, "buf.gen.yaml") || strings.EqualFold(name, "buf.gen.yml") {
+		if isBufGenYAML(name) {
 			rewritten, err := rewriteBufGoPackages(content, module)
 			if err != nil {
 				return err
@@ -215,6 +216,13 @@ func copyAPIRootFiles(sourceRoot, targetRoot, module string, options Options, re
 		}
 	}
 	return nil
+}
+
+func isBufGenYAML(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	return name == "buf.gen.yaml" ||
+		name == "buf.gen.yml" ||
+		(strings.HasPrefix(name, "buf.") && (strings.HasSuffix(name, ".gen.yaml") || strings.HasSuffix(name, ".gen.yml")))
 }
 
 func rewriteBufGoPackages(content []byte, module string) ([]byte, error) {
@@ -290,9 +298,29 @@ func goPackageName(protoPath string) string {
 		if part == "" || isVersionPathSegment(part) {
 			continue
 		}
-		return sanitizeGoPackageName(part)
+		return avoidLocalPackageConflict(sanitizeGoPackageName(part), protoPath)
 	}
 	return "pb"
+}
+
+func avoidLocalPackageConflict(name, protoPath string) string {
+	switch name {
+	case "permission", "task":
+		return name + versionSuffix(protoPath)
+	default:
+		return name
+	}
+}
+
+func versionSuffix(protoPath string) string {
+	parts := strings.Split(strings.Trim(strings.ReplaceAll(protoPath, "\\", "/"), "/"), "/")
+	for index := len(parts) - 1; index >= 0; index-- {
+		part := strings.TrimSpace(parts[index])
+		if isVersionPathSegment(part) {
+			return part
+		}
+	}
+	return ""
 }
 
 func isVersionPathSegment(value string) bool {
@@ -346,6 +374,78 @@ func copyTree(sourceRoot, targetRoot string, options Options, result *Result) er
 		}
 		return writeFile(targetPath, content, options, result)
 	})
+}
+
+func copySchemaTree(sourceRoot, targetRoot, protoRoot, module string, options Options, result *Result) error {
+	localProtoRoots, err := localProtoImportRoots(protoRoot)
+	if err != nil {
+		return err
+	}
+
+	return filepath.WalkDir(sourceRoot, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		rel, err := filepath.Rel(sourceRoot, path)
+		if err != nil {
+			return fmt.Errorf("compute relative path for %s: %w", path, err)
+		}
+		targetPath := filepath.Join(targetRoot, rel)
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read source file %s: %w", path, err)
+		}
+
+		alwaysCorrect := false
+		if strings.EqualFold(filepath.Ext(path), ".go") {
+			rewritten := rewriteSchemaGoAPIGenImports(content, module, localProtoRoots)
+			alwaysCorrect = !bytes.Equal(content, rewritten)
+			content = rewritten
+		}
+		return writeFileWithPolicy(targetPath, content, options, result, alwaysCorrect)
+	})
+}
+
+func localProtoImportRoots(protoRoot string) (map[string]struct{}, error) {
+	roots := make(map[string]struct{})
+	entries, err := os.ReadDir(protoRoot)
+	if err != nil {
+		return roots, fmt.Errorf("read proto root %s: %w", protoRoot, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			roots[entry.Name()] = struct{}{}
+		}
+	}
+	return roots, nil
+}
+
+func rewriteSchemaGoAPIGenImports(content []byte, module string, localProtoRoots map[string]struct{}) []byte {
+	module = strings.TrimSpace(module)
+	if module == "" || len(localProtoRoots) == 0 {
+		return content
+	}
+
+	rewritten := goAPIGenImportPattern.ReplaceAllStringFunc(string(content), func(value string) string {
+		matches := goAPIGenImportPattern.FindStringSubmatch(value)
+		if len(matches) != 3 {
+			return value
+		}
+		suffix := strings.Trim(strings.ReplaceAll(matches[2], "\\", "/"), "/")
+		root := suffix
+		if slash := strings.Index(root, "/"); slash >= 0 {
+			root = root[:slash]
+		}
+		if _, ok := localProtoRoots[root]; !ok {
+			return value
+		}
+		return `"` + importpath.Join(module, "api", "gen", suffix) + `"`
+	})
+	return []byte(rewritten)
 }
 
 func writeFile(path string, content []byte, options Options, result *Result) error {

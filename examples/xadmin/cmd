@@ -1,0 +1,63 @@
+# Generate admin-02 from xkit/examples/xadmin
+
+cd D:\GoProjects\XAdmin\xkit
+
+# 1. Preview bootstrap template copy.
+go run ./cmd/xkit init template D:\GoProjects\XAdmin\xkit-template `
+  --project D:\GoProjects\XAdmin\admin-02 `
+  --module admin-02 `
+  --app-name XAdmin `
+  --command-name admin-02 `
+  --service-name admin `
+  --dry-run
+
+# 2. Copy bootstrap template.
+go run ./cmd/xkit init template D:\GoProjects\XAdmin\xkit-template `
+  --project D:\GoProjects\XAdmin\admin-02 `
+  --module admin-02 `
+  --app-name XAdmin `
+  --command-name admin-02 `
+  --service-name admin `
+  --skip-go-get-update-all
+
+# 3. Preview source import and config generation.
+go run ./cmd/xkit init source D:\GoProjects\XAdmin\xkit\examples\xadmin `
+  --project D:\GoProjects\XAdmin\admin-02 `
+  --service admin `
+  --dry-run
+
+# 4. Import source and generate config.
+go run ./cmd/xkit init source D:\GoProjects\XAdmin\xkit\examples\xadmin `
+  --project D:\GoProjects\XAdmin\admin-02 `
+  --service admin
+
+# 5. Generate API Go code.
+cd D:\GoProjects\XAdmin\admin-02\api
+buf generate --template buf.gen.yaml
+
+# 6. Prepare dependencies before Ent generation.
+cd D:\GoProjects\XAdmin\admin-02
+go mod tidy
+
+# 7. Generate Ent code.
+go run -mod=mod entgo.io/ent/cmd/ent generate ./internal/data/ent/schema --feature privacy,sql/upsert,sql/versioned-migration
+
+# 8. Generate xkit dynamic code.
+cd D:\GoProjects\XAdmin\xkit
+go run ./cmd/xkit gen all admin `
+  --project D:\GoProjects\XAdmin\admin-02 `
+  --config D:\GoProjects\XAdmin\xkit\examples\xadmin\admin-02-config\admin.yaml `
+  --dry-run
+
+go run ./cmd/xkit gen all admin `
+  --project D:\GoProjects\XAdmin\admin-02 `
+  --config D:\GoProjects\XAdmin\xkit\examples\xadmin\admin-02-config\admin.yaml
+
+# 9. Final dependency update and verification.
+cd D:\GoProjects\XAdmin\admin-02
+go get -u all
+go mod tidy
+go test ./...
+
+# Optional runtime smoke test.
+go run ./cmd/server server -config_path ./configs
