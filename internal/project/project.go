@@ -17,6 +17,22 @@ type Info struct {
 }
 
 func Discover(explicitRoot, cwd string) (Info, error) {
+	return discover(explicitRoot, cwd, validate)
+}
+
+func DiscoverModule(explicitRoot, cwd string) (Info, error) {
+	return discover(explicitRoot, cwd, validateModule)
+}
+
+func ModuleRoot(root string) (Info, error) {
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return Info{}, fmt.Errorf("resolve project root: %w", err)
+	}
+	return validateModule(filepath.Clean(abs))
+}
+
+func discover(explicitRoot, cwd string, validator func(string) (Info, error)) (Info, error) {
 	var candidates []string
 	if explicitRoot != "" {
 		candidates = append(candidates, explicitRoot)
@@ -48,7 +64,7 @@ func Discover(explicitRoot, cwd string) (Info, error) {
 		seen[abs] = struct{}{}
 		attempted = append(attempted, abs)
 
-		info, err := validate(abs)
+		info, err := validator(abs)
 		if err == nil {
 			return info, nil
 		}
@@ -70,6 +86,23 @@ func validate(root string) (Info, error) {
 	}
 	if !isDir(apiProtosPath) {
 		return Info{}, fmt.Errorf("%s is missing api/protos", root)
+	}
+
+	moduleName, err := readModule(goModPath)
+	if err != nil {
+		return Info{}, err
+	}
+
+	return Info{
+		Root:   root,
+		Module: moduleName,
+	}, nil
+}
+
+func validateModule(root string) (Info, error) {
+	goModPath := filepath.Join(root, "go.mod")
+	if !isFile(goModPath) {
+		return Info{}, fmt.Errorf("%s is missing go.mod", root)
 	}
 
 	moduleName, err := readModule(goModPath)

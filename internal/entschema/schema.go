@@ -33,7 +33,10 @@ var (
 )
 
 func Load(projectRoot string) (map[string]Schema, error) {
-	schemaRoot := filepath.Join(projectRoot, "internal", "data", "ent", "schema")
+	return LoadDir(filepath.Join(projectRoot, "internal", "data", "ent", "schema"))
+}
+
+func LoadDir(schemaRoot string) (map[string]Schema, error) {
 	items := make(map[string]Schema)
 
 	err := filepath.WalkDir(schemaRoot, func(path string, entry fs.DirEntry, walkErr error) error {

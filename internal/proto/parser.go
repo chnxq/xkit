@@ -32,7 +32,10 @@ var (
 )
 
 func LoadServices(projectRoot string) (map[string]Service, error) {
-	protoRoot := filepath.Join(projectRoot, "api", "protos")
+	return LoadServicesDir(filepath.Join(projectRoot, "api", "protos"))
+}
+
+func LoadServicesDir(protoRoot string) (map[string]Service, error) {
 	services := make(map[string]Service)
 
 	err := filepath.WalkDir(protoRoot, func(path string, entry fs.DirEntry, walkErr error) error {

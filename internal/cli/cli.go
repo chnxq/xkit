@@ -13,10 +13,12 @@ import (
 	"github.com/chnxq/xkit/internal/config"
 	"github.com/chnxq/xkit/internal/project"
 	"github.com/chnxq/xkit/internal/scaffold"
+	"github.com/chnxq/xkit/internal/sourceimport"
 )
 
 const usageText = `Usage:
   xkit init template <template-path> [--project <path>] [--module <module>] [--app-name <name>] [--command-name <name>] [--service-name <name>] [--force] [--dry-run] [--skip-go-get-update-all]
+  xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--force] [--dry-run]
   xkit gen service <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen repo <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
@@ -64,6 +66,8 @@ func runInit(args []string) error {
 	switch kind {
 	case "template":
 		return runInitTemplate(args[1:])
+	case "source":
+		return runInitSource(args[1:])
 	default:
 		return fmt.Errorf("unknown init kind %q", kind)
 	}
@@ -131,6 +135,63 @@ func runInitTemplate(args []string) error {
 		}
 		fmt.Printf("ran go get -u all (%s)\n", projectRoot)
 	}
+	return nil
+}
+
+type sourceOptions struct {
+	projectRoot string
+	serviceName string
+	configPath  string
+	force       bool
+	dryRun      bool
+}
+
+func runInitSource(args []string) error {
+	if len(args) < 1 {
+		return errors.New("init source requires a source path")
+	}
+
+	sourceRoot := strings.TrimSpace(args[0])
+	if sourceRoot == "" {
+		return errors.New("init source requires a source path")
+	}
+
+	var options sourceOptions
+	flagSet := flag.NewFlagSet("init source", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&options.projectRoot, "project", "", "target project root")
+	flagSet.StringVar(&options.serviceName, "service", "admin", "service name used in generated xkit config")
+	flagSet.StringVar(&options.configPath, "config", "", "path to write generated xkit config")
+	flagSet.BoolVar(&options.force, "force", false, "overwrite existing target files")
+	flagSet.BoolVar(&options.dryRun, "dry-run", false, "plan file writes without modifying the target project")
+	if err := flagSet.Parse(args[1:]); err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	projectInfo, err := project.DiscoverModule(options.projectRoot, cwd)
+	if err != nil {
+		return err
+	}
+
+	result, err := sourceimport.Import(sourceimport.Options{
+		SourceRoot:  sourceRoot,
+		ProjectRoot: projectInfo.Root,
+		Module:      projectInfo.Module,
+		Service:     options.serviceName,
+		ConfigPath:  options.configPath,
+		Force:       options.force,
+		DryRun:      options.dryRun,
+	})
+	if err != nil {
+		return err
+	}
+
+	printSourceImportResult(options.dryRun, result)
 	return nil
 }
 
@@ -237,6 +298,24 @@ func printScaffoldResult(target string, dryRun bool, result scaffold.TemplateRes
 	for _, path := range result.Removed {
 		fmt.Printf("%s %s (%s)\n", removeMode, path, target)
 	}
+}
+
+func printSourceImportResult(dryRun bool, result sourceimport.Result) {
+	mode := "wrote"
+	if dryRun {
+		mode = "planned"
+	}
+
+	for _, path := range result.Written {
+		fmt.Printf("%s %s (source)\n", mode, path)
+	}
+	for _, path := range result.Skipped {
+		fmt.Printf("skipped %s (exists)\n", path)
+	}
+	if len(result.SkippedResources) > 0 {
+		fmt.Printf("skipped resources without matching proto service: %s\n", strings.Join(result.SkippedResources, ", "))
+	}
+	fmt.Printf("config %s\n", result.ConfigPath)
 }
 
 func printUsage(w io.Writer) {
