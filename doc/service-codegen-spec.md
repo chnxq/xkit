@@ -24,7 +24,10 @@ This specification targets XAdmin-aligned source inputs and generated service ou
 
 ### Current Source Layout In XAdmin
 
-- `api/protos/<domain>/v1/*.proto`
+- raw source directory, currently `source/`
+- `source/api/protos/<domain>/v1/*.proto`
+- `source/schema/*.go`
+- active project copies under `api/protos/<domain>/v1/*.proto`
 - `api/gen/<domain>/v1/*`
 - `internal/data/ent/schema/*.go`
 
@@ -111,8 +114,77 @@ A per-service YAML file controls generation behavior that does not belong in pro
 
 Recommended path:
 
-- `xkit/examples/<target>/<service>.yaml` during generator development
-- `<target>/internal/gen/<service>.yaml` if the target project later owns generator config
+- `<target>/source/<project-name>-config/<service>.yaml` when config is derived from a raw source directory
+- an explicit path passed with `--config` when a project wants a different layout
+- `xkit/examples/<target>/<service>.yaml` only for generator development fixtures
+
+## Raw Source Import
+
+`xkit init source` prepares a target project from a raw source directory before `xkit gen ...` runs.
+
+Supported source layouts:
+
+```text
+<source>/
+  api/protos/
+  schema/
+```
+
+Also accepted:
+
+- `<source>/protos`
+- `<source>/data/schema`
+- `<source>/internal/data/ent/schema`
+
+Command:
+
+```text
+xkit init source <source-path> --project <target> --service <service>
+```
+
+Example:
+
+```text
+xkit init source D:\GoProjects\XAdmin\xadmin-web\source \
+  --project D:\GoProjects\XAdmin\xadmin-web \
+  --service admin
+```
+
+The command copies:
+
+- `<source>/api/protos` to `<target>/api/protos`
+- `<source>/schema` to `<target>/internal/data/ent/schema`
+
+It also derives a generation config from the imported proto services and Ent schemas. By default, the config is written to:
+
+```text
+<source>/<project-name>-config/<service>.yaml
+```
+
+For `xadmin-web` and `admin`, this becomes:
+
+```text
+xadmin-web/source/xadmin-web-config/admin.yaml
+```
+
+The config generation rules are intentionally conservative:
+
+- Prefer `<service>.service.v1.<Entity>Service`, for example `admin.service.v1.UserService`.
+- If there is no admin-facing service, keep a domain service only when it has supported repo operations, for example `authentication.service.v1.UserCredentialService` with `ResetCredential`.
+- Skip schemas that have no matching service proto, such as pure relation tables or embedded/detail entities.
+- Infer `dto_import` from method request/response packages.
+- Infer `filters.allow` from Ent fields whose kinds are supported by generated filtering.
+- Infer `exists_fields` from `*ExistsRequest.oneof query_by` when present.
+
+By default, existing target files are not overwritten. Use `--force` to overwrite target proto/schema/config files, and `--dry-run` to inspect the write plan without changing files.
+
+After source import, the normal generation command consumes the produced config:
+
+```text
+xkit gen all admin \
+  --project D:\GoProjects\XAdmin\xadmin-web \
+  --config D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml
+```
 
 ## File Ownership Model
 
@@ -416,6 +488,7 @@ Without these rules, repeated generation will not be safe enough for real projec
 Recommended initial CLI surface inside `xkit`:
 
 ```text
+xkit init source <source-path>
 xkit gen service <service>
 xkit gen repo <service>
 xkit gen wire <service>
@@ -425,6 +498,7 @@ xkit gen all <service>
 
 Behavior:
 
+- `xkit init source <source-path>`: copy raw schema/proto files into the target project and derive the per-service YAML config
 - `xkit gen service <service>`: generate service `*.gen.go` and extension stubs
 - `xkit gen repo <service>`: generate repo `*.gen.go` and extension stubs
 - `xkit gen wire <service>`: generate service and data provider sets
