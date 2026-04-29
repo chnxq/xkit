@@ -29,7 +29,11 @@ func NewGeneratedServers(appCtx *app.AppCtx) ([]transport.Server, func(), error)
 {{- end }}
 
 {{- range .ServerResources }}
+{{- if .HasRepo }}
 	{{ .ServiceVar }} := service.{{ .Constructor }}(appCtx, {{ .RepoVar }}{{ range .ExtraRepoVars }}, {{ . }}{{ end }})
+{{- else }}
+	{{ .ServiceVar }} := service.{{ .Constructor }}()
+{{- end }}
 {{- end }}
 
 	httpServer, err := server.NewHTTPServer(appCtx, server.GeneratedHTTPServices{

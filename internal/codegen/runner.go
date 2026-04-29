@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"go/ast"
 	"go/format"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -126,23 +129,25 @@ type wireTemplateData struct {
 
 type repoTemplateData struct {
 	templateBase
-	Imports         []importSpec
-	RepoName        string
-	RepoStructName  string
-	ConstructorName string
-	EntityName      string
-	ResourceName    string
-	EntPackage      string
-	PredicateType   string
-	DTOType         string
-	Methods         []repoMethodData
-	Fields          []entschema.Field
-	UsesEnumSetter  bool
-	UsesTimeSetter  bool
-	EnumHelperName  string
-	TimeHelperName  string
-	Filters         []filterData
-	UsesFilters     bool
+	Imports          []importSpec
+	RepoName         string
+	RepoStructName   string
+	ConstructorName  string
+	EntityName       string
+	EntOperationName string
+	ResourceName     string
+	EntPackage       string
+	PredicateType    string
+	DTOType          string
+	IDType           string
+	Methods          []repoMethodData
+	Fields           []entschema.Field
+	UsesEnumSetter   bool
+	UsesTimeSetter   bool
+	EnumHelperName   string
+	TimeHelperName   string
+	Filters          []filterData
+	UsesFilters      bool
 }
 
 type bootstrapTemplateData struct {
@@ -162,6 +167,7 @@ type bootstrapResourceData struct {
 	FieldName       string
 	RepoVar         string
 	RepoConstructor string
+	HasRepo         bool
 	ServiceVar      string
 	ServiceName     string
 	Constructor     string
@@ -201,9 +207,11 @@ type setterData struct {
 }
 
 type filterData struct {
-	Field     string
-	Predicate string
-	Kind      string
+	Field        string
+	Predicate    string
+	Kind         string
+	CastType     string
+	ParseBitSize string
 }
 
 var aliasPattern = regexp.MustCompile(`\b([A-Za-z_][A-Za-z0-9_]*)\.`)
@@ -588,6 +596,7 @@ func (r *Runner) bootstrapResources(plans []resourcePlan) []bootstrapResourceDat
 			FieldName:       plan.ResourceField,
 			RepoVar:         lowerFirst(entityName) + "Repo",
 			RepoConstructor: "New" + entityName + "Repo",
+			HasRepo:         plan.Resource.Generate.EffectiveRepoCRUD(),
 			ServiceVar:      lowerFirst(entityName) + "Service",
 			ServiceName:     plan.Binding.ServiceName,
 			Constructor:     "New" + plan.Binding.ServiceName,
@@ -941,7 +950,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		normalizedResults := normalizeTypeAliases(method.Results, plan.Binding.Imports, dtoImport, dtoAlias)
 		enumHelperName := lowerFirst(entityName) + "EnumPtrFromProto"
 		timeHelperName := lowerFirst(entityName) + "TimePtrFromProto"
-		setters := repoSetters(plan.Schema.Fields, method.Name, strings.ToLower(entityName), enumHelperName, timeHelperName)
+		setters := repoSetters(plan.Schema.Fields, r.dtoFieldNames(dtoImport, dtoName), method.Name, strings.ToLower(entityName), enumHelperName, timeHelperName)
 		usesEnumSetter = usesEnumSetter || settersUseKind(setters, "Enum")
 		usesTimeSetter = usesTimeSetter || settersUseKind(setters, "Time")
 		methodData := repoMethodData{
@@ -986,23 +995,25 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	}
 
 	data := repoTemplateData{
-		templateBase:    r.templateBase(),
-		Imports:         uniqueImports(imports),
-		RepoName:        repoName,
-		RepoStructName:  lowerFirst(repoName),
-		ConstructorName: "New" + repoName,
-		EntityName:      entityName,
-		ResourceName:    plan.Resource.Name,
-		EntPackage:      strings.ToLower(entityName),
-		PredicateType:   entityName,
-		DTOType:         dtoType,
-		Fields:          plan.Schema.Fields,
-		UsesEnumSetter:  usesEnumSetter,
-		UsesTimeSetter:  usesTimeSetter,
-		EnumHelperName:  lowerFirst(entityName) + "EnumPtrFromProto",
-		TimeHelperName:  lowerFirst(entityName) + "TimePtrFromProto",
-		Filters:         filters,
-		UsesFilters:     usesFilters,
+		templateBase:     r.templateBase(),
+		Imports:          uniqueImports(imports),
+		RepoName:         repoName,
+		RepoStructName:   lowerFirst(repoName),
+		ConstructorName:  "New" + repoName,
+		EntityName:       entityName,
+		EntOperationName: entOperationName(entityName),
+		ResourceName:     plan.Resource.Name,
+		EntPackage:       strings.ToLower(entityName),
+		PredicateType:    entityName,
+		DTOType:          dtoType,
+		IDType:           idGoType(plan.Schema.Fields),
+		Fields:           plan.Schema.Fields,
+		UsesEnumSetter:   usesEnumSetter,
+		UsesTimeSetter:   usesTimeSetter,
+		EnumHelperName:   lowerFirst(entityName) + "EnumPtrFromProto",
+		TimeHelperName:   lowerFirst(entityName) + "TimePtrFromProto",
+		Filters:          filters,
+		UsesFilters:      usesFilters,
 	}
 	data.Methods = methods
 
@@ -1348,10 +1359,63 @@ func addTypeAlias(typeText, alias string) string {
 	return alias + "." + typeText
 }
 
-func repoSetters(fields []entschema.Field, methodName, entPackage, enumHelperName, timeHelperName string) []setterData {
+func (r *Runner) dtoFieldNames(importPath, typeName string) map[string]struct{} {
+	out := make(map[string]struct{})
+	if strings.TrimSpace(importPath) == "" || strings.TrimSpace(typeName) == "" {
+		return out
+	}
+	prefix := strings.TrimSuffix(r.project.Module, "/") + "/"
+	if !strings.HasPrefix(importPath, prefix) {
+		return out
+	}
+	rel := strings.TrimPrefix(importPath, prefix)
+	dir := filepath.Join(r.project.Root, filepath.FromSlash(rel))
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return out
+	}
+	fileSet := token.NewFileSet()
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		file, err := parser.ParseFile(fileSet, path, nil, parser.SkipObjectResolution)
+		if err != nil {
+			continue
+		}
+		for _, decl := range file.Decls {
+			genericDecl, ok := decl.(*ast.GenDecl)
+			if !ok || genericDecl.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range genericDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok || typeSpec.Name.Name != typeName {
+					continue
+				}
+				structType, ok := typeSpec.Type.(*ast.StructType)
+				if !ok {
+					continue
+				}
+				for _, field := range structType.Fields.List {
+					for _, name := range field.Names {
+						out[name.Name] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, methodName, entPackage, enumHelperName, timeHelperName string) []setterData {
 	setters := make([]setterData, 0, len(fields))
 	for _, field := range fields {
 		if field.Name == "id" {
+			continue
+		}
+		if !supportsGeneratedSetterKind(field.Kind) {
 			continue
 		}
 		if skipGeneratedSetter(field.Name) {
@@ -1362,6 +1426,11 @@ func repoSetters(fields []entschema.Field, methodName, entPackage, enumHelperNam
 		}
 		entName := toGoName(field.Name)
 		dtoName := toPascal(field.Name)
+		if len(dtoFields) > 0 {
+			if _, ok := dtoFields[dtoName]; !ok {
+				continue
+			}
+		}
 		method := "Set" + entName
 		expr := "req.Data." + dtoName
 		kind := field.Kind
@@ -1390,6 +1459,15 @@ func repoSetters(fields []entschema.Field, methodName, entPackage, enumHelperNam
 		})
 	}
 	return setters
+}
+
+func supportsGeneratedSetterKind(kind string) bool {
+	switch kind {
+	case "String", "Enum", "Time", "Bool", "Uint", "Uint8", "Uint16", "Uint32", "Uint64", "Int", "Int8", "Int16", "Int32", "Int64", "Float", "Float32":
+		return true
+	default:
+		return false
+	}
 }
 
 func skipGeneratedSetter(fieldName string) bool {
@@ -1439,13 +1517,75 @@ func repoFilters(fields []entschema.Field, allowed []string) []filterData {
 			continue
 		}
 		filters = append(filters, filterData{
-			Field:     name,
-			Predicate: toGoName(name),
-			Kind:      kind,
+			Field:        name,
+			Predicate:    toGoName(name),
+			Kind:         kind,
+			CastType:     filterCastType(field.Kind),
+			ParseBitSize: filterParseBitSize(field.Kind),
 		})
 		seen[name] = struct{}{}
 	}
 	return filters
+}
+
+func idGoType(fields []entschema.Field) string {
+	for _, field := range fields {
+		if field.Name == "id" {
+			return fieldGoType(field.Kind)
+		}
+	}
+	return "uint32"
+}
+
+func fieldGoType(kind string) string {
+	switch kind {
+	case "Uint":
+		return "uint"
+	case "Uint8":
+		return "uint8"
+	case "Uint16":
+		return "uint16"
+	case "Uint32":
+		return "uint32"
+	case "Uint64":
+		return "uint64"
+	case "Int":
+		return "int"
+	case "Int8":
+		return "int8"
+	case "Int16":
+		return "int16"
+	case "Int32":
+		return "int32"
+	case "Int64":
+		return "int64"
+	default:
+		return "uint32"
+	}
+}
+
+func filterCastType(kind string) string {
+	switch kind {
+	case "Uint", "Uint8", "Uint16", "Uint32", "Uint64", "Int", "Int8", "Int16", "Int32", "Int64":
+		return fieldGoType(kind)
+	default:
+		return ""
+	}
+}
+
+func filterParseBitSize(kind string) string {
+	switch kind {
+	case "Uint8", "Int8":
+		return "8"
+	case "Uint16", "Int16":
+		return "16"
+	case "Uint32", "Int32":
+		return "32"
+	case "Uint64", "Int64":
+		return "64"
+	default:
+		return "0"
+	}
 }
 
 func filterKind(kind string) string {
@@ -1493,10 +1633,15 @@ func toGoName(value string) string {
 		return ""
 	}
 	initialisms := map[string]string{
-		"id":  "ID",
-		"ip":  "IP",
-		"url": "URL",
-		"uri": "URI",
+		"api":  "API",
+		"http": "HTTP",
+		"id":   "ID",
+		"ip":   "IP",
+		"guid": "GUID",
+		"json": "JSON",
+		"sql":  "SQL",
+		"url":  "URL",
+		"uri":  "URI",
 	}
 	parts := strings.FieldsFunc(value, func(r rune) bool {
 		return r == '_' || r == '-' || r == ' '
@@ -1512,6 +1657,25 @@ func toGoName(value string) string {
 		parts[index] = strings.ToUpper(part[:1]) + strings.ToLower(part[1:])
 	}
 	return strings.Join(parts, "")
+}
+
+func entOperationName(entityName string) string {
+	switch strings.ToLower(entityName) {
+	case "api":
+		return "API"
+	case "http":
+		return "HTTP"
+	case "id":
+		return "ID"
+	case "ip":
+		return "IP"
+	case "url":
+		return "URL"
+	case "uri":
+		return "URI"
+	default:
+		return entityName
+	}
 }
 
 func lowerFirst(value string) string {

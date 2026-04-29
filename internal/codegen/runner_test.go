@@ -316,8 +316,11 @@ return {{successReturn}}, nil`,
 	if strings.Contains(repoFile, "*v1.") {
 		t.Fatalf("repo file contains unnormalized generated alias: %s", repoFile)
 	}
-	if !strings.Contains(repoFile, "DeleteOneID(req.GetId()).Exec(ctx)") {
-		t.Fatalf("repo file is missing generated delete body")
+	if !strings.Contains(repoFile, "case interface{ GetId() uint32 }:") || !strings.Contains(repoFile, "DeleteOneID(typedReq.GetId()).Exec(ctx)") {
+		t.Fatalf("repo file is missing generated single-id delete body")
+	}
+	if !strings.Contains(repoFile, "case interface{ GetIds() []uint32 }:") || !strings.Contains(repoFile, "IDIn(typedReq.GetIds()...)") {
+		t.Fatalf("repo file is missing generated multi-id delete body")
 	}
 	if !strings.Contains(repoFile, "case *identityv1.UserExistsRequest_Id:") || !strings.Contains(repoFile, "builder.Where(user.IDEQ(req.GetId()))") || !strings.Contains(repoFile, "builder.Where(user.UsernameEQ(req.GetUsername()))") {
 		t.Fatalf("repo file is missing generated query_by exists body")
@@ -387,6 +390,41 @@ func TestResourceOperationEnabled(t *testing.T) {
 	}
 	if !resourceOperationEnabled(config.Resource{}, "delete") {
 		t.Fatalf("empty operations should keep backward-compatible generation enabled")
+	}
+}
+
+func TestGeneratedEntNamesUseInitialismsWhereEntDoes(t *testing.T) {
+	t.Parallel()
+
+	if got := entOperationName("Api"); got != "API" {
+		t.Fatalf("entOperationName(Api) = %q, want API", got)
+	}
+	if got := entOperationName("ApiAuditLog"); got != "ApiAuditLog" {
+		t.Fatalf("entOperationName(ApiAuditLog) = %q, want ApiAuditLog", got)
+	}
+	if got := toGoName("http_method"); got != "HTTPMethod" {
+		t.Fatalf("toGoName(http_method) = %q, want HTTPMethod", got)
+	}
+	if got := toGoName("api_module"); got != "APIModule" {
+		t.Fatalf("toGoName(api_module) = %q, want APIModule", got)
+	}
+	if got := toGoName("sql_digest"); got != "SQLDigest" {
+		t.Fatalf("toGoName(sql_digest) = %q, want SQLDigest", got)
+	}
+	if got := toGoName("file_guid"); got != "FileGUID" {
+		t.Fatalf("toGoName(file_guid) = %q, want FileGUID", got)
+	}
+	if got := toPascal("api_module"); got != "ApiModule" {
+		t.Fatalf("toPascal(api_module) = %q, want ApiModule", got)
+	}
+	if got := filterCastType("Int32"); got != "int32" {
+		t.Fatalf("filterCastType(Int32) = %q, want int32", got)
+	}
+	if got := filterParseBitSize("Int32"); got != "32" {
+		t.Fatalf("filterParseBitSize(Int32) = %q, want 32", got)
+	}
+	if supportsGeneratedSetterKind("Strings") {
+		t.Fatalf("Strings fields should be left for manual conversion")
 	}
 }
 

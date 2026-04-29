@@ -23,10 +23,10 @@ type {{ .RepoStructName }} struct {
 	mapper *mapper.CopierMapper[{{ .DTOType }}, ent.{{ .EntityName }}]
 
 	repository *entCrud.Repository[
-		ent.{{ .EntityName }}Query, ent.{{ .EntityName }}Select,
-		ent.{{ .EntityName }}Create, ent.{{ .EntityName }}CreateBulk,
-		ent.{{ .EntityName }}Update, ent.{{ .EntityName }}UpdateOne,
-		ent.{{ .EntityName }}Delete,
+		ent.{{ .EntOperationName }}Query, ent.{{ .EntOperationName }}Select,
+		ent.{{ .EntOperationName }}Create, ent.{{ .EntOperationName }}CreateBulk,
+		ent.{{ .EntOperationName }}Update, ent.{{ .EntOperationName }}UpdateOne,
+		ent.{{ .EntOperationName }}Delete,
 		predicate.{{ .PredicateType }},
 		{{ .DTOType }}, ent.{{ .EntityName }},
 	]
@@ -46,10 +46,10 @@ func {{ .ConstructorName }}(ctx *app.AppCtx, entClient *entCrud.EntClient[*ent.C
 
 func (r *{{ .RepoStructName }}) init() {
 	r.repository = entCrud.NewRepository[
-		ent.{{ .EntityName }}Query, ent.{{ .EntityName }}Select,
-		ent.{{ .EntityName }}Create, ent.{{ .EntityName }}CreateBulk,
-		ent.{{ .EntityName }}Update, ent.{{ .EntityName }}UpdateOne,
-		ent.{{ .EntityName }}Delete,
+		ent.{{ .EntOperationName }}Query, ent.{{ .EntOperationName }}Select,
+		ent.{{ .EntOperationName }}Create, ent.{{ .EntOperationName }}CreateBulk,
+		ent.{{ .EntOperationName }}Update, ent.{{ .EntOperationName }}UpdateOne,
+		ent.{{ .EntOperationName }}Delete,
 		predicate.{{ .PredicateType }},
 		{{ .DTOType }}, ent.{{ .EntityName }},
 	](r.mapper)
@@ -77,7 +77,7 @@ func {{ .TimeHelperName }}(value *timestamppb.Timestamp) *time.Time {
 }
 {{end}}
 {{if .UsesFilters}}
-func (r *{{ .RepoStructName }}) applyGeneratedFilters(builder *ent.{{ .EntityName }}Query, req *paginationv1.PagingRequest) error {
+func (r *{{ .RepoStructName }}) applyGeneratedFilters(builder *ent.{{ .EntOperationName }}Query, req *paginationv1.PagingRequest) error {
 	if req == nil || req.GetFilterExpr() == nil {
 		return nil
 	}
@@ -106,19 +106,19 @@ func (r *{{ .RepoStructName }}) applyGeneratedFilters(builder *ent.{{ .EntityNam
 			}
 {{else if eq .Kind "Uint"}}
 			if condition.GetOp() == paginationv1.Operator_EQ {
-				value, err := strconv.ParseUint(condition.GetValue(), 10, 32)
+				value, err := strconv.ParseUint(condition.GetValue(), 10, {{ .ParseBitSize }})
 				if err != nil {
 					return fmt.Errorf("invalid {{ .Field }} filter value: %w", err)
 				}
-				builder.Where({{ $.EntPackage }}.{{ .Predicate }}EQ(uint32(value)))
+				builder.Where({{ $.EntPackage }}.{{ .Predicate }}EQ({{ .CastType }}(value)))
 			}
 {{else if eq .Kind "Int"}}
 			if condition.GetOp() == paginationv1.Operator_EQ {
-				value, err := strconv.ParseInt(condition.GetValue(), 10, 64)
+				value, err := strconv.ParseInt(condition.GetValue(), 10, {{ .ParseBitSize }})
 				if err != nil {
 					return fmt.Errorf("invalid {{ .Field }} filter value: %w", err)
 				}
-				builder.Where({{ $.EntPackage }}.{{ .Predicate }}EQ(int(value)))
+				builder.Where({{ $.EntPackage }}.{{ .Predicate }}EQ({{ .CastType }}(value)))
 			}
 {{end}}
 {{end}}
@@ -183,9 +183,19 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
 	}
 
-	if err := r.entClient.Client().{{ $.EntityName }}.DeleteOneID({{ .IDExpr }}).Exec(ctx); err != nil {
-		r.log.Errorf("delete {{ $.ResourceName }} failed: %s", err.Error())
-		return {{ .ZeroReturn }}, err
+	switch typedReq := any(req).(type) {
+	case interface{ GetId() {{ $.IDType }} }:
+		if err := r.entClient.Client().{{ $.EntityName }}.DeleteOneID(typedReq.GetId()).Exec(ctx); err != nil {
+			r.log.Errorf("delete {{ $.ResourceName }} failed: %s", err.Error())
+			return {{ .ZeroReturn }}, err
+		}
+	case interface{ GetIds() []{{ $.IDType }} }:
+		if _, err := r.entClient.Client().{{ $.EntityName }}.Delete().Where({{ $.EntPackage }}.IDIn(typedReq.GetIds()...)).Exec(ctx); err != nil {
+			r.log.Errorf("delete {{ $.ResourceName }} failed: %s", err.Error())
+			return {{ .ZeroReturn }}, err
+		}
+	default:
+		return {{ .ZeroReturn }}, fmt.Errorf("invalid delete request: missing id or ids")
 	}
 
 	return {{ .NilReturn }}, nil
