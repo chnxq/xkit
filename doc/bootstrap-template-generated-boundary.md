@@ -18,6 +18,7 @@ The template repository owns stable startup structure:
 - `cmd/server/server.go`
 - `internal/bootstrap/app.go`
 - `internal/bootstrap/cleanup.go`
+- `internal/bootstrap/factories.go`
 - `internal/bootstrap/infra.go`
 - `internal/bootstrap/hooks.go`
 - `internal/server/asynq.go`
