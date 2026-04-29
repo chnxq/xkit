@@ -176,5 +176,6 @@ go run ./cmd/server server -config_path ./configs
 
 - [启动模板与生成代码边界](doc/bootstrap-template-generated-boundary.md)
 - [Source import 命令](doc/source-import-command.md)
+- [前端 API 集成计划](doc/frontend-api-integration-plan.md)
 - [服务代码生成规格](doc/service-codegen-spec.md)
 - [模板仓库方案记录](doc/template-repo-bootstrap-solution.md)：历史方案和决策过程，以 README 与边界文档为当前准则。

@@ -100,7 +100,7 @@ Vue：
 buf generate --template buf.vue.admin.typescript.gen.yaml
 ```
 
-输出到：`../../admin-02-ui/apps/admin/src/generated/api`
+输出到：`../../admin-02-ui/apps/web-antd/src/api/generated`
 
 ## Buf 配置与依赖
 

@@ -66,7 +66,7 @@ When copying `buf*.gen.yaml` or `buf*.gen.yml`, `xkit init source` validates and
 Current TypeScript output convention:
 
 ```text
-buf.vue.<service>.typescript.gen.yaml -> <typescript-project>/apps/<service>/src/generated/api
+buf.vue.<service>.typescript.gen.yaml -> <typescript-project>/apps/web-antd/src/api/generated
 ```
 
 For example, `path: authentication/v1` in project `admin-01` is written as:

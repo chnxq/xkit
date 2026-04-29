@@ -1,6 +1,6 @@
 param(
     [string]$WorkspaceRoot = "D:\GoProjects\XAdmin",
-    [string]$ProjectName = "admin-02",
+    [string]$ProjectName = "xadmin",
     [string]$Module = "",
     [string]$AppName = "XAdmin",
     [string]$ServiceName = "admin",

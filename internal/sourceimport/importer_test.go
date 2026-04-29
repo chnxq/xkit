@@ -203,7 +203,7 @@ func (UserCredential) Fields() []ent.Field {
 		t.Fatalf("buf.*.openapi.gen.yaml should normalize openapi output:\n%s", openapiBufGen)
 	}
 	vueBufGen := readTestFile(t, filepath.Join(projectRoot, "api", "buf.vue.admin.typescript.gen.yaml"))
-	if !strings.Contains(vueBufGen, "out: ../../xadmin-web-ui/apps/admin/src/generated/api\n") || strings.Contains(vueBufGen, "xadmin-ui") {
+	if !strings.Contains(vueBufGen, "out: ../../xadmin-web-ui/apps/web-antd/src/api/generated\n") || strings.Contains(vueBufGen, "xadmin-ui") {
 		t.Fatalf("vue typescript buf gen should normalize output:\n%s", vueBufGen)
 	}
 	if result.TypeScriptRoot != filepath.Join(root, "xadmin-web-ui") {
@@ -423,7 +423,7 @@ type Role struct{ ent.Schema }
 		t.Fatalf("unexpected configured typescript root: %s", result.TypeScriptRoot)
 	}
 	bufGen := readTestFile(t, filepath.Join(projectRoot, "api", "buf.vue.admin.typescript.gen.yaml"))
-	if !strings.Contains(bufGen, "out: ../../frontend/apps/admin/src/generated/api\n") {
+	if !strings.Contains(bufGen, "out: ../../frontend/apps/web-antd/src/api/generated\n") {
 		t.Fatalf("typescript output should use configured root:\n%s", bufGen)
 	}
 }
