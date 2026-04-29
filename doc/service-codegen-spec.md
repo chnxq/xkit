@@ -34,13 +34,13 @@ This specification targets XAdmin-aligned source inputs and generated service ou
 ### Target Generated Layout
 
 - `internal/service/*`
-- `internal/data/*`
+- `internal/data/repo/*`
 - `internal/server/*`
 
 Representative examples in the current target workspace:
 
 - `xadmin-web/internal/service/user_service.gen.go`
-- `xadmin-web/internal/data/user_repo.gen.go`
+- `xadmin-web/internal/data/repo/user_repo.gen.go`
 - `xadmin-web/internal/server/rest_register.gen.go`
 - `xadmin-web/api/protos/admin/v1/i_user.proto`
 - `xadmin-web/api/gen/admin/v1/i_user.pb.go`
@@ -54,7 +54,7 @@ Primary reference files from `D:\GoProjects\chnxq\XAdmin` for generated service 
 - `app/admin/service/internal/service/providers/provider_set.go`
 - `app/admin/service/internal/data/providers/provider_set.go`
 - `app/admin/service/internal/server/providers/provider_set.go`
-- `app/admin/service/cmd/server/wire.go`
+- `app/admin/service/cmd/server/wire.go` as legacy reference only; the current default startup path does not use Wire
 
 ## Goals
 
@@ -240,9 +240,10 @@ internal/
     <resource>_service_manual.go
 
   data/
-    <resource>_repo.gen.go
-    <resource>_repo_ext.go
-    <resource>_repo_manual.go
+    repo/
+      <resource>_repo.gen.go
+      <resource>_repo_ext.go
+      <resource>_repo_manual.go
 
   server/
     rest_register.gen.go
@@ -277,11 +278,14 @@ Typical generated shape:
 ```go
 type UserService struct {
 	adminv1.UserServiceHTTPServer
-	log  *log.Helper
-	repo data.UserRepo
+	adminv1.UnimplementedUserServiceServer
+
+	log *log.Helper
+
+	userRepo repo.UserRepo
 }
 
-func NewUserService(ctx *bootstrap.Context, repo data.UserRepo) *UserService { ... }
+func NewUserService(ctx *app.AppCtx, userRepo repo.UserRepo) *UserService { ... }
 
 func (s *UserService) List(ctx context.Context, req *paginationv1.PagingRequest) (*identityv1.ListUserResponse, error) {
 	return s.repo.List(ctx, req)
@@ -482,21 +486,25 @@ Without these rules, repeated generation will not be safe enough for real projec
 Recommended initial CLI surface inside `xkit`:
 
 ```text
+xkit init template [template-source]
 xkit init source <source-path>
 xkit gen service <service>
 xkit gen repo <service>
-xkit gen wire <service>
 xkit gen register <service>
+xkit gen bootstrap <service>
+xkit gen wire <service>
 xkit gen all <service>
 ```
 
 Behavior:
 
+- `xkit init template [template-source]`: copy the startup template into a target project. If `template-source` is omitted, use `https://github.com/chnxq/xkit-template.git`. Local template directories are accepted for offline work. A real non-dry-run copy runs `go get -u all` unless `--skip-go-get-update-all` is set.
 - `xkit init source <source-path>`: copy raw schema/proto files into the target project and derive the per-service YAML config
 - `xkit gen service <service>`: generate service `*.gen.go` and extension stubs
 - `xkit gen repo <service>`: generate repo `*.gen.go` and extension stubs
-- `xkit gen wire <service>`: legacy explicit command for service and data provider sets; not used by the default template startup path
 - `xkit gen register <service>`: generate HTTP and gRPC registration helpers
+- `xkit gen bootstrap <service>`: generate dynamic startup glue such as `internal/bootstrap/generated_servers.gen.go` and `internal/data/bootstrap/ent_client.gen.go`
+- `xkit gen wire <service>`: legacy explicit command for service and data provider sets; not used by the default template startup path
 - `xkit gen all <service>`: generate service, repo, register, and bootstrap glue, overwriting only generated files; it does not generate or clean Wire provider sets
 
 ## Current Rollout

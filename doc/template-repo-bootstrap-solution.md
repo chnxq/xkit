@@ -1,5 +1,7 @@
 # 启动骨架与公用 provider 模板仓库方案
 
+> 本文保留为历史方案和决策记录。当前可执行流程以项目根目录的 `README.md` 和 `doc/bootstrap-template-generated-boundary.md` 为准；其中 `xkit init template` 默认模板源为 `https://github.com/chnxq/xkit-template.git`，`xkit gen all` 不生成也不清理 Wire provider set。
+
 ## 结论
 
 对于服务启动、基础设施 provider 装配、配置目录、公用中间件和通用 `pkg` 代码，这部分确实更适合从 `xkit` 的细粒度代码生成中拆出来，转成“模板仓库 + 少量变量替换 + 局部代码生成”的模式。
@@ -330,7 +332,7 @@ sync:
 ### 脚手架命令
 
 ```text
-xkit init template xadmin-web --project D:\GoProjects\XAdmin\xadmin-web
+xkit init template https://github.com/chnxq/xkit-template.git --project D:\GoProjects\XAdmin\xadmin-web
 xkit sync template xadmin-web --project D:\GoProjects\XAdmin\xadmin-web
 ```
 
@@ -426,7 +428,7 @@ xkit gen all admin --config ...
 `xkit` 已新增模板落地命令：
 
 ```text
-xkit init template <template-path> \
+xkit init template [template-source] \
   --project <target-project> \
   --module <target-module> \
   --app-name <display-name> \
@@ -446,7 +448,7 @@ xkit init template <template-path> \
 示例：
 
 ```text
-xkit init template D:\GoProjects\XAdmin\xkit-template \
+xkit init template https://github.com/chnxq/xkit-template.git \
   --project D:\GoProjects\XAdmin\xadmin-web \
   --module xadmin-web \
   --app-name XAdmin \

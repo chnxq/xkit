@@ -16,8 +16,10 @@ import (
 	"github.com/chnxq/xkit/internal/sourceimport"
 )
 
+const defaultTemplateSource = "https://github.com/chnxq/xkit-template.git"
+
 const usageText = `Usage:
-  xkit init template <template-path> [--project <path>] [--module <module>] [--app-name <name>] [--command-name <name>] [--service-name <name>] [--force] [--dry-run] [--skip-go-get-update-all]
+  xkit init template [template-source] [--project <path>] [--module <module>] [--app-name <name>] [--command-name <name>] [--service-name <name>] [--force] [--dry-run] [--skip-go-get-update-all]
   xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--force] [--dry-run]
   xkit gen service <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen repo <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
@@ -25,6 +27,9 @@ const usageText = `Usage:
   xkit gen wire <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen bootstrap <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen all <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
+
+Default template source:
+  https://github.com/chnxq/xkit-template.git
 `
 
 func Run(args []string, version string) error {
@@ -74,13 +79,14 @@ func runInit(args []string) error {
 }
 
 func runInitTemplate(args []string) error {
-	if len(args) < 1 {
-		return errors.New("init template requires a template path")
+	templateSource := defaultTemplateSource
+	flagArgs := args
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		templateSource = strings.TrimSpace(args[0])
+		flagArgs = args[1:]
 	}
-
-	templateRoot := strings.TrimSpace(args[0])
-	if templateRoot == "" {
-		return errors.New("init template requires a template path")
+	if templateSource == "" {
+		return errors.New("init template requires a template source")
 	}
 
 	var options initOptions
@@ -94,7 +100,7 @@ func runInitTemplate(args []string) error {
 	flagSet.BoolVar(&options.force, "force", false, "overwrite existing non-preserved files")
 	flagSet.BoolVar(&options.dryRun, "dry-run", false, "plan file writes without modifying the target project")
 	flagSet.BoolVar(&options.skipGoGet, "skip-go-get-update-all", false, "skip running go get -u all after copying the template")
-	if err := flagSet.Parse(args[1:]); err != nil {
+	if err := flagSet.Parse(flagArgs); err != nil {
 		return err
 	}
 
@@ -108,7 +114,7 @@ func runInitTemplate(args []string) error {
 	}
 
 	result, err := scaffold.ApplyTemplate(scaffold.TemplateOptions{
-		TemplateRoot: templateRoot,
+		TemplateRoot: templateSource,
 		ProjectRoot:  projectRoot,
 		Module:       options.module,
 		AppName:      options.appName,

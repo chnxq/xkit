@@ -1,5 +1,7 @@
 ﻿# xadmin-web 启动骨架生成方案
 
+> 本文保留为历史阶段记录。当前启动模板与动态生成边界以项目根目录的 `README.md` 和 `doc/bootstrap-template-generated-boundary.md` 为准；`cmd/server`、`configs`、`internal/bootstrap`、`internal/server` 等启动骨架现在由 `xkit-template` 通过 `xkit init template` 落地，`xkit gen bootstrap` 只保留动态装配代码。
+
 ## 参考结论
 
 参考 `D:\GoProjects\chnxq\XAdmin` 后，启动链路可以拆成三层：
@@ -15,7 +17,7 @@
 - `api/gen/...` protobuf 生成代码。
 - `internal/data/ent` Ent 代码。
 - `internal/service/*.gen.go` 服务骨架。
-- `internal/data/*_repo.gen.go` 仓库骨架。
+- `internal/data/repo/*_repo.gen.go` 仓库骨架。
 - `internal/server/*_register.gen.go` 聚合注册代码。
 
 缺少：

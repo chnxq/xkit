@@ -43,16 +43,18 @@ type Manifest struct {
 
 func ApplyTemplate(options TemplateOptions) (TemplateResult, error) {
 	if strings.TrimSpace(options.TemplateRoot) == "" {
-		return TemplateResult{}, errors.New("template root is required")
+		return TemplateResult{}, errors.New("template source is required")
 	}
 	if strings.TrimSpace(options.ProjectRoot) == "" {
 		return TemplateResult{}, errors.New("project root is required")
 	}
 
-	templateRoot, err := filepath.Abs(options.TemplateRoot)
+	templateRoot, cleanup, err := prepareTemplateRoot(options.TemplateRoot)
 	if err != nil {
-		return TemplateResult{}, fmt.Errorf("resolve template root: %w", err)
+		return TemplateResult{}, err
 	}
+	defer cleanup()
+
 	projectRoot, err := filepath.Abs(options.ProjectRoot)
 	if err != nil {
 		return TemplateResult{}, fmt.Errorf("resolve project root: %w", err)
@@ -111,6 +113,53 @@ func ApplyTemplate(options TemplateOptions) (TemplateResult, error) {
 	}
 
 	return result, nil
+}
+
+func prepareTemplateRoot(source string) (string, func(), error) {
+	source = strings.TrimSpace(source)
+	if isGitTemplateSource(source) {
+		return cloneTemplateSource(source)
+	}
+
+	templateRoot, err := filepath.Abs(source)
+	if err != nil {
+		return "", func() {}, fmt.Errorf("resolve template root: %w", err)
+	}
+	return templateRoot, func() {}, nil
+}
+
+func cloneTemplateSource(source string) (string, func(), error) {
+	parent, err := os.MkdirTemp("", "xkit-template-*")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("create temporary template directory: %w", err)
+	}
+
+	cleanup := func() {
+		_ = os.RemoveAll(parent)
+	}
+	target := filepath.Join(parent, "repo")
+	cmd := exec.Command("git", "clone", "--depth", "1", source, target)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		cleanup()
+		message := strings.TrimSpace(string(output))
+		if message != "" {
+			return "", func() {}, fmt.Errorf("clone template source %s: %w: %s", source, err, message)
+		}
+		return "", func() {}, fmt.Errorf("clone template source %s: %w", source, err)
+	}
+	return target, cleanup, nil
+}
+
+func isGitTemplateSource(source string) bool {
+	source = strings.TrimSpace(source)
+	lower := strings.ToLower(source)
+	return strings.HasPrefix(lower, "https://") ||
+		strings.HasPrefix(lower, "http://") ||
+		strings.HasPrefix(lower, "ssh://") ||
+		strings.HasPrefix(lower, "git@") ||
+		strings.HasPrefix(lower, "file://") ||
+		strings.HasSuffix(lower, ".git")
 }
 
 func GoGetUpdateAll(projectRoot string) (string, error) {

@@ -155,6 +155,26 @@ preserve:
 	}
 }
 
+func TestIsGitTemplateSource(t *testing.T) {
+	t.Parallel()
+
+	gitSources := []string{
+		"https://github.com/chnxq/xkit-template.git",
+		"git@github.com:chnxq/xkit-template.git",
+		"ssh://git@github.com/chnxq/xkit-template.git",
+		"file:///tmp/xkit-template.git",
+	}
+	for _, source := range gitSources {
+		if !isGitTemplateSource(source) {
+			t.Fatalf("source should be detected as git template source: %s", source)
+		}
+	}
+
+	if isGitTemplateSource(filepath.Join("D:", "GoProjects", "XAdmin", "xkit-template")) {
+		t.Fatalf("local directory should not be detected as git template source")
+	}
+}
+
 func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
