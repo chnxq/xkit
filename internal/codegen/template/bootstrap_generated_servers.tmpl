@@ -5,11 +5,13 @@
 package bootstrap
 
 import (
+	"fmt"
+
 	"github.com/chnxq/xkitpkg/app"
 	"github.com/chnxq/xkitpkg/transport"
 
-	databootstrap "{{ .DataBootImport }}"
 {{- if .RepoResources }}
+	databootstrap "{{ .DataBootImport }}"
 	"{{ .RepoImport }}"
 {{- end }}
 	"{{ .ServerImport }}"
@@ -18,40 +20,114 @@ import (
 {{- end }}
 )
 
-func NewGeneratedServers(appCtx *app.AppCtx) ([]transport.Server, func(), error) {
+type GeneratedData struct {
+{{- range .RepoResources }}
+	{{ .FieldName }}Repo repo.{{ .RepoInterface }}
+{{- end }}
+}
+
+func NewGeneratedData(appCtx *app.AppCtx) (*GeneratedData, func(), error) {
+{{- if .RepoResources }}
 	entClient, entCleanup, err := databootstrap.NewEntClient(appCtx)
 	if err != nil {
 		return nil, entCleanup, err
 	}
 
+	data := &GeneratedData{}
 {{- range .RepoResources }}
-	{{ .RepoVar }} := repo.{{ .RepoConstructor }}(appCtx, entClient)
+	data.{{ .FieldName }}Repo = repo.{{ .RepoConstructor }}(appCtx, entClient)
 {{- end }}
+	return data, entCleanup, nil
+{{- else }}
+	_ = appCtx
+	return &GeneratedData{}, func() {}, nil
+{{- end }}
+}
 
+type GeneratedServices struct {
+{{- range .ServerResources }}
+	{{ .FieldName }} *service.{{ .ServiceName }}
+{{- end }}
+}
+
+func NewGeneratedServices(appCtx *app.AppCtx, data *GeneratedData) *GeneratedServices {
+{{- if .ServerResources }}
+	return &GeneratedServices{
 {{- range .ServerResources }}
 {{- if .HasRepo }}
-	{{ .ServiceVar }} := service.{{ .Constructor }}(appCtx, {{ .RepoVar }}{{ range .ExtraRepoVars }}, {{ . }}{{ end }})
+		{{ .FieldName }}: service.{{ .Constructor }}(appCtx, data.{{ .FieldName }}Repo{{ range .ExtraRepoVars }}, data.{{ . | upperFirst }}{{ end }}),
 {{- else }}
-	{{ .ServiceVar }} := service.{{ .Constructor }}()
+		{{ .FieldName }}: service.{{ .Constructor }}(),
 {{- end }}
 {{- end }}
-
-	httpServer, err := server.NewHTTPServer(appCtx, server.GeneratedHTTPServices{
-{{- range .ServerResources }}
-		{{ .FieldName }}: {{ .ServiceVar }},
-{{- end }}
-	})
-	if err != nil {
-		return nil, entCleanup, err
 	}
-	grpcServer, err := server.NewGRPCServer(appCtx, server.GeneratedGRPCServices{
-{{- range .ServerResources }}
-		{{ .FieldName }}: {{ .ServiceVar }},
+{{- else }}
+	_, _ = appCtx, data
+	return &GeneratedServices{}
 {{- end }}
-	})
+}
+
+func (services *GeneratedServices) HTTP() server.GeneratedHTTPServices {
+	if services == nil {
+		return server.GeneratedHTTPServices{}
+	}
+	return server.GeneratedHTTPServices{
+{{- range .HTTPResources }}
+		{{ .FieldName }}: services.{{ .FieldName }},
+{{- end }}
+	}
+}
+
+func (services *GeneratedServices) GRPC() server.GeneratedGRPCServices {
+	if services == nil {
+		return server.GeneratedGRPCServices{}
+	}
+	return server.GeneratedGRPCServices{
+{{- range .GRPCResources }}
+		{{ .FieldName }}: services.{{ .FieldName }},
+{{- end }}
+	}
+}
+
+type GeneratedComponents struct {
+	Data     *GeneratedData
+	Services *GeneratedServices
+}
+
+func NewGeneratedComponents(appCtx *app.AppCtx) (*GeneratedComponents, func(), error) {
+	data, cleanup, err := NewGeneratedData(appCtx)
 	if err != nil {
-		return nil, entCleanup, err
+		return nil, cleanup, err
 	}
 
-	return []transport.Server{httpServer, grpcServer}, entCleanup, nil
+	services := NewGeneratedServices(appCtx, data)
+	return &GeneratedComponents{
+		Data:     data,
+		Services: services,
+	}, cleanup, nil
+}
+
+func (components *GeneratedComponents) Servers(appCtx *app.AppCtx) ([]transport.Server, error) {
+	httpServer, err := server.NewHTTPServer(appCtx, components.Services.HTTP())
+	if err != nil {
+		return nil, fmt.Errorf("new generated http server: %w", err)
+	}
+	grpcServer, err := server.NewGRPCServer(appCtx, components.Services.GRPC())
+	if err != nil {
+		return nil, fmt.Errorf("new generated grpc server: %w", err)
+	}
+	return []transport.Server{httpServer, grpcServer}, nil
+}
+
+func NewGeneratedServers(appCtx *app.AppCtx) ([]transport.Server, func(), error) {
+	components, cleanup, err := NewGeneratedComponents(appCtx)
+	if err != nil {
+		return nil, cleanup, err
+	}
+
+	servers, err := components.Servers(appCtx)
+	if err != nil {
+		return nil, cleanup, err
+	}
+	return servers, cleanup, nil
 }

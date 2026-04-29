@@ -75,12 +75,21 @@ Resource generation remains in:
 - `internal/data/repo/*_repo.gen.go`
 - `internal/server/rest_register.gen.go`
 - `internal/server/grpc_register.gen.go`
-- `internal/service/providers/wire_set.gen.go`
-- `internal/data/providers/wire_set.gen.go`
 
 The startup skeleton calls `NewGeneratedServers`, `RegisterGeneratedHTTPServices`, and `RegisterGeneratedGRPCServices`. Those functions are the generated boundary.
 
+`internal/bootstrap/generated_servers.gen.go` is deliberately structured in small layers:
+
+- `GeneratedData` owns generated repository construction and the Ent client cleanup returned by `NewEntClient`.
+- `GeneratedServices` owns generated service construction.
+- `GeneratedComponents` groups data and service objects.
+- `GeneratedComponents.Servers` converts generated services into HTTP/gRPC transport servers.
+
+This keeps template-owned startup code readable while allowing `xkit gen all` to replace the dynamic assembly safely.
+
 `xkit gen bootstrap` does not write `configs/*.yaml`, `cmd/server/*`, `internal/bootstrap/app.go`, `internal/bootstrap/infra.go`, `internal/server/http.go`, or `internal/server/grpc.go`.
+
+Wire provider sets are no longer part of the default `xkit gen all` flow. The current startup path uses explicit generated assembly in `internal/bootstrap/generated_servers.gen.go`, so `xkit gen all` does not create `internal/service/providers/wire_set.gen.go` or `internal/data/providers/wire_set.gen.go`. Existing Wire files are treated as manual migration leftovers and are not removed automatically. The standalone `xkit gen wire` command may remain as a legacy explicit command, but it is not used by the template startup path.
 
 ## Handwritten Extension Points
 

@@ -161,11 +161,14 @@ type bootstrapTemplateData struct {
 	ServiceImport   string
 	RepoResources   []bootstrapResourceData
 	ServerResources []bootstrapResourceData
+	HTTPResources   []bootstrapResourceData
+	GRPCResources   []bootstrapResourceData
 }
 
 type bootstrapResourceData struct {
 	FieldName       string
 	RepoVar         string
+	RepoInterface   string
 	RepoConstructor string
 	HasRepo         bool
 	ServiceVar      string
@@ -267,7 +270,7 @@ func (r *Runner) Generate(target string) (Result, error) {
 
 func (r *Runner) generateAll() (Result, error) {
 	var result Result
-	parts := []string{"service", "repo", "register", "wire", "bootstrap"}
+	parts := []string{"service", "repo", "register", "bootstrap"}
 	for _, part := range parts {
 		partResult, err := r.Generate(part)
 		if err != nil {
@@ -595,7 +598,8 @@ func (r *Runner) bootstrapResources(plans []resourcePlan) []bootstrapResourceDat
 		data := bootstrapResourceData{
 			FieldName:       plan.ResourceField,
 			RepoVar:         lowerFirst(entityName) + "Repo",
-			RepoConstructor: "New" + entityName + "Repo",
+			RepoInterface:   repoInterfaceName(plan),
+			RepoConstructor: "New" + repoInterfaceName(plan),
 			HasRepo:         plan.Resource.Generate.EffectiveRepoCRUD(),
 			ServiceVar:      lowerFirst(entityName) + "Service",
 			ServiceName:     plan.Binding.ServiceName,
@@ -631,10 +635,29 @@ func (r *Runner) bootstrapRepoResources(plans []resourcePlan) []bootstrapResourc
 		resources = append(resources, bootstrapResourceData{
 			FieldName:       plan.ResourceField,
 			RepoVar:         lowerFirst(entityName) + "Repo",
-			RepoConstructor: "New" + entityName + "Repo",
+			RepoInterface:   repoInterfaceName(plan),
+			RepoConstructor: "New" + repoInterfaceName(plan),
 		})
 	}
 	return resources
+}
+
+func bootstrapRegisteredResources(resources []bootstrapResourceData, plans []resourcePlan, enabled func(config.GenerateFlags) bool) []bootstrapResourceData {
+	registeredFields := make(map[string]struct{}, len(plans))
+	for _, plan := range plans {
+		if !plan.Resource.Generate.EffectiveServiceStub() || !enabled(plan.Resource.Generate) {
+			continue
+		}
+		registeredFields[plan.ResourceField] = struct{}{}
+	}
+
+	out := make([]bootstrapResourceData, 0, len(resources))
+	for _, resource := range resources {
+		if _, ok := registeredFields[resource.FieldName]; ok {
+			out = append(out, resource)
+		}
+	}
+	return out
 }
 
 func findPlanByRepoInterface(resourceIndex map[string]resourcePlan, repoInterface string) (resourcePlan, bool) {
@@ -652,6 +675,7 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		return Result{}, err
 	}
 
+	serverResources := r.bootstrapResources(plans)
 	data := bootstrapTemplateData{
 		templateBase:    r.templateBase(),
 		Module:          r.project.Module,
@@ -662,7 +686,13 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		RepoImport:      r.internalImport("data", "repo"),
 		ServiceImport:   r.internalImport("service"),
 		RepoResources:   r.bootstrapRepoResources(plans),
-		ServerResources: r.bootstrapResources(plans),
+		ServerResources: serverResources,
+		HTTPResources: bootstrapRegisteredResources(serverResources, plans, func(flags config.GenerateFlags) bool {
+			return flags.EffectiveRestRegister()
+		}),
+		GRPCResources: bootstrapRegisteredResources(serverResources, plans, func(flags config.GenerateFlags) bool {
+			return flags.EffectiveGRPCRegister()
+		}),
 	}
 
 	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.go")); err != nil {
@@ -1134,6 +1164,7 @@ func renderAnyTemplate(source string, data any) ([]byte, error) {
 func renderRawTemplate(source string, data any) ([]byte, error) {
 	tmpl, err := template.New("file").Funcs(template.FuncMap{
 		"trimPointer": trimPointer,
+		"upperFirst":  upperFirst,
 	}).Parse(source)
 	if err != nil {
 		return nil, fmt.Errorf("parse template: %w", err)
@@ -1683,6 +1714,13 @@ func lowerFirst(value string) string {
 		return ""
 	}
 	return strings.ToLower(value[:1]) + value[1:]
+}
+
+func upperFirst(value string) string {
+	if value == "" {
+		return ""
+	}
+	return strings.ToUpper(value[:1]) + value[1:]
 }
 
 func nameParams(types []string) []namedType {

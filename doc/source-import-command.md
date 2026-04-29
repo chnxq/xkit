@@ -105,4 +105,4 @@ xkit gen all admin \
   --config D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml
 ```
 
-`init source` does not generate service/repo/register/wire Go files. It only materializes raw source inputs and prepares the config consumed by the normal generator.
+`init source` does not generate service/repo/register/bootstrap Go files. It only materializes raw source inputs and prepares the config consumed by the normal generator.

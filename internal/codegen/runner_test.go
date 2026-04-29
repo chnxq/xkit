@@ -215,8 +215,8 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 12 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 12)
+	if len(result.Written) != 10 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 10)
 	}
 
 	expectedPaths := []string{
@@ -227,8 +227,6 @@ return {{successReturn}}, nil`,
 		filepath.Join(root, "internal", "data", "repo", "user_credential_repo_ext.go"),
 		filepath.Join(root, "internal", "server", "rest_register.gen.go"),
 		filepath.Join(root, "internal", "server", "grpc_register.gen.go"),
-		filepath.Join(root, "internal", "service", "providers", "wire_set.gen.go"),
-		filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go"),
 		filepath.Join(root, "internal", "bootstrap", "generated_servers.gen.go"),
 		filepath.Join(root, "internal", "data", "bootstrap", "ent_client.gen.go"),
 	}
@@ -334,17 +332,11 @@ return {{successReturn}}, nil`,
 		t.Fatalf("credential repo file has broken initialism conversion")
 	}
 
-	serviceWireFile := readFile(t, filepath.Join(root, "internal", "service", "providers", "wire_set.gen.go"))
-	if !strings.Contains(serviceWireFile, "var ProviderSet = wire.NewSet") {
-		t.Fatalf("service wire file is missing ProviderSet")
+	if _, err := os.Stat(filepath.Join(root, "internal", "service", "providers", "wire_set.gen.go")); !os.IsNotExist(err) {
+		t.Fatalf("gen all should not generate service wire provider sets, stat err=%v", err)
 	}
-	if !strings.Contains(serviceWireFile, "servicepkg.NewUserService") {
-		t.Fatalf("service wire file is missing service constructor")
-	}
-
-	dataWireFile := readFile(t, filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go"))
-	if !strings.Contains(dataWireFile, "repopkg.NewUserRepo") {
-		t.Fatalf("data wire file is missing repo constructor")
+	if _, err := os.Stat(filepath.Join(root, "internal", "data", "providers", "wire_set.gen.go")); !os.IsNotExist(err) {
+		t.Fatalf("gen all should not generate data wire provider sets, stat err=%v", err)
 	}
 
 	if _, err := os.Stat(filepath.Join(root, "configs", "server.yaml")); !os.IsNotExist(err) {
@@ -355,8 +347,14 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(bootstrapFile, "func NewGeneratedServers") || strings.Contains(bootstrapFile, "func Initialize") {
 		t.Fatalf("bootstrap generation should only write generated server glue")
 	}
-	if !strings.Contains(bootstrapFile, "httpServer, err := server.NewHTTPServer") || !strings.Contains(bootstrapFile, "grpcServer, err := server.NewGRPCServer") {
-		t.Fatalf("bootstrap generation should handle server constructor errors")
+	if !strings.Contains(bootstrapFile, "type GeneratedData struct") || !strings.Contains(bootstrapFile, "type GeneratedServices struct") || !strings.Contains(bootstrapFile, "func NewGeneratedComponents") {
+		t.Fatalf("bootstrap generation should split data, services, and component assembly")
+	}
+	if !strings.Contains(bootstrapFile, "httpServer, err := server.NewHTTPServer") || !strings.Contains(bootstrapFile, "new generated grpc server") {
+		t.Fatalf("bootstrap generation should handle transport constructor errors")
+	}
+	if strings.Contains(bootstrapFile, "UserCredential:") {
+		t.Fatalf("bootstrap generation should not register resources without generated service stubs")
 	}
 
 	registerFile := readFile(t, filepath.Join(root, "internal", "server", "grpc_register.gen.go"))

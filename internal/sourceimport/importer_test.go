@@ -160,8 +160,8 @@ func (UserCredential) Fields() []ent.Field {
 	if credential.Generate.ServiceStub || credential.Generate.RestRegister || credential.Generate.GRPCRegister {
 		t.Fatalf("domain-only resource should not generate public service/register: %#v", credential.Generate)
 	}
-	if !credential.Generate.RepoCRUD || !credential.Generate.Wire {
-		t.Fatalf("domain-only resource should generate repo and wire: %#v", credential.Generate)
+	if !credential.Generate.RepoCRUD || credential.Generate.Wire {
+		t.Fatalf("domain-only resource should generate repo but not default wire: %#v", credential.Generate)
 	}
 	if !credential.Operations["resetcredential"] {
 		t.Fatalf("credential operations should include resetcredential: %#v", credential.Operations)

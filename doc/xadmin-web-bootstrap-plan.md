@@ -99,7 +99,7 @@
 已插入目录拆分步骤，避免 repo 生成代码与 bootstrap 基础设施代码混在 `internal/data` 根目录：
 
 - repo 生成代码：`internal/data/repo/*.gen.go`
-- data wire：`internal/data/providers/wire_set.gen.go`（导入 `internal/data/repo`）
+- bootstrap glue：`internal/bootstrap/generated_servers.gen.go` 直接装配 `internal/data/repo` 与 `internal/service`
 - bootstrap data 代码：`internal/data/bootstrap/*.go`
 
 服务层现在导入 `xadmin-web/internal/data/repo`，构造函数使用 `repo.UserRepo`、`repo.UserCredentialRepo` 等接口类型。

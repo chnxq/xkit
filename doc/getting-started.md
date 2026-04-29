@@ -189,14 +189,10 @@ go run ./cmd/xkit gen all admin `
 xadmin-web/internal/service/
   *_service.gen.go
   *_service_ext.go
-  providers/wire_set.gen.go
 
 xadmin-web/internal/data/repo/
   *_repo.gen.go
   *_repo_ext.go
-
-xadmin-web/internal/data/providers/
-  wire_set.gen.go
 
 xadmin-web/internal/server/
   rest_register.gen.go
@@ -208,6 +204,8 @@ xadmin-web/internal/bootstrap/
 xadmin-web/internal/data/bootstrap/
   ent_client.gen.go
 ```
+
+Note: `generated_servers.gen.go` is the dynamic startup boundary. It is generated as `GeneratedData`, `GeneratedServices`, `GeneratedComponents`, and HTTP/gRPC transport assembly. Template-owned `internal/bootstrap/app.go` only calls these generated boundaries.
 
 生成规则是：`*.gen.go` 可重复覆盖，`*_ext.go` 只在不存在时创建，手写文件不应被自动覆盖。
 
@@ -253,7 +251,7 @@ go run ./cmd/server server -config_path ./configs
 | API 生成 | `buf generate --template buf.gen.yaml` | 写入 `api/gen` 下的 pb、grpc、http 代码 |
 | Ent 生成 | `go generate ./internal/data/ent` | 写入 Ent client、entity、query、mutation、predicate 代码 |
 | xkit dry-run | `xkit gen all ... --dry-run` | 输出将覆盖的 `*.gen.go` 和跳过的 `*_ext.go` |
-| xkit 生成 | `xkit gen all ...` | 写入 service、repo、register、wire、bootstrap glue |
+| xkit 生成 | `xkit gen all ...` | 写入 service、repo、register、bootstrap glue |
 | 验证 | `go test ./...` | 编译和测试通过，或暴露需要补齐的手写扩展/依赖问题 |
 | 启动 | `go run ./cmd/server server -config_path ./configs` | 服务按配置启动，或提示外部依赖缺失 |
 

@@ -68,7 +68,7 @@
 - `Makefile`
 - `Dockerfile`
 - `.gitignore`
-- `wire.go` / `wire_gen.go` 的基础骨架
+- 非 Wire 的显式启动装配骨架
 - README、部署说明、环境变量样例
 
 模板仓库不是 demo，而是“可直接运行的起始工程”。
@@ -80,7 +80,7 @@
 - `internal/service/*.gen.go`
 - `internal/data/repo/*.gen.go`
 - `internal/server/*_register.gen.go`
-- `internal/*/providers/wire_set.gen.go`
+- `internal/bootstrap/generated_servers.gen.go`
 - 资源相关的 ext 文件
 - 与 proto / ent schema 绑定的局部 glue code
 
@@ -208,7 +208,7 @@ xkit/
 - 每个资源的 Service 实现骨架
 - 每个资源的 Repo 实现骨架
 - 每个资源的 HTTP/gRPC register 聚合
-- 与资源相关的 wire provider set
+- 与资源相关的 bootstrap glue
 - Service method 的定制 body 注入
 - schema/proto 推导出的 filters / exists / CRUD / list 逻辑
 
@@ -420,7 +420,7 @@ xkit gen all admin --config ...
 
 - `pkg/` 不再作为模板仓库内容维护，后续由 `xkit` 的独立生成能力或领域生成能力处理。
 - 模板仓库增加 `template.yaml`，描述模板名称、默认变量、忽略路径和保留路径。
-- 模板仓库保留启动入口、配置目录、Wire 入口和命令资产。
+- 模板仓库保留启动入口、配置目录、非 Wire 启动装配入口和命令资产。
 - 默认关闭 registry 和 remote config，避免新项目初始化后依赖外部 etcd 服务才能启动。
 
 `xkit` 已新增模板落地命令：

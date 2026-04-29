@@ -255,7 +255,6 @@ func buildConfig(module, service string, schemas map[string]entschema.Schema, se
 				RepoCRUD:     hasRepo,
 				RestRegister: isPublicService,
 				GRPCRegister: isPublicService,
-				Wire:         isPublicService || hasRepo,
 			},
 		}
 		resourceByEntity[schemaName] = resource

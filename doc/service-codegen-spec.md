@@ -13,8 +13,8 @@ The goal is to standardize and regenerate the highly repetitive parts of an XAdm
 
 - service interface adapters
 - repository CRUD scaffolds
-- Wire provider sets
 - transport registration code
+- generated bootstrap glue for explicit startup assembly
 
 The design must preserve manual business logic and allow repeated generation without overwriting hand-written code.
 
@@ -200,8 +200,8 @@ Examples:
 
 - `user_service.gen.go`
 - `user_repo.gen.go`
-- `wire_set.gen.go`
 - `rest_register.gen.go`
+- `generated_servers.gen.go`
 
 ### Manual Extension Files
 
@@ -238,15 +238,11 @@ internal/
     <resource>_service.gen.go
     <resource>_service_ext.go
     <resource>_service_manual.go
-    providers/
-      wire_set.gen.go
 
   data/
     <resource>_repo.gen.go
     <resource>_repo_ext.go
     <resource>_repo_manual.go
-    providers/
-      wire_set.gen.go
 
   server/
     rest_register.gen.go
@@ -319,14 +315,13 @@ The generator must not emit:
 - performance-tuned custom SQL
 - cross-entity consistency rules
 
-### Wire Layer
+### Bootstrap Assembly Layer
 
-The generator should fully own:
+The default generator flow should use explicit generated startup assembly:
 
-- `internal/service/providers/wire_set.gen.go`
-- `internal/data/providers/wire_set.gen.go`
+- `internal/bootstrap/generated_servers.gen.go`
 
-These files are list-oriented and have no business logic.
+This file constructs generated data, services, and HTTP/gRPC transport servers directly. Because the template startup path no longer calls a Wire injector, `xkit gen all` must not emit `internal/service/providers/wire_set.gen.go` or `internal/data/providers/wire_set.gen.go`. Existing generated Wire provider-set files are treated as manual migration leftovers and are not removed automatically.
 
 ### Transport Registration Layer
 
@@ -364,7 +359,7 @@ Examples:
 
 - `user_service.gen.go`
 - `user_repo.gen.go`
-- `wire_set.gen.go`
+- `generated_servers.gen.go`
 
 ## CRUD Classification
 
@@ -460,7 +455,6 @@ resources:
       repo_crud: true
       rest_register: true
       grpc_register: true
-      wire: true
 ```
 
 Field notes:
@@ -501,9 +495,9 @@ Behavior:
 - `xkit init source <source-path>`: copy raw schema/proto files into the target project and derive the per-service YAML config
 - `xkit gen service <service>`: generate service `*.gen.go` and extension stubs
 - `xkit gen repo <service>`: generate repo `*.gen.go` and extension stubs
-- `xkit gen wire <service>`: generate service and data provider sets
+- `xkit gen wire <service>`: legacy explicit command for service and data provider sets; not used by the default template startup path
 - `xkit gen register <service>`: generate HTTP and gRPC registration helpers
-- `xkit gen all <service>`: run the full pipeline, overwriting only `*.gen.go`
+- `xkit gen all <service>`: generate service, repo, register, and bootstrap glue, overwriting only generated files; it does not generate or clean Wire provider sets
 
 ## Current Rollout
 
@@ -514,7 +508,7 @@ slice and now covers the core generated service stack.
 
 - proto-driven service method stubs
 - proto-driven HTTP and gRPC registration files
-- constructor list generation for Wire
+- explicit generated bootstrap assembly in `internal/bootstrap/generated_servers.gen.go`, split into generated data, services, components, and transport construction
 - YAML-driven resource selection
 - Ent-schema-driven repository CRUD scaffolds
 - config-driven existence-query field selection via `exists_fields`
@@ -540,8 +534,8 @@ That means the generator targets the stable structural layer first:
 
 - service shells
 - repo CRUD scaffolds
-- wire provider lists
 - registration lists
+- bootstrap glue
 
 It should not try to auto-solve the business-heavy parts until the generated ownership boundaries are stable.
 
