@@ -94,6 +94,8 @@ go run ./cmd/xkit init source D:\GoProjects\XAdmin\xadmin-web\source `
 D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml
 ```
 
+`source/api` 根目录下的普通文件会同时复制到目标项目的 `api/` 目录，供后续 `buf generate --template buf.gen.yaml` 等步骤使用。导入 `buf.gen.yaml` 时，`managed.override` 中的 `go_package_prefix` 和 `go_package` 会按目标项目 module 强制校正为 `<module>/api/gen...`，避免从旧项目复制来的 Go 包路径残留。
+
 如果目标位置已有旧的 proto、schema 或 config，默认会跳过。确认需要覆盖时再追加 `--force`。
 
 4. 在目标项目生成 API Go 代码：

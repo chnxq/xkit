@@ -30,7 +30,11 @@ Preferred layout:
 
 ```text
 source/
-  api/protos/
+  api/
+    buf.yaml
+    buf.gen.yaml
+    README.md
+    protos/
   schema/
 ```
 
@@ -45,9 +49,23 @@ Also supported:
 The command copies source files into the target project:
 
 ```text
-api/protos/                  <- source api/protos or protos
-internal/data/ent/schema/    <- source schema, data/schema, or internal/data/ent/schema
+api/*                         <- files directly under source api/
+api/protos/                   <- source api/protos or protos
+internal/data/ent/schema/     <- source schema, data/schema, or internal/data/ent/schema
 ```
+
+When copying `buf.gen.yaml`, `xkit init source` validates and forcibly rewrites Go package options under `managed.override`:
+
+- active `go_package_prefix` becomes `<target-module>/api/gen`
+- each `go_package` becomes `<target-module>/api/gen/<proto-path>;<go-package-name>`
+
+For example, `path: authentication/v1` in project `admin-01` is written as:
+
+```yaml
+value: admin-01/api/gen/authentication/v1;authentication
+```
+
+This correction is applied even when the target `api/buf.gen.yaml` already exists, so stale module names copied from another project do not block `buf generate`.
 
 Existing files are skipped by default. Use `--force` to overwrite them. Use `--dry-run` to print the write plan without changing the project.
 

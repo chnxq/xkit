@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/chnxq/xkit/internal/config"
@@ -15,6 +16,27 @@ func TestImportCopiesSourceAndGeneratesConfig(t *testing.T) {
 	sourceRoot := filepath.Join(projectRoot, "source")
 
 	writeTestFile(t, filepath.Join(projectRoot, "go.mod"), "module xadmin-web\n")
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.yaml"), "version: v2\n")
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.gen.yaml"), `version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: wrong-module/api/gen
+    - file_option: go_package
+      path: admin/v1
+      value: wrong-module/api/gen/admin/v1;wrongadmin
+    - file_option: go_package
+      path: authentication/v1
+      value: admin-02/api/gen/authentication/v1;wrongauth
+    - file_option: go_package
+      path: internal_message/v1
+      value: wrong-module/api/gen/internal_message/v1;wrongmessage
+plugins: []
+`)
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.lock"), "# lock\n")
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "README.md"), "source api notes\n")
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "notes.custom"), "any root file\n")
 	writeTestFile(t, filepath.Join(sourceRoot, "api", "protos", "admin", "v1", "i_user.proto"), `syntax = "proto3";
 package admin.service.v1;
 
@@ -120,6 +142,25 @@ func (UserCredential) Fields() []ent.Field {
 	}
 
 	assertFileExists(t, filepath.Join(projectRoot, "api", "protos", "admin", "v1", "i_user.proto"))
+	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.yaml"))
+	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.gen.yaml"))
+	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.lock"))
+	assertFileExists(t, filepath.Join(projectRoot, "api", "README.md"))
+	assertFileExists(t, filepath.Join(projectRoot, "api", "notes.custom"))
+	bufGen := readTestFile(t, filepath.Join(projectRoot, "api", "buf.gen.yaml"))
+	for _, expected := range []string{
+		"value: xadmin-web/api/gen\n",
+		"value: xadmin-web/api/gen/admin/v1;admin\n",
+		"value: xadmin-web/api/gen/authentication/v1;authentication\n",
+		"value: xadmin-web/api/gen/internal_message/v1;internalmessage\n",
+	} {
+		if !strings.Contains(bufGen, expected) {
+			t.Fatalf("buf.gen.yaml missing corrected value %q:\n%s", expected, bufGen)
+		}
+	}
+	if strings.Contains(bufGen, "admin-02") || strings.Contains(bufGen, "wrong-module") || strings.Contains(bufGen, "wrongauth") {
+		t.Fatalf("buf.gen.yaml should not keep stale go package values:\n%s", bufGen)
+	}
 	assertFileExists(t, filepath.Join(projectRoot, "internal", "data", "ent", "schema", "user.go"))
 	if result.ConfigPath != filepath.Join(sourceRoot, "xadmin-web-config", "admin.yaml") {
 		t.Fatalf("unexpected config path: %s", result.ConfigPath)
@@ -174,6 +215,7 @@ func TestImportDryRunDoesNotWriteFiles(t *testing.T) {
 	sourceRoot := filepath.Join(root, "source")
 
 	writeTestFile(t, filepath.Join(projectRoot, "go.mod"), "module example.com/app\n")
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.yaml"), "version: v2\n")
 	writeTestFile(t, filepath.Join(sourceRoot, "api", "protos", "admin", "v1", "i_role.proto"), `syntax = "proto3";
 package admin.service.v1;
 import "permission/v1/role.proto";
@@ -208,8 +250,75 @@ type Role struct{ ent.Schema }
 	if _, err := os.Stat(filepath.Join(projectRoot, "api", "protos", "admin", "v1", "i_role.proto")); !os.IsNotExist(err) {
 		t.Fatalf("dry-run should not write target proto, stat err=%v", err)
 	}
+	if _, err := os.Stat(filepath.Join(projectRoot, "api", "buf.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run should not write api root file, stat err=%v", err)
+	}
 	if _, err := os.Stat(result.ConfigPath); !os.IsNotExist(err) {
 		t.Fatalf("dry-run should not write config, stat err=%v", err)
+	}
+}
+
+func TestImportCorrectsExistingBufGenYAMLWithoutForce(t *testing.T) {
+	root := t.TempDir()
+	projectRoot := filepath.Join(root, "app")
+	sourceRoot := filepath.Join(root, "source")
+
+	writeTestFile(t, filepath.Join(projectRoot, "go.mod"), "module example.com/app\n")
+	targetBufGen := filepath.Join(projectRoot, "api", "buf.gen.yaml")
+	writeTestFile(t, targetBufGen, `version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package
+      path: admin/v1
+      value: stale-module/api/gen/admin/v1;stale
+plugins: []
+`)
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.gen.yaml"), `version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package
+      path: admin/v1
+      value: admin-02/api/gen/admin/v1;wrong
+plugins: []
+`)
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "protos", "admin", "v1", "i_role.proto"), `syntax = "proto3";
+package admin.service.v1;
+import "permission/v1/role.proto";
+service RoleService {
+  rpc Get (permission.service.v1.GetRoleRequest) returns (permission.service.v1.Role) {}
+}
+`)
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "protos", "permission", "v1", "role.proto"), `syntax = "proto3";
+package permission.service.v1;
+message Role {}
+message GetRoleRequest {}
+`)
+	writeTestFile(t, filepath.Join(sourceRoot, "schema", "role.go"), `package schema
+
+import "entgo.io/ent"
+
+type Role struct{ ent.Schema }
+`)
+
+	result, err := Import(Options{
+		SourceRoot:  sourceRoot,
+		ProjectRoot: projectRoot,
+		Service:     "admin",
+	})
+	if err != nil {
+		t.Fatalf("import source: %v", err)
+	}
+	if !slices.Contains(result.Written, targetBufGen) {
+		t.Fatalf("expected existing buf.gen.yaml to be corrected, written=%#v", result.Written)
+	}
+	bufGen := readTestFile(t, targetBufGen)
+	if !strings.Contains(bufGen, "value: example.com/app/api/gen/admin/v1;admin\n") {
+		t.Fatalf("buf.gen.yaml missing corrected go package:\n%s", bufGen)
+	}
+	if strings.Contains(bufGen, "admin-02") || strings.Contains(bufGen, "stale-module") || strings.Contains(bufGen, "wrong") {
+		t.Fatalf("buf.gen.yaml should not keep stale values:\n%s", bufGen)
 	}
 }
 
@@ -234,9 +343,25 @@ func writeTestFile(t *testing.T, path, content string) {
 	}
 }
 
+func readTestFile(t *testing.T, path string) string {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(content)
+}
+
 func assertFileExists(t *testing.T, path string) {
 	t.Helper()
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("expected %s to exist: %v", path, err)
+	}
+}
+
+func assertFileNotExists(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("expected %s not to exist, stat err=%v", path, err)
 	}
 }

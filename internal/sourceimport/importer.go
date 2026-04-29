@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	importpath "path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -36,8 +37,9 @@ type Result struct {
 }
 
 type sourceRoots struct {
-	Schema string
-	Proto  string
+	Schema  string
+	Proto   string
+	APIRoot string
 }
 
 type messageDef struct {
@@ -50,6 +52,10 @@ var (
 	oneofPattern   = regexp.MustCompile(`^\s*oneof\s+([A-Za-z0-9_]+)\s*\{`)
 	fieldPattern   = regexp.MustCompile(`^\s*(?:optional|required|repeated)?\s*([A-Za-z0-9_.<>]+)\s+([A-Za-z0-9_]+)\s*=\s*\d+`)
 	packagePattern = regexp.MustCompile(`^\s*package\s+([A-Za-z0-9_.]+)\s*;`)
+
+	yamlFileOptionPattern = regexp.MustCompile(`^(\s*(?:-\s*)?file_option:\s*)['"]?([A-Za-z0-9_]+)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
+	yamlPathPattern       = regexp.MustCompile(`^(\s*path:\s*)['"]?([^'"#\r\n]+)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
+	yamlValuePattern      = regexp.MustCompile(`^(\s*value:\s*)['"]?([^'"#\r\n]*)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
 )
 
 func Import(options Options) (Result, error) {
@@ -120,6 +126,9 @@ func Import(options Options) (Result, error) {
 	if err := copyTree(roots.Proto, filepath.Join(projectInfo.Root, "api", "protos"), options, &result); err != nil {
 		return result, err
 	}
+	if err := copyAPIRootFiles(roots.APIRoot, filepath.Join(projectInfo.Root, "api"), projectInfo.Module, options, &result); err != nil {
+		return result, err
+	}
 	if err := copyTree(roots.Schema, filepath.Join(projectInfo.Root, "internal", "data", "ent", "schema"), options, &result); err != nil {
 		return result, err
 	}
@@ -145,6 +154,10 @@ func findSourceRoots(sourceRoot string) (sourceRoots, error) {
 		filepath.Join(sourceRoot, "api", "protos"),
 		filepath.Join(sourceRoot, "protos"),
 	}
+	apiRoots := map[string]string{
+		filepath.Join(sourceRoot, "api", "protos"): filepath.Join(sourceRoot, "api"),
+		filepath.Join(sourceRoot, "protos"):        sourceRoot,
+	}
 
 	roots := sourceRoots{}
 	for _, candidate := range schemaCandidates {
@@ -156,6 +169,7 @@ func findSourceRoots(sourceRoot string) (sourceRoots, error) {
 	for _, candidate := range protoCandidates {
 		if isDir(candidate) {
 			roots.Proto = candidate
+			roots.APIRoot = apiRoots[candidate]
 			break
 		}
 	}
@@ -167,6 +181,149 @@ func findSourceRoots(sourceRoot string) (sourceRoots, error) {
 		return sourceRoots{}, fmt.Errorf("source root %s is missing api/protos or protos", sourceRoot)
 	}
 	return roots, nil
+}
+
+func copyAPIRootFiles(sourceRoot, targetRoot, module string, options Options, result *Result) error {
+	if sourceRoot == "" || !isDir(sourceRoot) {
+		return nil
+	}
+	entries, err := os.ReadDir(sourceRoot)
+	if err != nil {
+		return fmt.Errorf("read api root %s: %w", sourceRoot, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		sourcePath := filepath.Join(sourceRoot, name)
+		content, err := os.ReadFile(sourcePath)
+		if err != nil {
+			return fmt.Errorf("read source file %s: %w", sourcePath, err)
+		}
+		alwaysCorrect := false
+		if strings.EqualFold(name, "buf.gen.yaml") || strings.EqualFold(name, "buf.gen.yml") {
+			rewritten, err := rewriteBufGoPackages(content, module)
+			if err != nil {
+				return err
+			}
+			content = rewritten
+			alwaysCorrect = true
+		}
+		if err := writeFileWithPolicy(filepath.Join(targetRoot, name), content, options, result, alwaysCorrect); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func rewriteBufGoPackages(content []byte, module string) ([]byte, error) {
+	module = strings.TrimSpace(module)
+	if module == "" {
+		return content, nil
+	}
+
+	var document yaml.Node
+	if err := yaml.Unmarshal(content, &document); err != nil {
+		return nil, fmt.Errorf("parse buf.gen.yaml: %w", err)
+	}
+
+	changed := false
+	lines := strings.SplitAfter(string(content), "\n")
+	fileOption := ""
+	protoPath := ""
+	for index, line := range lines {
+		if matches := yamlFileOptionPattern.FindStringSubmatch(line); len(matches) == 4 {
+			fileOption = matches[2]
+			protoPath = ""
+			continue
+		}
+		if matches := yamlPathPattern.FindStringSubmatch(line); len(matches) == 4 {
+			if fileOption == "go_package" {
+				protoPath = strings.TrimSpace(matches[2])
+			}
+			continue
+		}
+		if len(yamlValuePattern.FindStringSubmatch(line)) == 0 {
+			continue
+		}
+
+		switch fileOption {
+		case "go_package_prefix":
+			expected := importpath.Join(module, "api", "gen")
+			rewritten := rewriteYAMLValueLine(line, expected)
+			if rewritten != line {
+				lines[index] = rewritten
+				changed = true
+			}
+		case "go_package":
+			if protoPath == "" {
+				continue
+			}
+			expected := importpath.Join(module, "api", "gen", strings.Trim(strings.ReplaceAll(protoPath, "\\", "/"), "/")) + ";" + goPackageName(protoPath)
+			rewritten := rewriteYAMLValueLine(line, expected)
+			if rewritten != line {
+				lines[index] = rewritten
+				changed = true
+			}
+		}
+	}
+
+	if !changed {
+		return content, nil
+	}
+	return []byte(strings.Join(lines, "")), nil
+}
+
+func rewriteYAMLValueLine(line, value string) string {
+	matches := yamlValuePattern.FindStringSubmatch(line)
+	if len(matches) != 4 {
+		return line
+	}
+	return matches[1] + value + matches[3]
+}
+
+func goPackageName(protoPath string) string {
+	parts := strings.Split(strings.Trim(strings.ReplaceAll(protoPath, "\\", "/"), "/"), "/")
+	for index := len(parts) - 1; index >= 0; index-- {
+		part := strings.TrimSpace(parts[index])
+		if part == "" || isVersionPathSegment(part) {
+			continue
+		}
+		return sanitizeGoPackageName(part)
+	}
+	return "pb"
+}
+
+func isVersionPathSegment(value string) bool {
+	if len(value) < 2 || value[0] != 'v' {
+		return false
+	}
+	for _, char := range value[1:] {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func sanitizeGoPackageName(value string) string {
+	var builder strings.Builder
+	for _, char := range strings.ToLower(value) {
+		switch {
+		case char >= 'a' && char <= 'z':
+			builder.WriteRune(char)
+		case char >= '0' && char <= '9':
+			builder.WriteRune(char)
+		case char == '_':
+			continue
+		}
+	}
+	out := builder.String()
+	if out == "" || (out[0] >= '0' && out[0] <= '9') {
+		return "pb" + out
+	}
+	return out
 }
 
 func copyTree(sourceRoot, targetRoot string, options Options, result *Result) error {
@@ -192,8 +349,12 @@ func copyTree(sourceRoot, targetRoot string, options Options, result *Result) er
 }
 
 func writeFile(path string, content []byte, options Options, result *Result) error {
+	return writeFileWithPolicy(path, content, options, result, false)
+}
+
+func writeFileWithPolicy(path string, content []byte, options Options, result *Result, overwriteExisting bool) error {
 	if existing, err := os.ReadFile(path); err == nil {
-		if bytes.Equal(existing, content) || !options.Force {
+		if bytes.Equal(existing, content) || (!options.Force && !overwriteExisting) {
 			result.Skipped = append(result.Skipped, path)
 			return nil
 		}

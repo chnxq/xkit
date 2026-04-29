@@ -141,10 +141,14 @@ Running `xkit gen all` before template initialization is intentionally incomplet
 Default source import behavior:
 
 - source proto root: `<source>/api/protos`
+- source API root files: files directly under `<source>/api`
 - source schema root: `<source>/schema`
+- target API root files: `<target>/api/*`
 - target proto root: `<target>/api/protos`
 - target schema root: `<target>/internal/data/ent/schema`
 - default config path: `<source>/<project-name>-config/<service>.yaml`
+
+`buf.gen.yaml` is normalized during import: Go package options are forced to the target module's `<module>/api/gen/...` import paths. This normalization is applied even when the target `api/buf.gen.yaml` already exists.
 
 For `xadmin-web`, the default admin config path is:
 
