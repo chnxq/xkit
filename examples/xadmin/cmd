@@ -24,25 +24,33 @@ go run ./cmd/xkit init template D:\GoProjects\XAdmin\xkit-template `
 go run ./cmd/xkit init source D:\GoProjects\XAdmin\xkit\examples\xadmin `
   --project D:\GoProjects\XAdmin\admin-02 `
   --service admin `
+  --typescript-project D:\GoProjects\XAdmin\admin-02-ui `
   --dry-run
 
 # 4. Import source and generate config.
 go run ./cmd/xkit init source D:\GoProjects\XAdmin\xkit\examples\xadmin `
   --project D:\GoProjects\XAdmin\admin-02 `
-  --service admin
+  --service admin `
+  --typescript-project D:\GoProjects\XAdmin\admin-02-ui
 
 # 5. Generate API Go code.
 cd D:\GoProjects\XAdmin\admin-02\api
 buf generate --template buf.gen.yaml
 
-# 6. Prepare dependencies before Ent generation.
+# 6. Generate OpenAPI document.
+buf generate --template buf.admin.openapi.gen.yaml
+
+# 7. Generate TypeScript API code.
+buf generate --template buf.vue.admin.typescript.gen.yaml
+
+# 8. Prepare dependencies before Ent generation.
 cd D:\GoProjects\XAdmin\admin-02
 go mod tidy
 
-# 7. Generate Ent code.
+# 9. Generate Ent code.
 go run -mod=mod entgo.io/ent/cmd/ent generate ./internal/data/ent/schema --feature privacy,sql/upsert,sql/versioned-migration
 
-# 8. Generate xkit dynamic code.
+# 10. Generate xkit dynamic code.
 cd D:\GoProjects\XAdmin\xkit
 go run ./cmd/xkit gen all admin `
   --project D:\GoProjects\XAdmin\admin-02 `
@@ -53,7 +61,7 @@ go run ./cmd/xkit gen all admin `
   --project D:\GoProjects\XAdmin\admin-02 `
   --config D:\GoProjects\XAdmin\xkit\examples\xadmin\admin-02-config\admin.yaml
 
-# 9. Final dependency update and verification.
+# 11. Final dependency update and verification.
 cd D:\GoProjects\XAdmin\admin-02
 go get -u all
 go mod tidy

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`xkit init source` imports raw schema and proto sources into a target project and derives the YAML config used by `xkit gen all`.
+`xkit init source` imports raw schema and proto sources into a target project and derives the YAML config used by `xkit gen all`. It also normalizes Buf output paths for generated artifacts that are owned outside the Go package tree, such as OpenAPI and TypeScript clients.
 
 This command exists because raw generation inputs may now live outside the active generated-code locations. For `xadmin-web`, the raw input directory is:
 
@@ -13,7 +13,7 @@ D:\GoProjects\XAdmin\xadmin-web\source
 ## Command
 
 ```text
-xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--force] [--dry-run]
+xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--typescript-project <path>] [--force] [--dry-run]
 ```
 
 Example:
@@ -21,7 +21,8 @@ Example:
 ```text
 xkit init source D:\GoProjects\XAdmin\xadmin-web\source \
   --project D:\GoProjects\XAdmin\xadmin-web \
-  --service admin
+  --service admin \
+  --typescript-project D:\GoProjects\XAdmin\xadmin-web-ui
 ```
 
 ## Source Layout
@@ -59,6 +60,14 @@ When copying `buf*.gen.yaml` or `buf*.gen.yml`, `xkit init source` validates and
 - active `go_package_prefix` becomes `<target-module>/api/gen`
 - each `go_package` becomes `<target-module>/api/gen/<proto-path>;<go-package-name>`
 - local proto package names that collide with generated Ent packages are version-suffixed, such as `permission/v1;permissionv1` and `task/v1;taskv1`
+- OpenAPI plugin output paths are normalized to `../cmd/server/assets`, so `buf generate --template buf.admin.openapi.gen.yaml` writes the document where the template embeds it.
+- TypeScript plugin output paths are normalized under the configured TypeScript project root. By default the root is a sibling of the Go project named `<project>-ui`, such as `D:\GoProjects\XAdmin\admin-02-ui`. Relative `--typescript-project` values are resolved beside the Go project.
+
+Current TypeScript output convention:
+
+```text
+buf.vue.<service>.typescript.gen.yaml -> <typescript-project>/apps/<service>/src/generated/api
+```
 
 For example, `path: authentication/v1` in project `admin-01` is written as:
 
@@ -121,6 +130,12 @@ Schemas without a matching service proto are skipped and listed in command outpu
 After import:
 
 ```text
+cd D:\GoProjects\XAdmin\xadmin-web\api
+buf generate --template buf.gen.yaml
+buf generate --template buf.admin.openapi.gen.yaml
+buf generate --template buf.vue.admin.typescript.gen.yaml
+
+cd D:\GoProjects\XAdmin\xkit
 xkit gen all admin \
   --project D:\GoProjects\XAdmin\xadmin-web \
   --config D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml

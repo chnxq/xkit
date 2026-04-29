@@ -23,7 +23,16 @@ managed:
   override:
     - file_option: go_package_prefix
       value: admin-01/api/gen
-plugins: []
+plugins:
+  - local: protoc-gen-openapi
+    out: ../app/admin-web/service/cmd/server/assets
+    opt:
+      - output_mode=merged
+`)
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.vue.admin.typescript.gen.yaml"), `version: v2
+plugins:
+  - local: protoc-gen-typescript-http
+    out: ../../xadmin-ui/apps/admin/src/generated/api
 `)
 	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.gen.yaml"), `version: v2
 managed:
@@ -165,6 +174,7 @@ func (UserCredential) Fields() []ent.Field {
 	assertFileExists(t, filepath.Join(projectRoot, "api", "protos", "admin", "v1", "i_user.proto"))
 	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.yaml"))
 	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.admin.openapi.gen.yaml"))
+	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.vue.admin.typescript.gen.yaml"))
 	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.gen.yaml"))
 	assertFileExists(t, filepath.Join(projectRoot, "api", "buf.lock"))
 	assertFileExists(t, filepath.Join(projectRoot, "api", "README.md"))
@@ -188,6 +198,16 @@ func (UserCredential) Fields() []ent.Field {
 	openapiBufGen := readTestFile(t, filepath.Join(projectRoot, "api", "buf.admin.openapi.gen.yaml"))
 	if !strings.Contains(openapiBufGen, "value: xadmin-web/api/gen\n") || strings.Contains(openapiBufGen, "admin-01") {
 		t.Fatalf("buf.*.gen.yaml should normalize go package values:\n%s", openapiBufGen)
+	}
+	if !strings.Contains(openapiBufGen, "out: ../cmd/server/assets\n") || strings.Contains(openapiBufGen, "../app/admin-web/service/cmd/server/assets") {
+		t.Fatalf("buf.*.openapi.gen.yaml should normalize openapi output:\n%s", openapiBufGen)
+	}
+	vueBufGen := readTestFile(t, filepath.Join(projectRoot, "api", "buf.vue.admin.typescript.gen.yaml"))
+	if !strings.Contains(vueBufGen, "out: ../../xadmin-web-ui/apps/admin/src/generated/api\n") || strings.Contains(vueBufGen, "xadmin-ui") {
+		t.Fatalf("vue typescript buf gen should normalize output:\n%s", vueBufGen)
+	}
+	if result.TypeScriptRoot != filepath.Join(root, "xadmin-web-ui") {
+		t.Fatalf("unexpected default typescript root: %s", result.TypeScriptRoot)
 	}
 	assertFileExists(t, filepath.Join(projectRoot, "internal", "data", "ent", "schema", "user.go"))
 	userSchema := readTestFile(t, filepath.Join(projectRoot, "internal", "data", "ent", "schema", "user.go"))
@@ -357,6 +377,54 @@ type Role struct{ ent.Schema }
 	}
 	if strings.Contains(bufGen, "admin-02") || strings.Contains(bufGen, "stale-module") || strings.Contains(bufGen, "wrong") {
 		t.Fatalf("buf.gen.yaml should not keep stale values:\n%s", bufGen)
+	}
+}
+
+func TestImportUsesConfiguredTypeScriptRoot(t *testing.T) {
+	root := t.TempDir()
+	projectRoot := filepath.Join(root, "app")
+	sourceRoot := filepath.Join(root, "source")
+
+	writeTestFile(t, filepath.Join(projectRoot, "go.mod"), "module example.com/app\n")
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "buf.vue.admin.typescript.gen.yaml"), `version: v2
+plugins:
+  - local: protoc-gen-typescript-http
+    out: ../../old-ui/apps/admin/src/generated/api
+`)
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "protos", "admin", "v1", "i_role.proto"), `syntax = "proto3";
+package admin.service.v1;
+import "permission/v1/role.proto";
+service RoleService {
+  rpc Get (permission.service.v1.GetRoleRequest) returns (permission.service.v1.Role) {}
+}
+`)
+	writeTestFile(t, filepath.Join(sourceRoot, "api", "protos", "permission", "v1", "role.proto"), `syntax = "proto3";
+package permission.service.v1;
+message Role {}
+message GetRoleRequest {}
+`)
+	writeTestFile(t, filepath.Join(sourceRoot, "schema", "role.go"), `package schema
+
+import "entgo.io/ent"
+
+type Role struct{ ent.Schema }
+`)
+
+	result, err := Import(Options{
+		SourceRoot:     sourceRoot,
+		ProjectRoot:    projectRoot,
+		Service:        "admin",
+		TypeScriptRoot: "frontend",
+	})
+	if err != nil {
+		t.Fatalf("import source: %v", err)
+	}
+	if result.TypeScriptRoot != filepath.Join(root, "frontend") {
+		t.Fatalf("unexpected configured typescript root: %s", result.TypeScriptRoot)
+	}
+	bufGen := readTestFile(t, filepath.Join(projectRoot, "api", "buf.vue.admin.typescript.gen.yaml"))
+	if !strings.Contains(bufGen, "out: ../../frontend/apps/admin/src/generated/api\n") {
+		t.Fatalf("typescript output should use configured root:\n%s", bufGen)
 	}
 }
 

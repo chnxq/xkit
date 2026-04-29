@@ -4,6 +4,7 @@ param(
     [string]$Module = "",
     [string]$AppName = "XAdmin",
     [string]$ServiceName = "admin",
+    [string]$TypeScriptRoot = "",
     [switch]$SkipDryRun,
     [switch]$SmokeTest
 )
@@ -17,12 +18,16 @@ if ([string]::IsNullOrWhiteSpace($Module)) {
     $Module = $ProjectName
 }
 $ProjectRoot = Join-Path $WorkspaceRoot $ProjectName
+if ([string]::IsNullOrWhiteSpace($TypeScriptRoot)) {
+    $TypeScriptRoot = Join-Path $WorkspaceRoot "$ProjectName-ui"
+}
 $ConfigPath = Join-Path $SourceRoot "$ProjectName-config\$ServiceName.yaml"
 
 Write-Host "WorkspaceRoot: $WorkspaceRoot"
 Write-Host "ProjectName:   $ProjectName"
 Write-Host "Module:        $Module"
 Write-Host "ProjectRoot:   $ProjectRoot"
+Write-Host "TypeScriptRoot:$TypeScriptRoot"
 Write-Host "ConfigPath:    $ConfigPath"
 
 function Invoke-Step {
@@ -65,6 +70,7 @@ try {
             go run ./cmd/xkit init source $SourceRoot `
                 --project $ProjectRoot `
                 --service $ServiceName `
+                --typescript-project $TypeScriptRoot `
                 --dry-run
         }
     }
@@ -72,13 +78,32 @@ try {
     Invoke-Step "Import source and generate config" {
         go run ./cmd/xkit init source $SourceRoot `
             --project $ProjectRoot `
-            --service $ServiceName
+            --service $ServiceName `
+            --typescript-project $TypeScriptRoot
     }
 
     Invoke-Step "Generate API Go code" {
         Push-Location (Join-Path $ProjectRoot "api")
         try {
             buf generate --template buf.gen.yaml
+        } finally {
+            Pop-Location
+        }
+    }
+
+    Invoke-Step "Generate OpenAPI document" {
+        Push-Location (Join-Path $ProjectRoot "api")
+        try {
+            buf generate --template buf.admin.openapi.gen.yaml
+        } finally {
+            Pop-Location
+        }
+    }
+
+    Invoke-Step "Generate TypeScript API code" {
+        Push-Location (Join-Path $ProjectRoot "api")
+        try {
+            buf generate --template buf.vue.admin.typescript.gen.yaml
         } finally {
             Pop-Location
         }

@@ -22,7 +22,7 @@
 
 ```text
 xkit init template [template-source] [--project <path>] [--module <module>] [--app-name <name>] [--command-name <name>] [--service-name <name>] [--force] [--dry-run] [--skip-go-get-update-all]
-xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--force] [--dry-run]
+xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--typescript-project <path>] [--force] [--dry-run]
 xkit gen service <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 xkit gen repo <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
@@ -81,11 +81,13 @@ go run ./cmd/xkit init template D:\GoProjects\XAdmin\xkit-template `
 go run ./cmd/xkit init source D:\GoProjects\XAdmin\xadmin-web\source `
   --project D:\GoProjects\XAdmin\xadmin-web `
   --service admin `
+  --typescript-project D:\GoProjects\XAdmin\xadmin-web-ui `
   --dry-run
 
 go run ./cmd/xkit init source D:\GoProjects\XAdmin\xadmin-web\source `
   --project D:\GoProjects\XAdmin\xadmin-web `
-  --service admin
+  --service admin `
+  --typescript-project D:\GoProjects\XAdmin\xadmin-web-ui
 ```
 
 默认配置输出路径：
@@ -103,6 +105,8 @@ D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml
 ```powershell
 cd D:\GoProjects\XAdmin\xadmin-web\api
 buf generate --template buf.gen.yaml
+buf generate --template buf.admin.openapi.gen.yaml
+buf generate --template buf.vue.admin.typescript.gen.yaml
 ```
 
 应看到 `api/gen/<domain>/v1/*.pb.go`、`*_grpc.pb.go`、`*_http.pb.go`。

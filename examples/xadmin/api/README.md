@@ -26,7 +26,6 @@ api/
 ├── buf.yaml                                 # Buf 模块/lint/breaking 配置
 ├── buf.gen.yaml                             # Go 代码生成配置
 ├── buf.admin.openapi.gen.yaml               # OpenAPI 生成配置（admin）
-├── buf.react.admin.typescript.gen.yaml      # React TS 客户端生成配置
 └── buf.vue.admin.typescript.gen.yaml        # Vue TS 客户端生成配置
 ```
 
@@ -91,21 +90,17 @@ buf generate --template buf.gen.yaml
 buf generate --template buf.admin.openapi.gen.yaml
 ```
 
-输出到：`../app/admin-web/service/cmd/server/assets`
+输出到：`../cmd/server/assets`
 
 ### 3) 生成前端 TypeScript HTTP 客户端
-
-React：
-
-```bash
-buf generate --template buf.react.admin.typescript.gen.yaml
-```
 
 Vue：
 
 ```bash
 buf generate --template buf.vue.admin.typescript.gen.yaml
 ```
+
+输出到：`../../admin-02-ui/apps/admin/src/generated/api`
 
 ## Buf 配置与依赖
 

@@ -54,4 +54,4 @@ plugins:
 #      - paths=source_relative # 使用相对路径
 
   - local: protoc-gen-typescript-http
-    out: ../../xadmin-ui/apps/admin/src/generated/api
+    out: ../../admin-02-ui/apps/admin/src/generated/api

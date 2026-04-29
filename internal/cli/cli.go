@@ -20,7 +20,7 @@ const defaultTemplateSource = "https://github.com/chnxq/xkit-template.git"
 
 const usageText = `Usage:
   xkit init template [template-source] [--project <path>] [--module <module>] [--app-name <name>] [--command-name <name>] [--service-name <name>] [--force] [--dry-run] [--skip-go-get-update-all]
-  xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--force] [--dry-run]
+  xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--typescript-project <path>] [--force] [--dry-run]
   xkit gen service <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen repo <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
@@ -145,11 +145,12 @@ func runInitTemplate(args []string) error {
 }
 
 type sourceOptions struct {
-	projectRoot string
-	serviceName string
-	configPath  string
-	force       bool
-	dryRun      bool
+	projectRoot    string
+	serviceName    string
+	configPath     string
+	typeScriptRoot string
+	force          bool
+	dryRun         bool
 }
 
 func runInitSource(args []string) error {
@@ -168,6 +169,7 @@ func runInitSource(args []string) error {
 	flagSet.StringVar(&options.projectRoot, "project", "", "target project root")
 	flagSet.StringVar(&options.serviceName, "service", "admin", "service name used in generated xkit config")
 	flagSet.StringVar(&options.configPath, "config", "", "path to write generated xkit config")
+	flagSet.StringVar(&options.typeScriptRoot, "typescript-project", "", "target TypeScript project root; relative paths are resolved beside the Go project")
 	flagSet.BoolVar(&options.force, "force", false, "overwrite existing target files")
 	flagSet.BoolVar(&options.dryRun, "dry-run", false, "plan file writes without modifying the target project")
 	if err := flagSet.Parse(args[1:]); err != nil {
@@ -185,13 +187,14 @@ func runInitSource(args []string) error {
 	}
 
 	result, err := sourceimport.Import(sourceimport.Options{
-		SourceRoot:  sourceRoot,
-		ProjectRoot: projectInfo.Root,
-		Module:      projectInfo.Module,
-		Service:     options.serviceName,
-		ConfigPath:  options.configPath,
-		Force:       options.force,
-		DryRun:      options.dryRun,
+		SourceRoot:     sourceRoot,
+		ProjectRoot:    projectInfo.Root,
+		Module:         projectInfo.Module,
+		Service:        options.serviceName,
+		ConfigPath:     options.configPath,
+		TypeScriptRoot: options.typeScriptRoot,
+		Force:          options.force,
+		DryRun:         options.dryRun,
 	})
 	if err != nil {
 		return err
@@ -322,6 +325,7 @@ func printSourceImportResult(dryRun bool, result sourceimport.Result) {
 		fmt.Printf("skipped resources without matching proto service: %s\n", strings.Join(result.SkippedResources, ", "))
 	}
 	fmt.Printf("config %s\n", result.ConfigPath)
+	fmt.Printf("typescript %s\n", result.TypeScriptRoot)
 }
 
 func printUsage(w io.Writer) {

@@ -20,13 +20,14 @@ import (
 )
 
 type Options struct {
-	SourceRoot  string
-	ProjectRoot string
-	Module      string
-	Service     string
-	ConfigPath  string
-	Force       bool
-	DryRun      bool
+	SourceRoot     string
+	ProjectRoot    string
+	Module         string
+	Service        string
+	ConfigPath     string
+	TypeScriptRoot string
+	Force          bool
+	DryRun         bool
 }
 
 type Result struct {
@@ -34,6 +35,7 @@ type Result struct {
 	Skipped          []string
 	SkippedResources []string
 	ConfigPath       string
+	TypeScriptRoot   string
 }
 
 type sourceRoots struct {
@@ -56,6 +58,8 @@ var (
 	yamlFileOptionPattern = regexp.MustCompile(`^(\s*(?:-\s*)?file_option:\s*)['"]?([A-Za-z0-9_]+)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
 	yamlPathPattern       = regexp.MustCompile(`^(\s*path:\s*)['"]?([^'"#\r\n]+)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
 	yamlValuePattern      = regexp.MustCompile(`^(\s*value:\s*)['"]?([^'"#\r\n]*)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
+	yamlPluginPattern     = regexp.MustCompile(`^(\s*-\s*(?:local|remote|protoc_builtin):\s*)['"]?([^'"#\r\n]+)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
+	yamlOutPattern        = regexp.MustCompile(`^(\s*out:\s*)['"]?([^'"#\r\n]*)['"]?(\s*(?:#.*)?(?:\r?\n)?)$`)
 	goAPIGenImportPattern = regexp.MustCompile(`"([^"\r\n]+/api/gen/([^"\r\n]+))"`)
 )
 
@@ -120,14 +124,20 @@ func Import(options Options) (Result, error) {
 	}
 	configPath = filepath.Clean(configPath)
 
+	typeScriptRoot, err := resolveTypeScriptRoot(projectInfo.Root, options.TypeScriptRoot)
+	if err != nil {
+		return Result{}, err
+	}
+
 	var result Result
 	result.ConfigPath = configPath
+	result.TypeScriptRoot = typeScriptRoot
 	result.SkippedResources = skipped
 
 	if err := copyTree(roots.Proto, filepath.Join(projectInfo.Root, "api", "protos"), options, &result); err != nil {
 		return result, err
 	}
-	if err := copyAPIRootFiles(roots.APIRoot, filepath.Join(projectInfo.Root, "api"), projectInfo.Module, options, &result); err != nil {
+	if err := copyAPIRootFiles(roots.APIRoot, filepath.Join(projectInfo.Root, "api"), projectInfo.Module, service, typeScriptRoot, options, &result); err != nil {
 		return result, err
 	}
 	if err := copySchemaTree(roots.Schema, filepath.Join(projectInfo.Root, "internal", "data", "ent", "schema"), roots.Proto, projectInfo.Module, options, &result); err != nil {
@@ -143,6 +153,17 @@ func Import(options Options) (Result, error) {
 	}
 
 	return result, nil
+}
+
+func resolveTypeScriptRoot(projectRoot, configured string) (string, error) {
+	configured = strings.TrimSpace(configured)
+	if configured == "" {
+		return filepath.Join(filepath.Dir(projectRoot), filepath.Base(projectRoot)+"-ui"), nil
+	}
+	if filepath.IsAbs(configured) {
+		return filepath.Clean(configured), nil
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(projectRoot), configured)), nil
 }
 
 func findSourceRoots(sourceRoot string) (sourceRoots, error) {
@@ -184,7 +205,7 @@ func findSourceRoots(sourceRoot string) (sourceRoots, error) {
 	return roots, nil
 }
 
-func copyAPIRootFiles(sourceRoot, targetRoot, module string, options Options, result *Result) error {
+func copyAPIRootFiles(sourceRoot, targetRoot, module, service, typeScriptRoot string, options Options, result *Result) error {
 	if sourceRoot == "" || !isDir(sourceRoot) {
 		return nil
 	}
@@ -208,7 +229,8 @@ func copyAPIRootFiles(sourceRoot, targetRoot, module string, options Options, re
 			if err != nil {
 				return err
 			}
-			content = rewritten
+			rewritten = rewriteBufOpenAPIOutput(rewritten)
+			content = rewriteBufTypeScriptOutput(rewritten, targetRoot, typeScriptRoot, name, service)
 			alwaysCorrect = true
 		}
 		if err := writeFileWithPolicy(filepath.Join(targetRoot, name), content, options, result, alwaysCorrect); err != nil {
@@ -289,6 +311,87 @@ func rewriteYAMLValueLine(line, value string) string {
 		return line
 	}
 	return matches[1] + value + matches[3]
+}
+
+func rewriteBufOpenAPIOutput(content []byte) []byte {
+	lines := strings.SplitAfter(string(content), "\n")
+	openAPIPlugin := false
+	changed := false
+	for index, line := range lines {
+		if matches := yamlPluginPattern.FindStringSubmatch(line); len(matches) == 4 {
+			openAPIPlugin = isOpenAPIPlugin(matches[2])
+			continue
+		}
+		if !openAPIPlugin {
+			continue
+		}
+		if matches := yamlOutPattern.FindStringSubmatch(line); len(matches) == 4 {
+			rewritten := matches[1] + "../cmd/server/assets" + matches[3]
+			if rewritten != line {
+				lines[index] = rewritten
+				changed = true
+			}
+			openAPIPlugin = false
+		}
+	}
+	if !changed {
+		return content
+	}
+	return []byte(strings.Join(lines, ""))
+}
+
+func isOpenAPIPlugin(name string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(name)), "openapi")
+}
+
+func rewriteBufTypeScriptOutput(content []byte, apiRoot, typeScriptRoot, fileName, service string) []byte {
+	lines := strings.SplitAfter(string(content), "\n")
+	typeScriptPlugin := false
+	changed := false
+	for index, line := range lines {
+		if matches := yamlPluginPattern.FindStringSubmatch(line); len(matches) == 4 {
+			typeScriptPlugin = isTypeScriptPlugin(matches[2])
+			continue
+		}
+		if !typeScriptPlugin {
+			continue
+		}
+		if matches := yamlOutPattern.FindStringSubmatch(line); len(matches) == 4 {
+			outputRoot := typeScriptOutputRoot(typeScriptRoot, fileName, service)
+			rewritten := matches[1] + bufRelativeOutputPath(apiRoot, outputRoot) + matches[3]
+			if rewritten != line {
+				lines[index] = rewritten
+				changed = true
+			}
+			typeScriptPlugin = false
+		}
+	}
+	if !changed {
+		return content
+	}
+	return []byte(strings.Join(lines, ""))
+}
+
+func isTypeScriptPlugin(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	return strings.Contains(name, "typescript") || strings.Contains(name, "ts_proto") || strings.Contains(name, "ts-proto")
+}
+
+func typeScriptOutputRoot(typeScriptRoot, fileName, service string) string {
+	service = strings.TrimSpace(service)
+	if service == "" {
+		service = "admin"
+	}
+
+	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "api", "generated")
+}
+
+func bufRelativeOutputPath(apiRoot, outputRoot string) string {
+	rel, err := filepath.Rel(apiRoot, outputRoot)
+	if err != nil {
+		return filepath.ToSlash(filepath.Clean(outputRoot))
+	}
+	return filepath.ToSlash(rel)
 }
 
 func goPackageName(protoPath string) string {

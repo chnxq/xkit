@@ -61,6 +61,8 @@ The template only maps project configuration and extension hooks onto those publ
 - `transport_config.go` contains shared config helpers and common middleware mapping.
 - `options.go` is intentionally small and preserved. It is the project-owned hook file for business HTTP/gRPC middleware only.
 
+Swagger UI is also template-owned startup behavior. Buf writes the OpenAPI document to `cmd/server/assets/openapi.yaml`; the template embeds that asset and serves Swagger UI at `/docs/` when `server.rest.enable_swagger` is true.
+
 `xkitpkg/server_utils` remains a useful reference for config-to-server mapping, but the template keeps direct `transport/*` construction so HTTP/gRPC/Asynq/SSE follow the same extension shape and projects can override options without replacing the constructor.
 
 ## Xkit-Generated Glue

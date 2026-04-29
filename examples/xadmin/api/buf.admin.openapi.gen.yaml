@@ -32,7 +32,7 @@ plugins:
 
   # generate openapi v3 yaml doc
   - local: protoc-gen-openapi
-    out: ../app/admin-web/service/cmd/server/assets
+    out: ../cmd/server/assets
     opt:
       - naming=json # 命名约定。使用"proto"则直接从proto文件传递名称。默认为：json
       - depth=2 # 循环消息的递归深度，默认为：2
