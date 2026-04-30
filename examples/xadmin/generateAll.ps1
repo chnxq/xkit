@@ -1,8 +1,8 @@
 param(
     [string]$WorkspaceRoot = "D:\GoProjects\XAdmin",
-    [string]$ProjectName = "xadmin",
+    [string]$ProjectName = "admin",
     [string]$Module = "",
-    [string]$AppName = "XAdmin",
+    [string]$AppName = "Admin",
     [string]$ServiceName = "admin",
     [string]$TypeScriptRoot = "",
     [switch]$SkipDryRun,
