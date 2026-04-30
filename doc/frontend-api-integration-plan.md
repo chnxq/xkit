@@ -78,6 +78,12 @@ D:\GoProjects\XAdmin
 - 第一轮资源页重构已开始：
   - `apps/web-antd/src/api/xadmin/users.ts` 已封装 `UserService` 的 list/create/update/delete/password API。
   - `apps/web-antd/src/views/system/user/index.vue` 已新增用户管理页面，页面只依赖手写 xadmin adapter，不直接调用 generated client。
+- 第二轮资源页重构已完成基础接入：
+  - `apps/web-antd/src/api/xadmin/roles.ts` 已封装 `RoleService` 的 list/create/update/delete API。
+  - `apps/web-antd/src/api/xadmin/menus.ts` 已封装 `MenuService` 的 list/create/update/delete API，并负责把后端平铺 `parentId` 菜单组装成树。
+  - `apps/web-antd/src/views/system/role/index.vue` 已新增角色管理页面。
+  - `apps/web-antd/src/views/system/menu/index.vue` 已新增菜单管理页面。
+  - `apps/web-antd/src/api/xadmin/portal.ts` 已修复动态路由可选字段为 `undefined` 时仍传入 Vue Router 的问题，避免登录后 `aliases is not iterable`。
 
 ## 生成代码边界
 
@@ -112,6 +118,9 @@ GET  /admin/v1/me
 GET  /admin/v1/routes
 GET  /admin/v1/perm-codes
 GET  /admin/v1/initial-context
+GET  /admin/v1/users
+GET  /admin/v1/roles
+GET  /admin/v1/menus
 ```
 
 生成客户端由 `protoc-gen-typescript-http` 输出，形态为：
@@ -153,6 +162,8 @@ apps/web-antd/src/api/xadmin/
   auth.ts                  <- login/logout/refresh/access-codes adapter
   user.ts                  <- UserInfo adapter
   users.ts                 <- UserService CRUD adapter
+  roles.ts                 <- RoleService CRUD adapter
+  menus.ts                 <- MenuService CRUD adapter
   portal.ts                <- menus/routes/permission codes adapter
   index.ts                 <- 手写导出入口
 ```
@@ -238,9 +249,11 @@ GET /admin/v1/routes
 ```text
 /dashboard/analytics/index -> apps/web-antd/src/views/dashboard/analytics/index.vue
 /system/user/index         -> apps/web-antd/src/views/system/user/index.vue
+/system/role/index         -> apps/web-antd/src/views/system/role/index.vue
+/system/menu/index         -> apps/web-antd/src/views/system/menu/index.vue
 ```
 
-当前 `xadmin/internal/server/manual_http.go` 中的 dashboard 与 system/user 菜单只是临时闭环实现；后续应替换为真实菜单数据。
+当前 `xadmin/internal/server/manual_http.go` 中的 dashboard 与 system/user/role/menu 菜单只是临时闭环实现；后续应替换为真实菜单数据。
 
 ## 分阶段实施
 
@@ -253,7 +266,11 @@ GET /admin/v1/routes
 7. 已完成：启动后端和前端，验证登录、用户信息、权限码、菜单端点。
 8. 已完成：将 `preferences.app.accessMode` 切到 `backend`，后端临时菜单下发 dashboard 与 system/user。
 9. 已完成：新增 `src/api/xadmin/users.ts` 与 `views/system/user/index.vue`，开始 User CRUD 页面重构。
-10. 下一步：用真实后端数据验证 User CRUD；再按 Role、Menu、Permission 等资源逐个实现页面。
+10. 已完成：修复后端菜单适配到 Vue Router 时的空 `alias` 崩溃，避免 `aliases is not iterable`。
+11. 已完成：新增 `src/api/xadmin/roles.ts` 与 `views/system/role/index.vue`，接入 Role CRUD 基础页面。
+12. 已完成：新增 `src/api/xadmin/menus.ts` 与 `views/system/menu/index.vue`，接入 Menu CRUD 基础页面和树形展示。
+13. 已完成：后端临时 manual 菜单补充 system/role 与 system/menu 入口；运行中的后端需重启后生效。
+14. 下一步：补 Permission 及权限分配交互，再继续 OrgUnit、Position、Tenant 等资源页面。
 
 ## 验证命令
 
@@ -274,12 +291,19 @@ pnpm -F @vben/web-antd run typecheck
 pnpm -F @vben/web-antd run dev
 ```
 
+当前已验证：
+
+```powershell
+pnpm -F @vben/web-antd run typecheck
+go test ./...
+```
+
 ## 待确认问题
 
 - 后端运行环境依赖是否已就绪，例如 PostgreSQL、Redis、OSS。
 - 登录响应是否始终为 OpenAPI 中的裸 `LoginResponse`，还是运行时会被统一包装为 `{ code, data, message }`。
 - `Logout` 是否只依赖 Authorization header，还是需要 refresh token。
-- 真实后端菜单 `component` 是否已经和 Vben views 路径一致；当前 manual 菜单仅覆盖 dashboard 与 system/user。
+- 真实后端菜单 `component` 是否已经和 Vben views 路径一致；当前 manual 菜单仅覆盖 dashboard 与 system/user/role/menu。
 - 后端权限码命名是否和 Vben `v-access` 使用规则一致。
 - 文件上传下载走 JSON、预签名 URL 还是二进制流。
 
