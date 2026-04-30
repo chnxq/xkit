@@ -24,6 +24,7 @@ service UserService {
   rpc Get (GetRequest) returns (GetResponse) {}
   rpc Count (CountRequest) returns (CountResponse) {}
   rpc Create (CreateUserRequest) returns (User) {}
+  rpc Update (UpdateUserRequest) returns (User) {}
   rpc Delete (DeleteUserRequest) returns (Empty) {}
   rpc UserExists (UserExistsRequest) returns (UserExistsResponse) {}
   rpc EditUserPassword (EditUserPasswordRequest) returns (Empty) {}
@@ -40,6 +41,7 @@ type UserServiceServer interface {
 	Get(context.Context, *v1.GetRequest) (*v1.GetResponse, error)
 	Count(context.Context, *v1.CountRequest) (*v1.CountResponse, error)
 	Create(context.Context, *v1.CreateUserRequest) (*v1.User, error)
+	Update(context.Context, *v1.UpdateUserRequest) (*v1.User, error)
 	Delete(context.Context, *v1.DeleteUserRequest) (*v1.Empty, error)
 	UserExists(context.Context, *v1.UserExistsRequest) (*v1.UserExistsResponse, error)
 	EditUserPassword(context.Context, *v1.EditUserPasswordRequest) (*v1.Empty, error)
@@ -115,6 +117,12 @@ func (User) Fields() []ent.Field {
 		field.String("username").Optional().Nillable(),
 		field.Enum("status").Optional().Nillable(),
 		field.Time("last_login_at").Optional().Nillable(),
+		field.Time("created_at").Optional().Nillable().Immutable(),
+		field.Time("updated_at").Optional().Nillable(),
+		field.Uint32("created_by").Optional().Nillable(),
+		field.Uint32("updated_by").Optional().Nillable(),
+		field.Time("deleted_at").Optional().Nillable(),
+		field.Uint32("deleted_by").Optional().Nillable(),
 	}
 }
 `)
@@ -302,8 +310,17 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoFile, "builder.SetNillableUsername(req.Data.Username)") {
 		t.Fatalf("repo file is missing generated username setter")
 	}
-	if strings.Contains(repoFile, "SetNillableCreatedAt") || strings.Contains(repoFile, "SetNillableDeletedAt") || strings.Contains(repoFile, "SetNillableDeletedBy") {
+	if strings.Contains(repoFile, "SetNillableCreatedAt") || strings.Contains(repoFile, "SetNillableUpdatedAt") || strings.Contains(repoFile, "SetNillableCreatedBy") || strings.Contains(repoFile, "SetNillableUpdatedBy") || strings.Contains(repoFile, "SetNillableDeletedAt") || strings.Contains(repoFile, "SetNillableDeletedBy") {
 		t.Fatalf("repo file should not generate unsafe audit/delete setters")
+	}
+	if !strings.Contains(repoFile, `"github.com/chnxq/x-crud/viewer"`) || !strings.Contains(repoFile, "func (r *userRepo) generatedAuditContext(ctx context.Context) (time.Time, crudviewer.Context)") {
+		t.Fatalf("repo file is missing generated audit context helper")
+	}
+	if !strings.Contains(repoFile, "now, viewer := r.generatedAuditContext(ctx)") || !strings.Contains(repoFile, "builder.SetCreatedAt(now)") || !strings.Contains(repoFile, "builder.SetUpdatedAt(now)") {
+		t.Fatalf("repo file is missing generated audit time setters")
+	}
+	if !strings.Contains(repoFile, "builder.SetCreatedBy(uint32(viewer.UserID()))") || !strings.Contains(repoFile, "builder.SetUpdatedBy(uint32(viewer.UserID()))") {
+		t.Fatalf("repo file is missing generated audit user setters")
 	}
 	if !strings.Contains(repoFile, "func userEnumPtrFromProto") || !strings.Contains(repoFile, "builder.SetNillableStatus(userEnumPtrFromProto[user.Status](req.Data.Status))") {
 		t.Fatalf("repo file is missing generated enum setter conversion")
@@ -350,7 +367,7 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(bootstrapFile, "type GeneratedData struct") || !strings.Contains(bootstrapFile, "type GeneratedServices struct") || !strings.Contains(bootstrapFile, "func NewGeneratedComponents") {
 		t.Fatalf("bootstrap generation should split data, services, and component assembly")
 	}
-	if !strings.Contains(bootstrapFile, "httpServer, err := server.NewHTTPServer") || !strings.Contains(bootstrapFile, "new generated grpc server") {
+	if !strings.Contains(bootstrapFile, "httpServer, err := server.NewHTTPServer(appCtx, components.Services.HTTP(), components.Data)") || !strings.Contains(bootstrapFile, "new generated grpc server") {
 		t.Fatalf("bootstrap generation should handle transport constructor errors")
 	}
 	if strings.Contains(bootstrapFile, "UserCredential:") {

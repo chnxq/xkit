@@ -75,6 +75,21 @@ func TestKnownMixinFields_PositionMixins(t *testing.T) {
 	assertField(t, knownMixinFields("SwitchStatus"), Field{Name: "status", Kind: "Enum", Nillable: true})
 }
 
+func TestKnownMixinFields_AuditAliasMixins(t *testing.T) {
+	t.Parallel()
+
+	assertField(t, knownMixinFields("CreatedAt"), Field{Name: "created_at", Kind: "Time", Optional: true, Nillable: true, Immutable: true})
+	assertField(t, knownMixinFields("UpdatedAt"), Field{Name: "updated_at", Kind: "Time", Optional: true, Nillable: true})
+	assertField(t, knownMixinFields("CreateTime"), Field{Name: "create_time", Kind: "Time", Optional: true, Nillable: true, Immutable: true})
+	assertField(t, knownMixinFields("UpdateTime"), Field{Name: "update_time", Kind: "Time", Optional: true, Nillable: true})
+	assertField(t, knownMixinFields("CreatedAtTimestamp"), Field{Name: "created_at", Kind: "Int64", Optional: true, Nillable: true, Immutable: true})
+	assertField(t, knownMixinFields("Timestamp"), Field{Name: "update_time", Kind: "Int64", Optional: true, Nillable: true})
+	assertField(t, knownMixinFields("CreatorId"), Field{Name: "creator_id", Kind: "Uint32", Optional: true, Nillable: true, Immutable: true})
+	assertField(t, knownMixinFields("CreateBy64"), Field{Name: "create_by", Kind: "Uint64", Optional: true, Nillable: true})
+	assertField(t, knownMixinFields("UpdatedBy"), Field{Name: "updated_by", Kind: "Uint32", Optional: true, Nillable: true})
+	assertField(t, knownMixinFields("AuditorID64"), Field{Name: "deleted_by", Kind: "Uint64", Optional: true, Nillable: true})
+}
+
 func assertField(t *testing.T, fields []Field, want Field) {
 	t.Helper()
 

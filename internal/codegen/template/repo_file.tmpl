@@ -129,6 +129,13 @@ func (r *{{ .RepoStructName }}) applyGeneratedFilters(builder *ent.{{ .EntOperat
 }
 {{end}}
 
+{{if .UsesAuditFields}}
+func (r *{{ .RepoStructName }}) generatedAuditContext(ctx context.Context) (time.Time, crudviewer.Context) {
+	viewer := crudviewer.MustFromContext(ctx)
+	return time.Now(), viewer
+}
+
+{{end}}
 {{range .Methods}}
 // {{ .Name }} is generated from the source proto contract.
 func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error) {
@@ -140,7 +147,17 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	}
 
 	builder := r.entClient.Client().{{ $.EntityName }}.Create()
+{{- if and .AuditUsesNow .AuditUsesViewer}}
+	now, viewer := r.generatedAuditContext(ctx)
+{{- else if .AuditUsesNow}}
+	now, _ := r.generatedAuditContext(ctx)
+{{- else if .AuditUsesViewer}}
+	_, viewer := r.generatedAuditContext(ctx)
+{{- end}}
 {{- range .Setters}}
+	builder.{{ .Method }}({{ .Expr }})
+{{- end}}
+{{- range .AuditSetters}}
 	builder.{{ .Method }}({{ .Expr }})
 {{- end}}
 
@@ -162,7 +179,17 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	}
 
 	builder := r.entClient.Client().{{ $.EntityName }}.UpdateOneID(req.GetId())
+{{- if and .AuditUsesNow .AuditUsesViewer}}
+	now, viewer := r.generatedAuditContext(ctx)
+{{- else if .AuditUsesNow}}
+	now, _ := r.generatedAuditContext(ctx)
+{{- else if .AuditUsesViewer}}
+	_, viewer := r.generatedAuditContext(ctx)
+{{- end}}
 {{- range .Setters}}
+	builder.{{ .Method }}({{ .Expr }})
+{{- end}}
+{{- range .AuditSetters}}
 	builder.{{ .Method }}({{ .Expr }})
 {{- end}}
 

@@ -108,7 +108,7 @@ func NewGeneratedComponents(appCtx *app.AppCtx) (*GeneratedComponents, func(), e
 }
 
 func (components *GeneratedComponents) Servers(appCtx *app.AppCtx) ([]transport.Server, error) {
-	httpServer, err := server.NewHTTPServer(appCtx, components.Services.HTTP())
+	httpServer, err := server.NewHTTPServer(appCtx, components.Services.HTTP(), components.Data)
 	if err != nil {
 		return nil, fmt.Errorf("new generated http server: %w", err)
 	}

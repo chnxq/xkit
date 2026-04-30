@@ -116,23 +116,101 @@ func knownMixinFields(name string) []Field {
 		return []Field{{Name: "id", Kind: "Uint32", Nillable: true, Immutable: true}}
 	case "AutoIncrementId64":
 		return []Field{{Name: "id", Kind: "Uint64", Nillable: true, Immutable: true}}
-	case "OperatorID":
+	case "CreatorId":
+		return []Field{{Name: "creator_id", Kind: "Uint32", Optional: true, Nillable: true, Immutable: true}}
+	case "CreateBy":
+		return []Field{{Name: "create_by", Kind: "Uint32", Optional: true, Nillable: true}}
+	case "CreateBy64":
+		return []Field{{Name: "create_by", Kind: "Uint64", Optional: true, Nillable: true}}
+	case "UpdateBy":
+		return []Field{{Name: "update_by", Kind: "Uint32", Optional: true, Nillable: true}}
+	case "UpdateBy64":
+		return []Field{{Name: "update_by", Kind: "Uint64", Optional: true, Nillable: true}}
+	case "DeleteBy":
+		return []Field{{Name: "delete_by", Kind: "Uint32", Optional: true, Nillable: true}}
+	case "DeleteBy64":
+		return []Field{{Name: "delete_by", Kind: "Uint64", Optional: true, Nillable: true}}
+	case "CreatedBy":
+		return []Field{{Name: "created_by", Kind: "Uint32", Optional: true, Nillable: true}}
+	case "CreatedBy64":
+		return []Field{{Name: "created_by", Kind: "Uint64", Optional: true, Nillable: true}}
+	case "UpdatedBy":
+		return []Field{{Name: "updated_by", Kind: "Uint32", Optional: true, Nillable: true}}
+	case "UpdatedBy64":
+		return []Field{{Name: "updated_by", Kind: "Uint64", Optional: true, Nillable: true}}
+	case "DeletedBy":
+		return []Field{{Name: "deleted_by", Kind: "Uint32", Optional: true, Nillable: true}}
+	case "DeletedBy64":
+		return []Field{{Name: "deleted_by", Kind: "Uint64", Optional: true, Nillable: true}}
+	case "OperatorID", "AuditorID":
 		return []Field{
 			{Name: "created_by", Kind: "Uint32", Optional: true, Nillable: true},
 			{Name: "updated_by", Kind: "Uint32", Optional: true, Nillable: true},
 			{Name: "deleted_by", Kind: "Uint32", Optional: true, Nillable: true},
 		}
-	case "OperatorID64":
+	case "OperatorID64", "AuditorID64":
 		return []Field{
 			{Name: "created_by", Kind: "Uint64", Optional: true, Nillable: true},
 			{Name: "updated_by", Kind: "Uint64", Optional: true, Nillable: true},
 			{Name: "deleted_by", Kind: "Uint64", Optional: true, Nillable: true},
 		}
+	case "CreatedAt":
+		return []Field{{Name: "created_at", Kind: "Time", Optional: true, Nillable: true, Immutable: true}}
+	case "UpdatedAt":
+		return []Field{{Name: "updated_at", Kind: "Time", Optional: true, Nillable: true}}
+	case "DeletedAt":
+		return []Field{{Name: "deleted_at", Kind: "Time", Optional: true, Nillable: true}}
 	case "TimeAt":
 		return []Field{
 			{Name: "created_at", Kind: "Time", Optional: true, Nillable: true, Immutable: true},
 			{Name: "updated_at", Kind: "Time", Optional: true, Nillable: true},
 			{Name: "deleted_at", Kind: "Time", Optional: true, Nillable: true},
+		}
+	case "CreateTime":
+		return []Field{{Name: "create_time", Kind: "Time", Optional: true, Nillable: true, Immutable: true}}
+	case "UpdateTime":
+		return []Field{{Name: "update_time", Kind: "Time", Optional: true, Nillable: true}}
+	case "DeleteTime":
+		return []Field{{Name: "delete_time", Kind: "Time", Optional: true, Nillable: true}}
+	case "Time":
+		return []Field{
+			{Name: "create_time", Kind: "Time", Optional: true, Nillable: true, Immutable: true},
+			{Name: "update_time", Kind: "Time", Optional: true, Nillable: true},
+			{Name: "delete_time", Kind: "Time", Optional: true, Nillable: true},
+		}
+	case "CreateTimestamp":
+		return []Field{{Name: "create_time", Kind: "Int64", Optional: true, Nillable: true, Immutable: true}}
+	case "UpdateTimestamp":
+		return []Field{{Name: "update_time", Kind: "Int64", Optional: true, Nillable: true}}
+	case "DeleteTimestamp":
+		return []Field{{Name: "delete_time", Kind: "Int64", Optional: true, Nillable: true}}
+	case "Timestamp":
+		return []Field{
+			{Name: "create_time", Kind: "Int64", Optional: true, Nillable: true, Immutable: true},
+			{Name: "update_time", Kind: "Int64", Optional: true, Nillable: true},
+			{Name: "delete_time", Kind: "Int64", Optional: true, Nillable: true},
+		}
+	case "CreatedAtTimestamp":
+		return []Field{{Name: "created_at", Kind: "Int64", Optional: true, Nillable: true, Immutable: true}}
+	case "UpdatedAtTimestamp":
+		return []Field{{Name: "updated_at", Kind: "Int64", Optional: true, Nillable: true}}
+	case "DeletedAtTimestamp":
+		return []Field{{Name: "deleted_at", Kind: "Int64", Optional: true, Nillable: true}}
+	case "TimestampAt":
+		return []Field{
+			{Name: "created_at", Kind: "Int64", Optional: true, Nillable: true, Immutable: true},
+			{Name: "updated_at", Kind: "Int64", Optional: true, Nillable: true},
+			{Name: "deleted_at", Kind: "Int64", Optional: true, Nillable: true},
+		}
+	case "SoftDelete":
+		return []Field{
+			{Name: "deleted_at", Kind: "Time", Optional: true, Nillable: true},
+			{Name: "delete_by", Kind: "Uint32", Optional: true, Nillable: true},
+		}
+	case "SoftDelete64":
+		return []Field{
+			{Name: "deleted_at", Kind: "Time", Optional: true, Nillable: true},
+			{Name: "delete_by", Kind: "Uint64", Optional: true, Nillable: true},
 		}
 	case "Remark":
 		return []Field{{Name: "remark", Kind: "String", Optional: true, Nillable: true}}

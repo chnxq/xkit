@@ -148,6 +148,7 @@ type repoTemplateData struct {
 	TimeHelperName   string
 	Filters          []filterData
 	UsesFilters      bool
+	UsesAuditFields  bool
 }
 
 type bootstrapTemplateData struct {
@@ -178,23 +179,26 @@ type bootstrapResourceData struct {
 }
 
 type repoMethodData struct {
-	Name           string
-	Params         []namedType
-	ResponseType   string
-	Kind           string
-	Body           string
-	Setters        []setterData
-	ReturnsValue   bool
-	IDExpr         string
-	ExistField     string
-	ViewMaskExpr   string
-	ListItemsField string
-	ListTotalField string
-	CountField     string
-	ExistsCases    []existsCaseData
-	NilReturn      string
-	ZeroReturn     string
-	UsesFilters    bool
+	Name            string
+	Params          []namedType
+	ResponseType    string
+	Kind            string
+	Body            string
+	Setters         []setterData
+	AuditSetters    []setterData
+	AuditUsesNow    bool
+	AuditUsesViewer bool
+	ReturnsValue    bool
+	IDExpr          string
+	ExistField      string
+	ViewMaskExpr    string
+	ListItemsField  string
+	ListTotalField  string
+	CountField      string
+	ExistsCases     []existsCaseData
+	NilReturn       string
+	ZeroReturn      string
+	UsesFilters     bool
 }
 
 type existsCaseData struct {
@@ -958,10 +962,17 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	}
 	filters := repoFilters(plan.Schema.Fields, plan.Resource.Filters.Allow)
 	usesFilters := len(filters) > 0
+	usesAuditFields := hasGeneratedAuditFields(plan.Schema.Fields)
 	if usesFilters {
 		imports = append(imports,
 			importSpec{Path: "strconv"},
 			importSpec{Alias: "paginationv1", Path: "github.com/chnxq/x-crud/api/gen/pagination/v1"},
+		)
+	}
+	if usesAuditFields {
+		imports = append(imports,
+			importSpec{Alias: "crudviewer", Path: "github.com/chnxq/x-crud/viewer"},
+			importSpec{Path: "time"},
 		)
 	}
 	usedAliases := make(map[string]struct{})
@@ -981,26 +992,30 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		enumHelperName := lowerFirst(entityName) + "EnumPtrFromProto"
 		timeHelperName := lowerFirst(entityName) + "TimePtrFromProto"
 		setters := repoSetters(plan.Schema.Fields, r.dtoFieldNames(dtoImport, dtoName), method.Name, strings.ToLower(entityName), enumHelperName, timeHelperName)
+		auditSetters := repoAuditSetters(plan.Schema.Fields, method.Name)
 		usesEnumSetter = usesEnumSetter || settersUseKind(setters, "Enum")
 		usesTimeSetter = usesTimeSetter || settersUseKind(setters, "Time")
 		methodData := repoMethodData{
-			Name:           method.Name,
-			Params:         nameParams(normalizedParams),
-			ResponseType:   firstResult(normalizedResults),
-			Kind:           kind,
-			Body:           r.repoMethodBody(plan, method.Name, nameParams(normalizedParams), firstResult(normalizedResults)),
-			Setters:        setters,
-			ReturnsValue:   firstResult(normalizedResults) == "*"+dtoType,
-			IDExpr:         "req.GetId()",
-			ExistField:     "Exist",
-			ViewMaskExpr:   "req.GetViewMask()",
-			ListItemsField: "Items",
-			ListTotalField: "Total",
-			CountField:     "Count",
-			ExistsCases:    existsCases(dtoAlias, requestParamType(normalizedParams), plan.Resource.ExistsFields),
-			NilReturn:      nilReturn(firstResult(normalizedResults)),
-			ZeroReturn:     zeroReturn(firstResult(normalizedResults)),
-			UsesFilters:    usesFilters,
+			Name:            method.Name,
+			Params:          nameParams(normalizedParams),
+			ResponseType:    firstResult(normalizedResults),
+			Kind:            kind,
+			Body:            r.repoMethodBody(plan, method.Name, nameParams(normalizedParams), firstResult(normalizedResults)),
+			Setters:         setters,
+			AuditSetters:    auditSetters,
+			AuditUsesNow:    auditSettersUseExpr(auditSetters, "now"),
+			AuditUsesViewer: auditSettersUseExprContains(auditSetters, "viewer."),
+			ReturnsValue:    firstResult(normalizedResults) == "*"+dtoType,
+			IDExpr:          "req.GetId()",
+			ExistField:      "Exist",
+			ViewMaskExpr:    "req.GetViewMask()",
+			ListItemsField:  "Items",
+			ListTotalField:  "Total",
+			CountField:      "Count",
+			ExistsCases:     existsCases(dtoAlias, requestParamType(normalizedParams), plan.Resource.ExistsFields),
+			NilReturn:       nilReturn(firstResult(normalizedResults)),
+			ZeroReturn:      zeroReturn(firstResult(normalizedResults)),
+			UsesFilters:     usesFilters,
 		}
 		methods = append(methods, methodData)
 
@@ -1018,8 +1033,10 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		imports = append(imports, importSpec{Alias: alias, Path: path})
 	}
 	if usesTimeSetter {
+		if !usesAuditFields {
+			imports = append(imports, importSpec{Path: "time"})
+		}
 		imports = append(imports,
-			importSpec{Path: "time"},
 			importSpec{Alias: "timestamppb", Path: "google.golang.org/protobuf/types/known/timestamppb"},
 		)
 	}
@@ -1044,6 +1061,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		TimeHelperName:   lowerFirst(entityName) + "TimePtrFromProto",
 		Filters:          filters,
 		UsesFilters:      usesFilters,
+		UsesAuditFields:  usesAuditFields,
 	}
 	data.Methods = methods
 
@@ -1492,6 +1510,119 @@ func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, method
 	return setters
 }
 
+func repoAuditSetters(fields []entschema.Field, methodName string) []setterData {
+	setters := make([]setterData, 0, len(fields))
+	for _, field := range fields {
+		auditKind := auditFieldKind(field.Name)
+		if auditKind == "" {
+			continue
+		}
+		switch methodName {
+		case "Create":
+			if auditKind != "create_time" && auditKind != "create_user" {
+				continue
+			}
+		case "Update":
+			if auditKind != "update_time" && auditKind != "update_user" {
+				continue
+			}
+		default:
+			continue
+		}
+		if !supportsGeneratedSetterKind(field.Kind) {
+			continue
+		}
+
+		method := "Set" + toGoName(field.Name)
+		expr := ""
+		switch auditKind {
+		case "create_time", "update_time":
+			expr = auditTimeExpr(field.Kind)
+			if expr == "" {
+				continue
+			}
+		case "create_user", "update_user":
+			expr = auditUserExpr(field.Kind)
+			if expr == "" {
+				continue
+			}
+		default:
+			continue
+		}
+
+		setters = append(setters, setterData{
+			Method: method,
+			Expr:   expr,
+			Kind:   field.Kind,
+		})
+	}
+	return setters
+}
+
+func auditTimeExpr(kind string) string {
+	switch kind {
+	case "Time":
+		return "now"
+	case "Int64":
+		return "now.UnixMilli()"
+	case "Uint64":
+		return "uint64(now.UnixMilli())"
+	default:
+		return ""
+	}
+}
+
+func hasGeneratedAuditFields(fields []entschema.Field) bool {
+	for _, field := range fields {
+		if auditFieldKind(field.Name) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func auditFieldKind(fieldName string) string {
+	switch fieldName {
+	case "created_at", "create_at", "create_time":
+		return "create_time"
+	case "updated_at", "update_at", "update_time":
+		return "update_time"
+	case "created_by", "create_by", "creator_id":
+		return "create_user"
+	case "updated_by", "update_by":
+		return "update_user"
+	default:
+		return ""
+	}
+}
+
+func auditUserExpr(kind string) string {
+	switch kind {
+	case "Uint":
+		return "uint(viewer.UserID())"
+	case "Uint8":
+		return "uint8(viewer.UserID())"
+	case "Uint16":
+		return "uint16(viewer.UserID())"
+	case "Uint32":
+		return "uint32(viewer.UserID())"
+	case "Uint64":
+		return "viewer.UserID()"
+	case "Int":
+		return "int(viewer.UserID())"
+	case "Int8":
+		return "int8(viewer.UserID())"
+	case "Int16":
+		return "int16(viewer.UserID())"
+	case "Int32":
+		return "int32(viewer.UserID())"
+	case "Int64":
+		return "int64(viewer.UserID())"
+	default:
+		return ""
+	}
+}
+
 func supportsGeneratedSetterKind(kind string) bool {
 	switch kind {
 	case "String", "Enum", "Time", "Bool", "Uint", "Uint8", "Uint16", "Uint32", "Uint64", "Int", "Int8", "Int16", "Int32", "Int64", "Float", "Float32":
@@ -1502,8 +1633,11 @@ func supportsGeneratedSetterKind(kind string) bool {
 }
 
 func skipGeneratedSetter(fieldName string) bool {
+	if auditFieldKind(fieldName) != "" {
+		return true
+	}
 	switch fieldName {
-	case "created_at", "deleted_at", "deleted_by":
+	case "deleted_at", "delete_at", "delete_time", "deleted_by", "delete_by":
 		return true
 	default:
 		return false
@@ -1513,6 +1647,24 @@ func skipGeneratedSetter(fieldName string) bool {
 func settersUseKind(setters []setterData, kind string) bool {
 	for _, setter := range setters {
 		if setter.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func auditSettersUseExpr(setters []setterData, expr string) bool {
+	for _, setter := range setters {
+		if setter.Expr == expr {
+			return true
+		}
+	}
+	return false
+}
+
+func auditSettersUseExprContains(setters []setterData, value string) bool {
+	for _, setter := range setters {
+		if strings.Contains(setter.Expr, value) {
 			return true
 		}
 	}
