@@ -76,6 +76,18 @@ func {{ .TimeHelperName }}(value *timestamppb.Timestamp) *time.Time {
 	return &out
 }
 {{end}}
+{{if .UsesFieldMaskHelper}}
+func {{ .FieldMaskHelperName }}(paths []string, candidates ...string) bool {
+	for _, path := range paths {
+		for _, candidate := range candidates {
+			if path == candidate {
+				return true
+			}
+		}
+	}
+	return false
+}
+{{end}}
 {{if .UsesFilters}}
 func (r *{{ .RepoStructName }}) applyGeneratedFilters(builder *ent.{{ .EntOperationName }}Query, req *paginationv1.PagingRequest) error {
 	if req == nil || req.GetFilterExpr() == nil {
@@ -155,7 +167,15 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	_, viewer := r.generatedAuditContext(ctx)
 {{- end}}
 {{- range .Setters}}
+{{- if .Condition}}
+	if {{ .Condition }} {
 	builder.{{ .Method }}({{ .Expr }})
+	}{{if .ClearCondition}} else if {{ .ClearCondition }} {
+		builder.{{ .ClearMethod }}()
+	}{{end}}
+{{- else}}
+	builder.{{ .Method }}({{ .Expr }})
+{{- end}}
 {{- end}}
 {{- range .AuditSetters}}
 	builder.{{ .Method }}({{ .Expr }})
@@ -187,7 +207,15 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	_, viewer := r.generatedAuditContext(ctx)
 {{- end}}
 {{- range .Setters}}
+{{- if .Condition}}
+	if {{ .Condition }} {
 	builder.{{ .Method }}({{ .Expr }})
+	}{{if .ClearCondition}} else if {{ .ClearCondition }} {
+		builder.{{ .ClearMethod }}()
+	}{{end}}
+{{- else}}
+	builder.{{ .Method }}({{ .Expr }})
+{{- end}}
 {{- end}}
 {{- range .AuditSetters}}
 	builder.{{ .Method }}({{ .Expr }})

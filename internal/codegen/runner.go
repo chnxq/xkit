@@ -144,8 +144,10 @@ type repoTemplateData struct {
 	Fields           []entschema.Field
 	UsesEnumSetter   bool
 	UsesTimeSetter   bool
+	UsesFieldMaskHelper bool
 	EnumHelperName   string
 	TimeHelperName   string
+	FieldMaskHelperName string
 	Filters          []filterData
 	UsesFilters      bool
 	UsesAuditFields  bool
@@ -211,6 +213,9 @@ type setterData struct {
 	Method string
 	Expr   string
 	Kind   string
+	Condition      string
+	ClearMethod    string
+	ClearCondition string
 }
 
 type filterData struct {
@@ -991,7 +996,8 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		normalizedResults := normalizeTypeAliases(method.Results, plan.Binding.Imports, dtoImport, dtoAlias)
 		enumHelperName := lowerFirst(entityName) + "EnumPtrFromProto"
 		timeHelperName := lowerFirst(entityName) + "TimePtrFromProto"
-		setters := repoSetters(plan.Schema.Fields, r.dtoFieldNames(dtoImport, dtoName), method.Name, strings.ToLower(entityName), enumHelperName, timeHelperName)
+		maskHelperName := lowerFirst(entityName) + "FieldMaskContains"
+		setters := repoSetters(plan.Schema.Fields, r.dtoFieldNames(dtoImport, dtoName), method.Name, strings.ToLower(entityName), enumHelperName, timeHelperName, maskHelperName)
 		auditSetters := repoAuditSetters(plan.Schema.Fields, method.Name)
 		usesEnumSetter = usesEnumSetter || settersUseKind(setters, "Enum")
 		usesTimeSetter = usesTimeSetter || settersUseKind(setters, "Time")
@@ -1040,6 +1046,13 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 			importSpec{Alias: "timestamppb", Path: "google.golang.org/protobuf/types/known/timestamppb"},
 		)
 	}
+	usesFieldMaskHelper := false
+	for _, method := range methods {
+		if settersNeedFieldMaskHelper(method.Setters) {
+			usesFieldMaskHelper = true
+			break
+		}
+	}
 
 	data := repoTemplateData{
 		templateBase:     r.templateBase(),
@@ -1057,8 +1070,10 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		Fields:           plan.Schema.Fields,
 		UsesEnumSetter:   usesEnumSetter,
 		UsesTimeSetter:   usesTimeSetter,
+		UsesFieldMaskHelper: usesFieldMaskHelper,
 		EnumHelperName:   lowerFirst(entityName) + "EnumPtrFromProto",
 		TimeHelperName:   lowerFirst(entityName) + "TimePtrFromProto",
+		FieldMaskHelperName: lowerFirst(entityName) + "FieldMaskContains",
 		Filters:          filters,
 		UsesFilters:      usesFilters,
 		UsesAuditFields:  usesAuditFields,
@@ -1458,7 +1473,7 @@ func (r *Runner) dtoFieldNames(importPath, typeName string) map[string]struct{} 
 	return out
 }
 
-func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, methodName, entPackage, enumHelperName, timeHelperName string) []setterData {
+func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, methodName, entPackage, enumHelperName, timeHelperName, fieldMaskHelperName string) []setterData {
 	setters := make([]setterData, 0, len(fields))
 	for _, field := range fields {
 		if field.Name == "id" {
@@ -1480,34 +1495,92 @@ func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, method
 				continue
 			}
 		}
-		method := "Set" + entName
-		expr := "req.Data." + dtoName
-		kind := field.Kind
-		if field.Optional {
-			method = "SetNillable" + entName
-		}
-		switch field.Kind {
-		case "Enum":
-			expr = fmt.Sprintf("%s[%s.%s](req.Data.%s)", enumHelperName, entPackage, entName, dtoName)
-		case "Time":
-			expr = timeHelperName + "(req.Data." + dtoName + ")"
-		}
+		directMethod := "Set" + entName
+		directExpr := directSetterExpr(field.Kind, entPackage, entName, dtoName, enumHelperName, timeHelperName)
 		if !field.Optional {
-			expr = "req.Data.Get" + dtoName + "()"
-			switch field.Kind {
-			case "Enum":
-				expr = fmt.Sprintf("%s.%s(req.Data.Get%s().String())", entPackage, entName, dtoName)
-			case "Time":
-				expr = "req.Data.Get" + dtoName + "().AsTime()"
+			setters = append(setters, setterData{
+				Method: directMethod,
+				Expr:   directExpr,
+				Kind:   field.Kind,
+			})
+			continue
+		}
+		if methodName == "Create" {
+			if field.Nillable {
+				setters = append(setters, setterData{
+					Method: "SetNillable" + entName,
+					Expr:   nillableSetterExpr(field.Kind, dtoName, entPackage, entName, enumHelperName, timeHelperName),
+					Kind:   field.Kind,
+				})
+				continue
 			}
+			setters = append(setters, setterData{
+				Method:    directMethod,
+				Expr:      directExpr,
+				Kind:      field.Kind,
+				Condition: "req.Data." + dtoName + " != nil",
+			})
+			continue
+		}
+		updateMethod := directMethod
+		updateExpr := directExpr
+		if field.Nillable {
+			updateMethod = "SetNillable" + entName
+			updateExpr = nillableSetterExpr(field.Kind, dtoName, entPackage, entName, enumHelperName, timeHelperName)
 		}
 		setters = append(setters, setterData{
-			Method: method,
-			Expr:   expr,
-			Kind:   kind,
+			Method:         updateMethod,
+			Expr:           updateExpr,
+			Kind:           field.Kind,
+			Condition:      "req.Data." + dtoName + " != nil",
+			ClearMethod:    "Clear" + entName,
+			ClearCondition: optionalFieldClearCondition(fieldMaskHelperName, field.Name),
 		})
 	}
 	return setters
+}
+
+func directSetterExpr(kind, entPackage, entName, dtoName, enumHelperName, timeHelperName string) string {
+	switch kind {
+	case "Enum":
+		return fmt.Sprintf("%s.%s(req.Data.Get%s().String())", entPackage, entName, dtoName)
+	case "Time":
+		return "req.Data.Get" + dtoName + "().AsTime()"
+	default:
+		return "req.Data.Get" + dtoName + "()"
+	}
+}
+
+func nillableSetterExpr(kind, dtoName, entPackage, entName, enumHelperName, timeHelperName string) string {
+	switch kind {
+	case "Enum":
+		return fmt.Sprintf("%s[%s.%s](req.Data.%s)", enumHelperName, entPackage, entName, dtoName)
+	case "Time":
+		return timeHelperName + "(req.Data." + dtoName + ")"
+	default:
+		return "req.Data." + dtoName
+	}
+}
+
+func optionalFieldClearCondition(helperName, fieldName string) string {
+	return fmt.Sprintf("req.GetUpdateMask() != nil && %s(req.GetUpdateMask().GetPaths(), %s)", helperName, quotedStringList(fieldMaskCandidates(fieldName)))
+}
+
+func fieldMaskCandidates(fieldName string) []string {
+	candidates := []string{fieldName}
+	camel := lowerFirst(toPascal(fieldName))
+	if camel != fieldName {
+		candidates = append(candidates, camel)
+	}
+	return candidates
+}
+
+func quotedStringList(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, value := range values {
+		quoted = append(quoted, fmt.Sprintf("%q", value))
+	}
+	return strings.Join(quoted, ", ")
 }
 
 func repoAuditSetters(fields []entschema.Field, methodName string) []setterData {
@@ -1625,11 +1698,20 @@ func auditUserExpr(kind string) string {
 
 func supportsGeneratedSetterKind(kind string) bool {
 	switch kind {
-	case "String", "Enum", "Time", "Bool", "Uint", "Uint8", "Uint16", "Uint32", "Uint64", "Int", "Int8", "Int16", "Int32", "Int64", "Float", "Float32":
+	case "String", "Enum", "Time", "Bool", "Uint", "Uint8", "Uint16", "Uint32", "Uint64", "Int", "Int8", "Int16", "Int32", "Int64", "Float", "Float32", "JSON":
 		return true
 	default:
 		return false
 	}
+}
+
+func settersNeedFieldMaskHelper(setters []setterData) bool {
+	for _, setter := range setters {
+		if setter.ClearCondition != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func skipGeneratedSetter(fieldName string) bool {

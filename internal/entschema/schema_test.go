@@ -68,11 +68,55 @@ func (User) Mixin() []ent.Mixin {
 	assertField(t, user.Fields, Field{Name: "remark", Kind: "String", Optional: true, Nillable: true})
 }
 
+func TestLoad_ParsesJSONFieldWithTypeArgument(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "internal", "data", "ent", "schema", "menu.go")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir schema dir: %v", err)
+	}
+
+	content := `package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/field"
+	resourceV1 "example.com/xadmin/api/gen/resource/v1"
+)
+
+type Menu struct { ent.Schema }
+
+func (Menu) Fields() []ent.Field {
+	return []ent.Field{
+		field.JSON("meta", &resourceV1.MenuMeta{}).Optional(),
+	}
+}
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+
+	items, err := Load(root)
+	if err != nil {
+		t.Fatalf("load schema: %v", err)
+	}
+
+	menu, ok := items["Menu"]
+	if !ok {
+		t.Fatalf("missing Menu schema")
+	}
+	assertField(t, menu.Fields, Field{Name: "meta", Kind: "JSON", Optional: true})
+}
+
 func TestKnownMixinFields_PositionMixins(t *testing.T) {
 	t.Parallel()
 
 	assertField(t, knownMixinFields("SortOrder"), Field{Name: "sort_order", Kind: "Uint32", Optional: true, Nillable: true})
 	assertField(t, knownMixinFields("SwitchStatus"), Field{Name: "status", Kind: "Enum", Nillable: true})
+	assertField(t, knownMixinFields("Tree"), Field{Name: "parent_id", Kind: "Uint32", Optional: true, Nillable: true})
+	assertField(t, knownMixinFields("TreePath"), Field{Name: "path", Kind: "String", Optional: true, Nillable: true})
+	assertField(t, knownMixinFields("TreePathIDs"), Field{Name: "ancestor_ids", Kind: "JSON", Optional: true})
 }
 
 func TestKnownMixinFields_AuditAliasMixins(t *testing.T) {

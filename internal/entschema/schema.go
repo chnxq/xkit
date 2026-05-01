@@ -25,7 +25,7 @@ type Field struct {
 
 var (
 	typePattern          = regexp.MustCompile(`type\s+([A-Z][A-Za-z0-9_]*)\s+struct\s*\{`)
-	fieldPattern         = regexp.MustCompile(`field\.([A-Za-z0-9_]+)\("([^"]+)"\)`)
+	fieldPattern         = regexp.MustCompile(`field\.([A-Za-z0-9_]+)\("([^"]+)"(?:\s*,[\s\S]*?)?\)`)
 	mixinPattern         = regexp.MustCompile(`mixin\.([A-Za-z0-9_]+)(?:\[[^\]]+\])?\s*\{\s*\}`)
 	optionalCallPattern  = regexp.MustCompile(`\.\s*Optional\s*\(\s*\)`)
 	nillableCallPattern  = regexp.MustCompile(`\.\s*Nillable\s*\(\s*\)`)
@@ -220,6 +220,14 @@ func knownMixinFields(name string) []Field {
 		return []Field{{Name: "sort_order", Kind: "Uint32", Optional: true, Nillable: true}}
 	case "SwitchStatus":
 		return []Field{{Name: "status", Kind: "Enum", Nillable: true}}
+	case "ParentID", "Tree":
+		return []Field{{Name: "parent_id", Kind: "Uint32", Optional: true, Nillable: true}}
+	case "TreePath":
+		return []Field{{Name: "path", Kind: "String", Optional: true, Nillable: true}}
+	case "TreePathIDs":
+		return []Field{{Name: "ancestor_ids", Kind: "JSON", Optional: true}}
+	case "TreePathIDs64":
+		return []Field{{Name: "ancestor_ids", Kind: "JSON", Optional: true}}
 	default:
 		return nil
 	}

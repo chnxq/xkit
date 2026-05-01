@@ -83,11 +83,84 @@ type ResetCredentialRequest struct{}
 type UserCredential struct{}
 type Empty struct{}
 `)
+	writeFile(t, filepath.Join(root, "api", "gen", "identity", "v1", "user.pb.go"), `package identityv1
+
+type User struct {
+	Username    *string
+	Status      *User_Status
+	LastLoginAt *Timestamp
+	ParentId    *uint32
+	Path        *string
+	Meta        *UserMeta
+}
+
+type UserMeta struct {
+	Title *string
+}
+
+type User_Status string
+
+func (x *User) GetUsername() string {
+	if x != nil && x.Username != nil {
+		return *x.Username
+	}
+	return ""
+}
+
+func (x *User) GetStatus() User_Status {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *User_Status) String() string {
+	if x == nil {
+		return ""
+	}
+	return string(*x)
+}
+
+func (x *User) GetLastLoginAt() *Timestamp {
+	if x != nil && x.LastLoginAt != nil {
+		return x.LastLoginAt
+	}
+	return &Timestamp{}
+}
+
+func (x *User) GetParentId() uint32 {
+	if x != nil && x.ParentId != nil {
+		return *x.ParentId
+	}
+	return 0
+}
+
+func (x *User) GetPath() string {
+	if x != nil && x.Path != nil {
+		return *x.Path
+	}
+	return ""
+}
+
+func (x *User) GetMeta() *UserMeta {
+	if x != nil {
+		return x.Meta
+	}
+	return nil
+}
+
+type Timestamp struct{}
+
+func (*Timestamp) AsTime() Time { return Time{} }
+
+type Time struct{}
+`)
 	writeFile(t, filepath.Join(root, "internal", "data", "ent", "schema", "user_credential.go"), `package schema
 
 import (
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
+	"github.com/chnxq/x-crud/entgo/mixin"
 )
 
 type UserCredential struct { ent.Schema }
@@ -112,17 +185,25 @@ import (
 
 type User struct { ent.Schema }
 
-func (User) Fields() []ent.Field {
-	return []ent.Field{
-		field.String("username").Optional().Nillable(),
-		field.Enum("status").Optional().Nillable(),
-		field.Time("last_login_at").Optional().Nillable(),
-		field.Time("created_at").Optional().Nillable().Immutable(),
-		field.Time("updated_at").Optional().Nillable(),
-		field.Uint32("created_by").Optional().Nillable(),
+	func (User) Fields() []ent.Field {
+		return []ent.Field{
+			field.String("username").Optional().Nillable(),
+			field.Enum("status").Optional().Nillable(),
+			field.Time("last_login_at").Optional().Nillable(),
+			field.JSON("meta", &struct{}{}).Optional(),
+			field.Time("created_at").Optional().Nillable().Immutable(),
+			field.Time("updated_at").Optional().Nillable(),
+			field.Uint32("created_by").Optional().Nillable(),
 		field.Uint32("updated_by").Optional().Nillable(),
 		field.Time("deleted_at").Optional().Nillable(),
 		field.Uint32("deleted_by").Optional().Nillable(),
+	}
+}
+
+func (User) Mixin() []ent.Mixin {
+	return []ent.Mixin{
+		mixin.Tree[User]{},
+		mixin.TreePath{},
 	}
 }
 `)
@@ -309,6 +390,12 @@ return {{successReturn}}, nil`,
 	}
 	if !strings.Contains(repoFile, "builder.SetNillableUsername(req.Data.Username)") {
 		t.Fatalf("repo file is missing generated username setter")
+	}
+	if !strings.Contains(repoFile, "builder.SetNillableParentID(req.Data.ParentId)") || !strings.Contains(repoFile, "builder.SetNillablePath(req.Data.Path)") {
+		t.Fatalf("repo file is missing generated tree mixin setters")
+	}
+	if !strings.Contains(repoFile, "if req.Data.Meta != nil {") || !strings.Contains(repoFile, "builder.SetMeta(req.Data.GetMeta())") || !strings.Contains(repoFile, "builder.ClearMeta()") {
+		t.Fatalf("repo file is missing generated JSON field setter and clear logic")
 	}
 	if strings.Contains(repoFile, "SetNillableCreatedAt") || strings.Contains(repoFile, "SetNillableUpdatedAt") || strings.Contains(repoFile, "SetNillableCreatedBy") || strings.Contains(repoFile, "SetNillableUpdatedBy") || strings.Contains(repoFile, "SetNillableDeletedAt") || strings.Contains(repoFile, "SetNillableDeletedBy") {
 		t.Fatalf("repo file should not generate unsafe audit/delete setters")
