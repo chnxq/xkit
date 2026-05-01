@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -23,6 +24,7 @@ type TemplateOptions struct {
 	ServiceName  string
 	Force        bool
 	DryRun       bool
+	GeneratedAt  time.Time
 }
 
 type TemplateResult struct {
@@ -65,6 +67,11 @@ func ApplyTemplate(options TemplateOptions) (TemplateResult, error) {
 		return TemplateResult{}, err
 	}
 	options = fillTemplateDefaults(options, manifest, projectRoot)
+	generatedAt := options.GeneratedAt
+	if generatedAt.IsZero() {
+		generatedAt = time.Now()
+	}
+	templateSource := templateSourceName(options.TemplateRoot)
 
 	files, err := collectTemplateFiles(templateRoot, manifest)
 	if err != nil {
@@ -79,7 +86,15 @@ func ApplyTemplate(options TemplateOptions) (TemplateResult, error) {
 		if exists(targetPath) {
 			preserved := matchesAny(rel, manifest.Preserve)
 			if !options.Force || (preserved && !isGeneratedByXkit(targetPath)) {
-				result.Skipped = append(result.Skipped, targetPath)
+				annotated, err := annotateExistingTemplateGoFile(rel, targetPath, templateSource, generatedAt, options.DryRun)
+				if err != nil {
+					return result, err
+				}
+				if annotated {
+					result.Written = append(result.Written, targetPath)
+				} else {
+					result.Skipped = append(result.Skipped, targetPath)
+				}
 				continue
 			}
 		}
@@ -89,6 +104,7 @@ func ApplyTemplate(options TemplateOptions) (TemplateResult, error) {
 			return result, fmt.Errorf("read template file %s: %w", sourcePath, err)
 		}
 		rendered := renderTemplateContent(content, options, manifest)
+		rendered = annotateTemplateGoFile(rel, rendered, templateSource, generatedAt)
 
 		if options.DryRun {
 			result.Written = append(result.Written, targetPath)
@@ -353,6 +369,75 @@ func renderTemplateContent(content []byte, options TemplateOptions, manifest Man
 	}
 
 	return []byte(rendered)
+}
+
+func annotateTemplateGoFile(rel string, content []byte, source string, generatedAt time.Time) []byte {
+	if path.Ext(filepath.ToSlash(rel)) != ".go" || hasGeneratedCodeHeader(content) {
+		return content
+	}
+	source = strings.TrimSpace(source)
+	if source == "" {
+		source = "template"
+	}
+	if generatedAt.IsZero() {
+		generatedAt = time.Now()
+	}
+	header := fmt.Sprintf(
+		"// Code generated from: %s.\n// generated at        %s.\n\n",
+		source,
+		generatedAt.Format("2006-01-02 15:04:05 MST"),
+	)
+	return append([]byte(header), content...)
+}
+
+func annotateExistingTemplateGoFile(rel, targetPath, source string, generatedAt time.Time, dryRun bool) (bool, error) {
+	if path.Ext(filepath.ToSlash(rel)) != ".go" {
+		return false, nil
+	}
+	content, err := os.ReadFile(targetPath)
+	if err != nil {
+		return false, fmt.Errorf("read existing template file %s: %w", targetPath, err)
+	}
+	annotated := annotateTemplateGoFile(rel, content, source, generatedAt)
+	if bytes.Equal(annotated, content) {
+		return false, nil
+	}
+	if dryRun {
+		return true, nil
+	}
+	if err := os.WriteFile(targetPath, annotated, 0o644); err != nil {
+		return false, fmt.Errorf("write annotated template file %s: %w", targetPath, err)
+	}
+	return true, nil
+}
+
+func hasGeneratedCodeHeader(content []byte) bool {
+	prefix := content
+	if index := bytes.Index(content, []byte("\npackage ")); index >= 0 {
+		prefix = content[:index]
+	} else if bytes.HasPrefix(content, []byte("package ")) {
+		prefix = nil
+	}
+	return bytes.Contains(prefix, []byte("Code generated"))
+}
+
+func templateSourceName(source string) string {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return "template"
+	}
+	source = strings.TrimRight(source, `/\`)
+	source = strings.ReplaceAll(source, "\\", "/")
+	if index := strings.IndexAny(source, "?#"); index >= 0 {
+		source = source[:index]
+	}
+	name := path.Base(source)
+	name = strings.TrimSuffix(name, ".git")
+	name = strings.TrimSpace(name)
+	if name == "" || name == "." || name == "/" {
+		return "template"
+	}
+	return name
 }
 
 func matchesAny(rel string, patterns []string) bool {
