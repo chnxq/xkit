@@ -21,6 +21,28 @@ resources:
             - updated_by
             - deleted_by
             - status
+      service_methods:
+        SyncApis:
+            imports:
+                - path: fmt
+            body: |-
+                syncer, ok := s.{{repoField}}.(repo.ApiOpenAPISyncer)
+                if !ok {
+                  return nil, fmt.Errorf("api repo does not support OpenAPI sync")
+                }
+                if err := syncer.SyncApisFromOpenAPI({{ctx}}); err != nil {
+                  return nil, err
+                }
+                return {{successReturn}}, nil
+        GetWalkRouteData:
+            imports:
+                - path: fmt
+            body: |-
+                reader, ok := s.{{repoField}}.(repo.ApiOpenAPISyncer)
+                if !ok {
+                  return nil, fmt.Errorf("api repo does not support OpenAPI route data")
+                }
+                return reader.GetOpenAPIRouteData({{ctx}})
       operations:
         create: true
         delete: true
