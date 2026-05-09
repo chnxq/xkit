@@ -29,19 +29,62 @@ service AdminPortalService {
       get: "/admin/v1/initial-context"
     };
   }
+
+  // 查询分析页聚合数据（按系统实时日志聚合）
+  rpc GetAnalyticsDashboard (google.protobuf.Empty) returns (AnalyticsDashboardResponse) {
+    option (google.api.http) = {
+      get: "/admin/v1/dashboard/analytics"
+    };
+  }
 }
 
-// 查询路由列表 - 回应
+// 查询路由列表 - 响应
 message ListRouteResponse {
   repeated resource.service.v1.MenuRouteItem items = 1;
 }
 
-// 查询权限码列表 - 回应
+// 查询权限码列表 - 响应
 message ListPermissionCodeResponse {
   repeated string codes = 1;
 }
 
 message InitialContextResponse {
-  repeated resource.service.v1.MenuRouteItem menus = 1;  // 菜单树
-  repeated string permissions = 2;   // 权限码
+  repeated resource.service.v1.MenuRouteItem menus = 1; // 菜单树
+  repeated string permissions = 2; // 权限码
+}
+
+message AnalyticsDashboardResponse {
+  AnalyticsOverview overview = 1; // 总览卡片数据
+  AnalyticsTrend trend = 2; // 20小时访问与活跃趋势
+  AnalyticsVisit visits = 3; // 12个月访问柱状图（自然月）
+  repeated AnalyticsNamedValue source_distributions = 4; // 访问来源占比（饼图）
+  repeated AnalyticsNamedValue business_distributions = 5; // 业务占比（玫瑰图）
+  repeated AnalyticsNamedValue platform_distributions = 6; // 平台访问量（雷达图）
+}
+
+message AnalyticsOverview {
+  uint64 total_users = 1; // 总用户量（sys_users）
+  uint64 current_users = 2; // 最近24小时新增用户量
+  uint64 total_accesses = 3; // 总访问量（sys_api_audit_logs）
+  uint64 current_accesses = 4; // 最近24小时访问量
+  uint64 total_downloads = 5; // 总下载量（path/operation含download/export）
+  uint64 current_downloads = 6; // 最近24小时下载量
+  uint64 total_usages = 7; // 总使用量（可计入统计的访问日志量）
+  uint64 current_usages = 8; // 最近24小时活跃用户量（distinct user_id）
+}
+
+message AnalyticsTrend {
+  repeated string labels = 1; // 时间标签（HH:00）
+  repeated uint64 accesses = 2; // 每小时访问量
+  repeated uint64 actives = 3; // 每小时活跃用户量（distinct user_id）
+}
+
+message AnalyticsVisit {
+  repeated string labels = 1; // 月份标签（1月..12月）
+  repeated uint64 accesses = 2; // 每月访问量
+}
+
+message AnalyticsNamedValue {
+  string name = 1;
+  uint64 value = 2;
 }
