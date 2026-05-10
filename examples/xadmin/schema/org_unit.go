@@ -52,6 +52,8 @@ func (OrgUnit) Fields() []ent.Field {
 				"Project", "PROJECT",
 				"Committee", "COMMITTEE",
 				"Region", "REGION",
+				"Subsidiary", "SUBSIDIARY",
+				"Branch", "BRANCH",
 				"Other", "OTHER",
 			).
 			Nillable().

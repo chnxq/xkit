@@ -70,6 +70,7 @@ func (UserPosition) Fields() []ent.Field {
 				"Probation", "PROBATION",
 				"Active", "ACTIVE",
 				"Leave", "LEAVE",
+				"Resigned", "RESIGNED",
 				"Terminated", "TERMINATED",
 				"Expired", "EXPIRED",
 			).
