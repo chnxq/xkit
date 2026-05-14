@@ -1,39 +1,39 @@
-# xadmin-ui 前端 API 集成计划
+# admin-ui 前端 API 集成计划
 
-本文记录 `xadmin-ui` 基于 Vben 接入 `xadmin` 后端 API 的实施约定、当前状态和分阶段计划。
+本文记录 `admin-ui` 基于 Vben 接入 `admin` 后端 API 的实施约定、当前状态和分阶段计划。
 
 ## 当前口径
 
-- 后端代码已经由 `xkit` 生成到 `D:\GoProjects\XAdmin\xadmin`。
-- 前端代码位于 `D:\GoProjects\XAdmin\xadmin-ui`，当前集成分支为 `xadmin-api-integration`。
-- 前端以 `vbenjs/vue-vben-admin` 的 `apps/web-antd` 为基线，在 Vben 上适配 `xadmin` 后端 API。
+- 后端代码已经由 `xkit` 生成到 `D:\GoProjects\XAdmin\admin`。
+- 前端代码位于 `D:\GoProjects\XAdmin\admin-ui`，当前集成分支为 `admin-api-integration`。
+- 前端以 `vbenjs/vue-vben-admin` 的 `apps/web-antd` 为基线，在 Vben 上适配 `admin` 后端 API。
 - 前端不使用 `xkit` 生成页面、store、router 或业务适配代码。
 - `xkit` 只负责后端代码、OpenAPI 和 TypeScript API 客户端生成。
 - 生成的 TypeScript API 客户端位于 `apps/web-antd/src/api/generated/admin/service/v1`，该目录只允许生成器写入，不手工修改。
-- 手写适配层位于 `apps/web-antd/src/api/xadmin`，页面只能依赖手写 adapter，不直接调用 generated client。
+- 手写适配层位于 `apps/web-antd/src/api/admin`，页面只能依赖手写 adapter，不直接调用 generated client。
 - 如本文历史内容与以上口径冲突，以上述口径为准。
 
 ## 目标
 
 - 保持 Vben 的登录、权限、菜单、路由和基础布局机制。
-- 通过 `src/api/xadmin` 适配 `xadmin` 后端，逐步替换 Vben mock API。
+- 通过 `src/api/admin` 适配 `admin` 后端，逐步替换 Vben mock API。
 - 先完成登录、用户信息、权限码、菜单和基础资源 CRUD，再扩展到组织、岗位、租户等资源页面。
-- 保持 `generated TS client -> xadmin adapter -> Vben core/pages` 的边界；临时绕过 generated client 的逻辑必须封装在 adapter 内，不能进入页面。
+- 保持 `generated TS client -> admin adapter -> Vben core/pages` 的边界；临时绕过 generated client 的逻辑必须封装在 adapter 内，不能进入页面。
 
 ## 关键目录
 
 ```text
 D:\GoProjects\XAdmin
-  xadmin\                          <- xkit 已生成的 Go 后端
+  admin\                          <- xkit 已生成的 Go 后端
     api\protos\
     api\buf.vue.admin.typescript.gen.yaml
     cmd\server\assets\openapi.yaml
     configs\server.yaml            <- REST 默认 :7788
 
-  xadmin-ui\                       <- Vben 前端仓库
+  admin-ui\                       <- Vben 前端仓库
     apps\web-antd\
       src\api\generated\           <- Buf 生成的 TS API 客户端
-      src\api\xadmin\              <- 手写后端适配层
+      src\api\admin\              <- 手写后端适配层
       src\api\core\                <- Vben 现有 API 入口薄封装
       src\views\system\            <- 用户、角色、菜单页面
       src\views\app\permission\    <- 权限点、角色路由兼容页面
@@ -50,8 +50,8 @@ D:\GoProjects\XAdmin
 - `apps/web-antd/vite.config.ts` 已把 `/api` 代理到 `http://localhost:7788`。
 - `apps/web-antd/src/preferences.ts` 已切到 `backend` access mode。
 - `apps/web-antd/src/views/_core/authentication/login.vue` 已去掉当前无关的 mock 登录辅助 UI。
-- `apps/web-antd/src/api/core/auth.ts`、`menu.ts`、`user.ts` 已转发到 `xadmin` adapter。
-- `apps/web-antd/src/api/xadmin` 已建立 request handler、generated clients、auth、user、portal、users、roles、menus、permissions 等 adapter。
+- `apps/web-antd/src/api/core/auth.ts`、`menu.ts`、`user.ts` 已转发到 `admin` adapter。
+- `apps/web-antd/src/api/admin` 已建立 request handler、generated clients、auth、user、portal、users、roles、menus、permissions 等 adapter。
 - 已完成基础页面：
   - `apps/web-antd/src/views/system/user/index.vue`
   - `apps/web-antd/src/views/system/role/index.vue`
@@ -63,7 +63,7 @@ D:\GoProjects\XAdmin
 ## 适配层结构
 
 ```text
-apps/web-antd/src/api/xadmin/
+apps/web-antd/src/api/admin/
   request-handler.ts       <- generated client 到 Vben requestClient 的桥接
   clients.ts               <- 统一创建 generated service clients
   paging.ts                <- PagingRequest/filterExpr 查询参数构造与列表请求封装
@@ -139,11 +139,11 @@ RoleManagement              roles            app/permission/role/index.vue
 
 ## 分阶段实施
 
-1. 已完成：建立 `xadmin-ui` 的 Vben 基线和 `xadmin-api-integration` 分支。
+1. 已完成：建立 `admin-ui` 的 Vben 基线和 `admin-api-integration` 分支。
 2. 已完成：调整 `.env.development` 和 `vite.config.ts`，关闭 mock 并代理到后端。
-3. 已完成：新增 `src/api/xadmin/request-handler.ts` 和 `clients.ts`。
+3. 已完成：新增 `src/api/admin/request-handler.ts` 和 `clients.ts`。
 4. 已完成：新增 `auth.ts`、`user.ts`、`portal.ts`。
-5. 已完成：将 `src/api/core/auth.ts`、`user.ts`、`menu.ts` 改为调用 xadmin adapter。
+5. 已完成：将 `src/api/core/auth.ts`、`user.ts`、`menu.ts` 改为调用 admin adapter。
 6. 已完成：切换 `preferences.app.accessMode` 到 `backend`。
 7. 已完成：验证登录、用户信息、权限码、菜单端点。
 8. 已完成：新增 `users.ts` 与 `views/system/user/index.vue`。
@@ -162,7 +162,7 @@ RoleManagement              roles            app/permission/role/index.vue
 后端：
 
 ```powershell
-cd D:\GoProjects\XAdmin\xadmin
+cd D:\GoProjects\XAdmin\admin
 go test ./...
 go run ./cmd/server server -config_path ./configs
 ```
@@ -170,7 +170,7 @@ go run ./cmd/server server -config_path ./configs
 前端：
 
 ```powershell
-cd D:\GoProjects\XAdmin\xadmin-ui
+cd D:\GoProjects\XAdmin\admin-ui
 pnpm -F @vben/web-antd run typecheck
 pnpm -F @vben/web-antd run dev
 ```

@@ -4,10 +4,10 @@
 
 `xkit init source` imports raw schema and proto sources into a target project and derives the YAML config used by `xkit gen all`. It also normalizes Buf output paths for generated artifacts that are owned outside the Go package tree, such as OpenAPI and TypeScript clients.
 
-This command exists because raw generation inputs may now live outside the active generated-code locations. For `xadmin-web`, the raw input directory is:
+This command exists because raw generation inputs may now live outside the active generated-code locations. For `admin`, the raw input directory is:
 
 ```text
-D:\GoProjects\XAdmin\xadmin-web\source
+D:\GoProjects\XAdmin\admin\source
 ```
 
 ## Command
@@ -19,10 +19,10 @@ xkit init source <source-path> [--project <path>] [--service <name>] [--config <
 Example:
 
 ```text
-xkit init source D:\GoProjects\XAdmin\xadmin-web\source \
-  --project D:\GoProjects\XAdmin\xadmin-web \
+xkit init source D:\GoProjects\XAdmin\admin\source \
+  --project D:\GoProjects\XAdmin\admin \
   --service admin \
-  --typescript-project D:\GoProjects\XAdmin\xadmin-web-ui
+  --typescript-project D:\GoProjects\XAdmin\admin-ui
 ```
 
 ## Source Layout
@@ -89,10 +89,10 @@ By default, the generated config is written to:
 <source>/<project-name>-config/<service>.yaml
 ```
 
-For `xadmin-web`:
+For `admin`:
 
 ```text
-D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml
+D:\GoProjects\XAdmin\admin\source\admin-config\admin.yaml
 ```
 
 Use `--config <path>` to write it elsewhere.
@@ -130,15 +130,15 @@ Schemas without a matching service proto are skipped and listed in command outpu
 After import:
 
 ```text
-cd D:\GoProjects\XAdmin\xadmin-web\api
+cd D:\GoProjects\XAdmin\admin\api
 buf generate --template buf.gen.yaml
 buf generate --template buf.admin.openapi.gen.yaml
 buf generate --template buf.vue.admin.typescript.gen.yaml
 
 cd D:\GoProjects\XAdmin\xkit
 xkit gen all admin \
-  --project D:\GoProjects\XAdmin\xadmin-web \
-  --config D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml
+  --project D:\GoProjects\XAdmin\admin \
+  --config D:\GoProjects\XAdmin\admin\source\admin-config\admin.yaml
 ```
 
 `init source` does not generate service/repo/register/bootstrap Go files. It only materializes raw source inputs and prepares the config consumed by the normal generator.

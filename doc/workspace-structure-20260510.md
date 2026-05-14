@@ -13,7 +13,7 @@ xkit/
 ├─ doc/                        # 设计文档、交接文档、方案沉淀
 ├─ examples/
 │  ├─ xadmin/                  # 后端示例（proto/schema/config 等示例资产）
-│  └─ xadmin-web/              # 前端示例/素材（非当前 admin-ui 主线）
+│  └─ admin/              # 前端示例/素材（非当前 admin-ui 主线）
 ├─ internal/
 │  ├─ binding/                 # 配置/模型绑定层
 │  ├─ cli/                     # CLI 编排逻辑

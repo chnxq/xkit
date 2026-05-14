@@ -72,7 +72,7 @@ xkit gen all <service> ...
 
 处理策略：
 
-- 强业务常量和默认数据后续放到 `xkit gen xadmin-domain` 或类似领域生成目标。
+- 强业务常量和默认数据后续放到 `xkit gen admin-domain` 或类似领域生成目标。
 - 认证、审计、metadata、viewer、OSS 这类依赖具体 proto 的包，后续由资源配置或领域配置驱动生成。
 - `lua` 依赖 `eventbus`、`oss` 等多个包，且 `oss` 当前绑定 storage proto，因此等 `oss` 解耦后再迁移。
 
@@ -113,5 +113,5 @@ internal/codegen/pkgtemplate/
 
 1. 将 `xkit-template/pkg` 第一批通用文件迁移到 `xkit/internal/codegen/pkgtemplate/files/pkg`。
 2. 新增 `xkit gen pkg` 目标并纳入 `gen all`。
-3. 用 `--dry-run` 验证 `xadmin-web` 的生成计划。
+3. 用 `--dry-run` 验证 `admin` 的生成计划。
 4. 后续再拆第二批领域包，优先处理 `metadata`、`middleware/auth`、`middleware/logging` 的 proto 依赖参数化问题。

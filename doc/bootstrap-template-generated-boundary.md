@@ -152,10 +152,10 @@ Default source import behavior:
 
 Buf generation YAML files are normalized during import: Go package options are forced to the target module's `<module>/api/gen/...` import paths. Schema `.go` files also have local `*/api/gen/<domain>/...` imports normalized when `<domain>` exists under the imported proto root. This normalization avoids stale module names when a source set is reused for a new project.
 
-For `xadmin-web`, the default admin config path is:
+For `admin`, the default admin config path is:
 
 ```text
-D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml
+D:\GoProjects\XAdmin\admin\source\admin-config\admin.yaml
 ```
 
 This keeps the pipeline explicit:

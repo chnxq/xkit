@@ -56,7 +56,7 @@
 
 单独建立一个模板仓库，例如：
 
-- `xkit-template-xadmin-web`
+- `xkit-template-admin`
 
 它负责存放“项目初始化时就应该存在，且后续主要人工维护”的代码：
 
@@ -92,8 +92,8 @@
 
 在 `xkit` 中新增“模板项目初始化 / 升级”能力，例如：
 
-- `xkit init project --template xadmin-web`
-- `xkit sync template --template xadmin-web`
+- `xkit init project --template admin`
+- `xkit sync template --template admin`
 
 其中：
 
@@ -107,7 +107,7 @@
 ### 模板仓库目录
 
 ```text
-xkit-template-xadmin-web/
+xkit-template-admin/
   template.yaml
   cmd/server/
   internal/bootstrap/
@@ -297,7 +297,7 @@ internal/data/bootstrap/
 建议模板仓库增加一个描述文件，例如 `template.yaml`：
 
 ```yaml
-name: xadmin-web
+name: admin
 kind: service-template
 version: 0.1.0
 
@@ -332,8 +332,8 @@ sync:
 ### 脚手架命令
 
 ```text
-xkit init template https://github.com/chnxq/xkit-template.git --project D:\GoProjects\XAdmin\xadmin-web
-xkit sync template xadmin-web --project D:\GoProjects\XAdmin\xadmin-web
+xkit init template https://github.com/chnxq/xkit-template.git --project D:\GoProjects\XAdmin\admin
+xkit sync template admin --project D:\GoProjects\XAdmin\admin
 ```
 
 ### 资源命令
@@ -392,7 +392,7 @@ xkit gen all admin --config ...
 
 建议按下面顺序推进：
 
-1. 新建模板仓库 `xkit-template-xadmin-web`。
+1. 新建模板仓库 `xkit-template-admin`。
 2. 先迁出 `cmd/server`、`configs`、`internal/server/http.go`、`internal/server/grpc.go`。
 3. 在 `xkit` 中新增 `init template` 命令。
 4. 将 `gen bootstrap` 缩减为只生成动态聚合代码。
@@ -400,12 +400,12 @@ xkit gen all admin --config ...
 
 ## 对当前工程的直接建议
 
-对于现在的 `xkit` / `xadmin-web`，建议立即采用这个方向，但不建议一次性重构完。
+对于现在的 `xkit` / `admin`，建议立即采用这个方向，但不建议一次性重构完。
 
 最合适的下一步是：
 
 1. 在 `kit/doc` 保留本方案文档。
-2. 新建模板仓库目录或临时在 `xkit/templates/xadmin-web-base` 做第一版验证。
+2. 新建模板仓库目录或临时在 `xkit/templates/admin-base` 做第一版验证。
 3. 先迁出稳定文件：
    - `cmd/server/*`
    - `internal/server/http.go`
@@ -449,10 +449,10 @@ xkit init template [template-source] \
 
 ```text
 xkit init template https://github.com/chnxq/xkit-template.git \
-  --project D:\GoProjects\XAdmin\xadmin-web \
-  --module xadmin-web \
+  --project D:\GoProjects\XAdmin\admin \
+  --module admin \
   --app-name XAdmin \
-  --command-name xadmin-web \
+  --command-name admin \
   --service-name admin \
   --dry-run
 ```

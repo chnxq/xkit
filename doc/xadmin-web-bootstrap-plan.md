@@ -1,4 +1,4 @@
-﻿# xadmin-web 启动骨架生成方案
+﻿# admin 启动骨架生成方案
 
 > 本文保留为历史阶段记录。当前启动模板与动态生成边界以项目根目录的 `README.md` 和 `doc/bootstrap-template-generated-boundary.md` 为准；`cmd/server`、`configs`、`internal/bootstrap`、`internal/server` 等启动骨架现在由 `xkit-template` 通过 `xkit init template` 落地，`xkit gen bootstrap` 只保留动态装配代码。
 
@@ -10,9 +10,9 @@
 2. `internal/bootstrap`：负责装配配置、日志、注册中心、链路追踪、transport server 和生命周期。
 3. `internal/{data,server,service}`：业务 provider、仓库 provider、HTTP/gRPC 注册与 middleware 组合。
 
-## xadmin-web 当前状态
+## admin 当前状态
 
-`xadmin-web` 已有：
+`admin` 已有：
 
 - `api/gen/...` protobuf 生成代码。
 - `internal/data/ent` Ent 代码。
@@ -76,7 +76,7 @@
    - permission/role/tenant 初始化数据
    - 与 XAdmin 业务强绑定的 converter、authorizer、jwt payload
 
-后续可以新增一个 `xkit-template-xadmin-web` 或在 xkit 内建立 `template/project/xadmin-web` 模板目录。代码生成器负责把模板项目实例化，而不是把所有模板塞进 `runner.go`。
+后续可以新增一个 `xkit-template-admin` 或在 xkit 内建立 `template/project/admin` 模板目录。代码生成器负责把模板项目实例化，而不是把所有模板塞进 `runner.go`。
 
 ## 后续实施顺序
 
@@ -104,7 +104,7 @@
 - bootstrap glue：`internal/bootstrap/generated_servers.gen.go` 直接装配 `internal/data/repo` 与 `internal/service`
 - bootstrap data 代码：`internal/data/bootstrap/*.go`
 
-服务层现在导入 `xadmin-web/internal/data/repo`，构造函数使用 `repo.UserRepo`、`repo.UserCredentialRepo` 等接口类型。
+服务层现在导入 `admin/internal/data/repo`，构造函数使用 `repo.UserRepo`、`repo.UserCredentialRepo` 等接口类型。
 
 
 ## EntClient 接入进展

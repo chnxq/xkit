@@ -5,7 +5,7 @@
 This document defines the first workable specification for service-oriented code generation in `xkit`.
 
 `xkit` is the implementation repository for the generator.
-The primary target project is `D:\GoProjects\XAdmin\xadmin-web`.
+The primary target project is `D:\GoProjects\XAdmin\admin`.
 The primary implementation reference for service/data/server code is `D:\GoProjects\chnxq\XAdmin`. Generator behavior, project discovery, scaffold conventions, and service output should follow the XAdmin reference first.
 
 The goal is not to generate complete business systems.
@@ -39,12 +39,12 @@ This specification targets XAdmin-aligned source inputs and generated service ou
 
 Representative examples in the current target workspace:
 
-- `xadmin-web/internal/service/user_service.gen.go`
-- `xadmin-web/internal/data/repo/user_repo.gen.go`
-- `xadmin-web/internal/server/rest_register.gen.go`
-- `xadmin-web/api/protos/admin/v1/i_user.proto`
-- `xadmin-web/api/gen/admin/v1/i_user.pb.go`
-- `xadmin-web/internal/data/ent/schema/user.go`
+- `admin/internal/service/user_service.gen.go`
+- `admin/internal/data/repo/user_repo.gen.go`
+- `admin/internal/server/rest_register.gen.go`
+- `admin/api/protos/admin/v1/i_user.proto`
+- `admin/api/gen/admin/v1/i_user.pb.go`
+- `admin/internal/data/ent/schema/user.go`
 
 Primary reference files from `D:\GoProjects\chnxq\XAdmin` for generated service layers:
 
@@ -86,7 +86,7 @@ Proto files are the source of truth for:
 
 Example:
 
-- `xadmin-web/api/protos/admin/v1/i_user.proto`
+- `admin/api/protos/admin/v1/i_user.proto`
 
 ### 2. Ent Schema
 
@@ -100,7 +100,7 @@ Ent schema files are the source of truth for:
 
 Example:
 
-- `xadmin-web/internal/data/ent/schema/user.go`
+- `admin/internal/data/ent/schema/user.go`
 
 ### 3. Generator Config
 
@@ -145,8 +145,8 @@ xkit init source <source-path> --project <target> --service <service>
 Example:
 
 ```text
-xkit init source D:\GoProjects\XAdmin\xadmin-web\source \
-  --project D:\GoProjects\XAdmin\xadmin-web \
+xkit init source D:\GoProjects\XAdmin\admin\source \
+  --project D:\GoProjects\XAdmin\admin \
   --service admin
 ```
 
@@ -161,10 +161,10 @@ It also derives a generation config from the imported proto services and Ent sch
 <source>/<project-name>-config/<service>.yaml
 ```
 
-For `xadmin-web` and `admin`, this becomes:
+For `admin` and `admin`, this becomes:
 
 ```text
-xadmin-web/source/xadmin-web-config/admin.yaml
+admin/source/admin-config/admin.yaml
 ```
 
 The config generation rules are intentionally conservative:
@@ -182,8 +182,8 @@ After source import, the normal generation command consumes the produced config:
 
 ```text
 xkit gen all admin \
-  --project D:\GoProjects\XAdmin\xadmin-web \
-  --config D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml
+  --project D:\GoProjects\XAdmin\admin \
+  --config D:\GoProjects\XAdmin\admin\source\admin-config\admin.yaml
 ```
 
 ## File Ownership Model
@@ -408,13 +408,13 @@ Recommended minimum schema:
 
 ```yaml
 service: admin
-module: xadmin-web
+module: admin
 
 resources:
   - name: user
     proto_service: admin.service.v1.UserService
     entity: User
-    dto_import: xadmin-web/api/gen/identity/v1
+    dto_import: admin/api/gen/identity/v1
     dto_type: User
     repo_interface: UserRepo
     exists_fields:
@@ -534,8 +534,8 @@ slice and now covers the core generated service stack.
 
 The current combined reference context shows three realities:
 
-1. `xadmin-web` already has regular proto and ent schema inputs that are stable enough for generation.
-2. `xadmin-web` does not yet have a mature generated service/data/server layer, so the initial tool must create that structure instead of learning from local implementations.
+1. `admin` already has regular proto and ent schema inputs that are stable enough for generation.
+2. `admin` does not yet have a mature generated service/data/server layer, so the initial tool must create that structure instead of learning from local implementations.
 3. `D:\GoProjects\chnxq\XAdmin` contains the primary service/data/server implementation patterns that `xkit` should reproduce safely.
 
 That means the generator targets the stable structural layer first:
@@ -564,7 +564,7 @@ Continue hardening `xkit gen repo` against real XAdmin resources:
 - broaden Ent field-to-DTO conversion coverage
 - add declarative filters and sorting
 - keep business-specific fields in YAML instead of generator code
-- validate generated output against `xadmin-web` service packages after each generator change
+- validate generated output against `admin` service packages after each generator change
 
 That keeps the generator useful while preserving explicit ownership boundaries between generated scaffolding and manual business logic.
 
