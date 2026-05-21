@@ -225,6 +225,9 @@ resources:
       dto_import: admin/api/gen/internal_message/v1
       dto_type: InternalMessage
       repo_interface: InternalMessageRepo
+      service_repos:
+        - field: internalMessageRecipientRepo
+          interface: InternalMessageRecipientRepo
       filters:
         allow:
             - id
@@ -485,6 +488,13 @@ resources:
       dto_import: admin/api/gen/permission/v1
       dto_type: Permission
       repo_interface: PermissionRepo
+      service_repos:
+        - field: permissionGroupRepo
+          interface: PermissionGroupRepo
+        - field: menuRepo
+          interface: MenuRepo
+        - field: apiRepo
+          interface: ApiRepo
       filters:
         allow:
             - id

@@ -31,3 +31,6 @@ var BootstrapHooksExt string
 
 //go:embed bootstrap_ent_client.tmpl
 var BootstrapEntClient string
+
+//go:embed bootstrap_ent_client_ext.tmpl
+var BootstrapEntClientExt string

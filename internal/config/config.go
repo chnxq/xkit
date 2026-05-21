@@ -21,6 +21,7 @@ type Resource struct {
 	DTOImport      string                         `yaml:"dto_import,omitempty"`
 	DTOType        string                         `yaml:"dto_type,omitempty"`
 	RepoInterface  string                         `yaml:"repo_interface,omitempty"`
+	ServiceRepos   []RepoConfig                   `yaml:"service_repos,omitempty"`
 	ExistsFields   []string                       `yaml:"exists_fields,omitempty"`
 	Filters        FilterConfig                   `yaml:"filters,omitempty"`
 	ServiceMethods map[string]ServiceMethodConfig `yaml:"service_methods,omitempty"`

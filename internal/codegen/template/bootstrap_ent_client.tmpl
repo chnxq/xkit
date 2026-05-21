@@ -52,6 +52,10 @@ func NewEntClient(ctx *app.AppCtx) (*entCrud.EntClient[*ent.Client], func(), err
 			_ = client.Close()
 			return nil, func() {}, fmt.Errorf("create ent schema: %w", err)
 		}
+		if err := afterEntSchemaCreate(ctx, entClient); err != nil {
+			_ = client.Close()
+			return nil, func() {}, fmt.Errorf("after ent schema create: %w", err)
+		}
 	}
 
 	return entClient, func() {

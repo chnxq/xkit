@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/chnxq/xkit/internal/binding"
 	"github.com/chnxq/xkit/internal/config"
 	"github.com/chnxq/xkit/internal/project"
 )
@@ -306,8 +307,8 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 12 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 12)
+	if len(result.Written) != 13 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 13)
 	}
 
 	expectedPaths := []string{
@@ -322,6 +323,7 @@ return {{successReturn}}, nil`,
 		filepath.Join(root, "internal", "bootstrap", "generated_data_providers.gen.go"),
 		filepath.Join(root, "internal", "bootstrap", "generated_hooks_ext.go"),
 		filepath.Join(root, "internal", "data", "bootstrap", "ent_client.gen.go"),
+		filepath.Join(root, "internal", "data", "bootstrap", "ent_client_ext.go"),
 	}
 	for _, path := range expectedPaths {
 		if _, err := os.Stat(path); err != nil {
@@ -470,10 +472,14 @@ return {{successReturn}}, nil`,
 	if strings.Contains(bootstrapFile, "UserCredential:") {
 		t.Fatalf("bootstrap generation should not register resources without generated service stubs")
 	}
-
 	hooksFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_hooks_ext.go"))
 	if !strings.Contains(hooksFile, "func (data *GeneratedData) afterInit() {}") || !strings.Contains(hooksFile, "func (services *GeneratedServices) afterInit(data *GeneratedData)") {
 		t.Fatalf("bootstrap hooks extension file is missing generated hook stubs")
+	}
+
+	entHooksFile := readFile(t, filepath.Join(root, "internal", "data", "bootstrap", "ent_client_ext.go"))
+	if !strings.Contains(entHooksFile, "func afterEntSchemaCreate(ctx *app.AppCtx, entClient *entCrud.EntClient[*ent.Client]) error") {
+		t.Fatalf("ent client extension file is missing schema-create hook stub")
 	}
 
 	providersFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_data_providers.gen.go"))
@@ -700,6 +706,87 @@ func (User) Fields() []ent.Field {
 	providersFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_data_providers.gen.go"))
 	if _, err := parser.ParseFile(token.NewFileSet(), "generated_data_providers.gen.go", providersFile, parser.AllErrors); err != nil {
 		t.Fatalf("generated providers file should parse as valid Go: %v", err)
+	}
+}
+
+func TestBootstrapResourcesCollectServiceReposWithoutRepoCRUD(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plans := []resourcePlan{
+		{
+			Resource: config.Resource{
+				Name:          "user",
+				ProtoService:  "admin.service.v1.UserService",
+				RepoInterface: "UserRepo",
+				Generate: config.GenerateFlags{
+					ServiceStub: true,
+					RepoCRUD:    true,
+				},
+			},
+			Binding: binding.ServiceBinding{ServiceName: "UserService"},
+			ResourceField: "User",
+		},
+		{
+			Resource: config.Resource{
+				Name:          "user_portal",
+				ProtoService:  "admin.service.v1.UserPortalService",
+				RepoInterface: "UserRepo",
+				ServiceRepos: []config.RepoConfig{
+					{Field: "userCredentialRepo", Interface: "UserCredentialRepo"},
+				},
+				Generate: config.GenerateFlags{
+					ServiceStub: true,
+				},
+			},
+			Binding: binding.ServiceBinding{ServiceName: "UserPortalService"},
+			ResourceField: "UserPortal",
+		},
+		{
+			Resource: config.Resource{
+				Name:          "user_credential",
+				ProtoService:  "authentication.service.v1.UserCredentialService",
+				RepoInterface: "UserCredentialRepo",
+				Generate: config.GenerateFlags{
+					RepoCRUD: true,
+				},
+			},
+			Binding: binding.ServiceBinding{ServiceName: "UserCredentialService"},
+			ResourceField: "UserCredential",
+		},
+	}
+
+	serverResources := runner.bootstrapResources(plans)
+	if len(serverResources) != 2 {
+		t.Fatalf("bootstrapResources count mismatch: got %d want 2", len(serverResources))
+	}
+
+	var userPortal bootstrapResourceData
+	for _, item := range serverResources {
+		if item.FieldName == "UserPortal" {
+			userPortal = item
+			break
+		}
+	}
+	if !userPortal.HasRepo {
+		t.Fatalf("service-only resource with repo_interface should still inject its main repo")
+	}
+	if userPortal.RepoVar != "userRepo" {
+		t.Fatalf("user portal repo var mismatch: got %q want userRepo", userPortal.RepoVar)
+	}
+	if len(userPortal.ServiceRepoVars) != 1 || userPortal.ServiceRepoVars[0] != "userCredentialRepo" {
+		t.Fatalf("user portal extra repos mismatch: got %#v", userPortal.ServiceRepoVars)
+	}
+
+	repoResources := runner.bootstrapRepoResources(plans)
+	if len(repoResources) != 2 {
+		t.Fatalf("bootstrapRepoResources count mismatch: got %d want 2", len(repoResources))
+	}
+	if repoResources[0].RepoVar != "userRepo" && repoResources[1].RepoVar != "userRepo" {
+		t.Fatalf("bootstrapRepoResources should include shared userRepo once")
+	}
+	if repoResources[0].RepoVar != "userCredentialRepo" && repoResources[1].RepoVar != "userCredentialRepo" {
+		t.Fatalf("bootstrapRepoResources should include userCredentialRepo")
 	}
 }
 

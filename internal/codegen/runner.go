@@ -179,7 +179,7 @@ type bootstrapResourceData struct {
 	ServiceVar      string
 	ServiceName     string
 	Constructor     string
-	ExtraRepoVars   []string
+	ServiceRepoVars []string
 }
 
 type repoMethodData struct {
@@ -605,29 +605,27 @@ func (r *Runner) bootstrapResources(plans []resourcePlan) []bootstrapResourceDat
 		if !plan.Resource.Generate.EffectiveServiceStub() {
 			continue
 		}
-		entityName := strings.TrimSuffix(plan.Binding.ServiceName, "Service")
+		repoName := strings.TrimSpace(plan.Resource.RepoInterface)
+		hasRepo := repoName != ""
 		data := bootstrapResourceData{
 			FieldName:       plan.ResourceField,
-			RepoVar:         lowerFirst(entityName) + "Repo",
-			RepoInterface:   repoInterfaceName(plan),
-			RepoConstructor: "New" + repoInterfaceName(plan),
-			HasRepo:         plan.Resource.Generate.EffectiveRepoCRUD(),
-			ServiceVar:      lowerFirst(entityName) + "Service",
+			RepoVar:         repoVarFromInterface(repoName),
+			RepoInterface:   repoName,
+			RepoConstructor: "New" + repoName,
+			HasRepo:         hasRepo,
+			ServiceVar:      lowerFirst(strings.TrimSuffix(plan.Binding.ServiceName, "Service")) + "Service",
 			ServiceName:     plan.Binding.ServiceName,
 			Constructor:     "New" + plan.Binding.ServiceName,
 		}
 
-		for _, method := range plan.Resource.ServiceMethods {
-			for _, extraRepo := range method.Repos {
-				extraPlan, ok := findPlanByRepoInterface(resourceIndex, extraRepo.Interface)
-				if !ok {
-					continue
-				}
-				extraEntityName := strings.TrimSuffix(extraPlan.Binding.ServiceName, "Service")
-				extraRepoVar := lowerFirst(extraEntityName) + "Repo"
-				if !slices.Contains(data.ExtraRepoVars, extraRepoVar) {
-					data.ExtraRepoVars = append(data.ExtraRepoVars, extraRepoVar)
-				}
+		for _, serviceRepo := range r.serviceRepoConfigs(plan) {
+			extraPlan, ok := findPlanByRepoInterface(resourceIndex, serviceRepo.Interface)
+			if !ok {
+				continue
+			}
+			extraRepoVar := repoVarFromInterface(strings.TrimSpace(extraPlan.Resource.RepoInterface))
+			if !slices.Contains(data.ServiceRepoVars, extraRepoVar) {
+				data.ServiceRepoVars = append(data.ServiceRepoVars, extraRepoVar)
 			}
 		}
 
@@ -637,20 +635,51 @@ func (r *Runner) bootstrapResources(plans []resourcePlan) []bootstrapResourceDat
 }
 
 func (r *Runner) bootstrapRepoResources(plans []resourcePlan) []bootstrapResourceData {
-	resources := make([]bootstrapResourceData, 0, len(plans))
+	resourceIndex := make(map[string]resourcePlan, len(plans))
 	for _, plan := range plans {
-		if !plan.Resource.Generate.EffectiveRepoCRUD() {
+		resourceIndex[plan.Resource.Name] = plan
+	}
+
+	resources := make([]bootstrapResourceData, 0, len(plans))
+	seen := make(map[string]struct{}, len(plans))
+	for _, plan := range plans {
+		repoName := strings.TrimSpace(plan.Resource.RepoInterface)
+		if repoName == "" {
 			continue
 		}
-		entityName := strings.TrimSuffix(plan.Binding.ServiceName, "Service")
-		resources = append(resources, bootstrapResourceData{
-			FieldName:       plan.ResourceField,
-			RepoVar:         lowerFirst(entityName) + "Repo",
-			RepoInterface:   repoInterfaceName(plan),
-			RepoConstructor: "New" + repoInterfaceName(plan),
-		})
+		if _, ok := seen[repoName]; ok {
+			continue
+		}
+		seen[repoName] = struct{}{}
+
+		resources = append(resources, r.bootstrapRepoResource(plan))
+		for _, serviceRepo := range r.serviceRepoConfigs(plan) {
+			extraPlan, ok := findPlanByRepoInterface(resourceIndex, serviceRepo.Interface)
+			if !ok {
+				continue
+			}
+			extraRepoName := strings.TrimSpace(extraPlan.Resource.RepoInterface)
+			if extraRepoName == "" {
+				continue
+			}
+			if _, ok := seen[extraRepoName]; ok {
+				continue
+			}
+			seen[extraRepoName] = struct{}{}
+			resources = append(resources, r.bootstrapRepoResource(extraPlan))
+		}
 	}
 	return resources
+}
+
+func (r *Runner) bootstrapRepoResource(plan resourcePlan) bootstrapResourceData {
+	repoName := strings.TrimSpace(plan.Resource.RepoInterface)
+	return bootstrapResourceData{
+		FieldName:       plan.ResourceField,
+		RepoVar:         repoVarFromInterface(repoName),
+		RepoInterface:   repoName,
+		RepoConstructor: "New" + repoName,
+	}
 }
 
 func (r *Runner) bootstrapProviderResources(plans []resourcePlan) ([]bootstrapResourceData, bool) {
@@ -737,6 +766,9 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.project.Root, "internal", "bootstrap", "generated_hooks_ext.go")); err != nil {
 		return Result{}, err
 	}
+	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client_ext.go")); err != nil {
+		return Result{}, err
+	}
 
 	files := []struct {
 		path     string
@@ -767,6 +799,15 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		return result, err
 	}
 
+	entHooksContent, err := renderAnyTemplate(codegentemplate.BootstrapEntClientExt, data)
+	if err != nil {
+		return result, err
+	}
+	entHooksPath := filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client_ext.go")
+	if err := r.writeExtensionFile(entHooksPath, entHooksContent, &result); err != nil {
+		return result, err
+	}
+
 	return result, nil
 }
 
@@ -785,7 +826,7 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 	}
 	repoField := lowerFirst(strings.TrimSuffix(repoName, "Repo")) + "Repo"
 	repoType := "repo." + repoName
-	hasRepo := plan.Resource.Generate.EffectiveRepoCRUD()
+	hasRepo := repoName != ""
 	extraRepos := r.extraServiceRepos(plan)
 	if hasRepo {
 		imports = append(imports,
@@ -873,20 +914,27 @@ func (r *Runner) serviceMethodBody(plan resourcePlan, methodName string, params 
 func (r *Runner) extraServiceRepos(plan resourcePlan) []serviceRepoData {
 	var repos []serviceRepoData
 	seen := make(map[string]struct{})
-	for _, methodConfig := range plan.Resource.ServiceMethods {
-		for _, repoConfig := range methodConfig.Repos {
-			field := strings.TrimSpace(repoConfig.Field)
-			typeName := strings.TrimSpace(repoConfig.Interface)
-			if field == "" || typeName == "" {
-				continue
-			}
-			key := field + ":" + typeName
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			repos = append(repos, serviceRepoData{Field: field, Type: "repo." + typeName})
+	for _, repoConfig := range r.serviceRepoConfigs(plan) {
+		field := strings.TrimSpace(repoConfig.Field)
+		typeName := strings.TrimSpace(repoConfig.Interface)
+		if field == "" || typeName == "" {
+			continue
 		}
+		key := field + ":" + typeName
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		repos = append(repos, serviceRepoData{Field: field, Type: "repo." + typeName})
+	}
+	return repos
+}
+
+func (r *Runner) serviceRepoConfigs(plan resourcePlan) []config.RepoConfig {
+	repos := make([]config.RepoConfig, 0, len(plan.Resource.ServiceRepos)+len(plan.Resource.ServiceMethods))
+	repos = append(repos, plan.Resource.ServiceRepos...)
+	for _, methodConfig := range plan.Resource.ServiceMethods {
+		repos = append(repos, methodConfig.Repos...)
 	}
 	return repos
 }
@@ -2036,6 +2084,14 @@ func lowerFirst(value string) string {
 		return ""
 	}
 	return strings.ToLower(value[:1]) + value[1:]
+}
+
+func repoVarFromInterface(repoName string) string {
+	repoName = strings.TrimSpace(repoName)
+	if repoName == "" {
+		return ""
+	}
+	return lowerFirst(strings.TrimSuffix(repoName, "Repo")) + "Repo"
 }
 
 func upperFirst(value string) string {
