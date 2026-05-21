@@ -1,6 +1,8 @@
 package codegen
 
 import (
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,8 +306,8 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 10 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 10)
+	if len(result.Written) != 12 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 12)
 	}
 
 	expectedPaths := []string{
@@ -317,6 +319,8 @@ return {{successReturn}}, nil`,
 		filepath.Join(root, "internal", "server", "rest_register.gen.go"),
 		filepath.Join(root, "internal", "server", "grpc_register.gen.go"),
 		filepath.Join(root, "internal", "bootstrap", "generated_servers.gen.go"),
+		filepath.Join(root, "internal", "bootstrap", "generated_data_providers.gen.go"),
+		filepath.Join(root, "internal", "bootstrap", "generated_hooks_ext.go"),
 		filepath.Join(root, "internal", "data", "bootstrap", "ent_client.gen.go"),
 	}
 	for _, path := range expectedPaths {
@@ -367,7 +371,7 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoFile, "func (r *userRepo) List") {
 		t.Fatalf("repo file is missing List method skeleton")
 	}
-	if !strings.Contains(repoFile, "entities, err := builder.Limit(limit).Offset(int(req.GetOffset())).All(ctx)") {
+	if !strings.Contains(repoFile, "if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
 		t.Fatalf("repo file is missing generated List body")
 	}
 	if !strings.Contains(repoFile, "entity, err := builder.Where(user.IDEQ(req.GetId())).Only(ctx)") {
@@ -454,16 +458,248 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(bootstrapFile, "type GeneratedData struct") || !strings.Contains(bootstrapFile, "type GeneratedServices struct") || !strings.Contains(bootstrapFile, "func NewGeneratedComponents") {
 		t.Fatalf("bootstrap generation should split data, services, and component assembly")
 	}
-	if !strings.Contains(bootstrapFile, "httpServer, err := server.NewHTTPServer(appCtx, components.Services.HTTP(), components.Data)") || !strings.Contains(bootstrapFile, "new generated grpc server") {
+	if !strings.Contains(bootstrapFile, "AppContext") || !strings.Contains(bootstrapFile, "*app.AppCtx") || !strings.Contains(bootstrapFile, "data := &GeneratedData{AppContext: appCtx}") {
+		t.Fatalf("bootstrap generation should retain app context on generated data")
+	}
+	if !strings.Contains(bootstrapFile, "data.afterInit()") || !strings.Contains(bootstrapFile, "services.afterInit(data)") {
+		t.Fatalf("bootstrap generation should call generated bootstrap hooks")
+	}
+	if !strings.Contains(bootstrapFile, "httpServer, err := server.NewHTTPServer(appCtx, components.Services.HTTP(), components.Data)") || !strings.Contains(bootstrapFile, "grpcServer, err := server.NewGRPCServer(appCtx, components.Services.GRPC(), components.Data)") || !strings.Contains(bootstrapFile, "new generated grpc server") {
 		t.Fatalf("bootstrap generation should handle transport constructor errors")
 	}
 	if strings.Contains(bootstrapFile, "UserCredential:") {
 		t.Fatalf("bootstrap generation should not register resources without generated service stubs")
 	}
 
+	hooksFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_hooks_ext.go"))
+	if !strings.Contains(hooksFile, "func (data *GeneratedData) afterInit() {}") || !strings.Contains(hooksFile, "func (services *GeneratedServices) afterInit(data *GeneratedData)") {
+		t.Fatalf("bootstrap hooks extension file is missing generated hook stubs")
+	}
+
+	providersFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_data_providers.gen.go"))
+	if !strings.Contains(providersFile, `"github.com/chnxq/xkitpkg/app"`) || !strings.Contains(providersFile, "func (data *GeneratedData) GetAppCtx() *app.AppCtx") {
+		t.Fatalf("bootstrap provider file is missing GetAppCtx")
+	}
+	if !strings.Contains(providersFile, `"example.com/xadmin-web/internal/data/repo"`) || !strings.Contains(providersFile, "func (data *GeneratedData) UserRepoProvider() repo.UserRepo") || !strings.Contains(providersFile, "return data.UserRepo") {
+		t.Fatalf("bootstrap provider file is missing generated repo provider")
+	}
+	if !strings.Contains(providersFile, "func (data *GeneratedData) UserCredentialRepoProvider() repo.UserCredentialRepo") {
+		t.Fatalf("bootstrap provider file should generate providers for extra repos")
+	}
+
 	registerFile := readFile(t, filepath.Join(root, "internal", "server", "grpc_register.gen.go"))
 	if !strings.Contains(registerFile, "RegisterUserServiceServer") {
 		t.Fatalf("grpc register file is missing register call")
+	}
+}
+
+func TestRunnerGenerateBootstrap_SkipsExistingGeneratedDataMethods(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/xadmin-web\n\ngo 1.26.0\n")
+	writeFile(t, filepath.Join(root, "api", "protos", "admin", "v1", "i_user.proto"), `syntax = "proto3";
+
+package admin.service.v1;
+
+service UserService {
+  rpc List (ListRequest) returns (ListResponse) {}
+}`)
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_user_grpc.pb.go"), `package admin
+
+import (
+	context "context"
+	v1 "example.com/xadmin-web/api/gen/identity/v1"
+)
+
+type UserServiceServer interface {
+	List(context.Context, *v1.ListRequest) (*v1.ListResponse, error)
+	mustEmbedUnimplementedUserServiceServer()
+}
+
+var UserService_ServiceDesc = struct{
+	ServiceName string
+}{
+	ServiceName: "admin.service.v1.UserService",
+}
+`)
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_user_http.pb.go"), `package admin
+
+type UserServiceHTTPServer interface{}
+`)
+	writeFile(t, filepath.Join(root, "api", "gen", "identity", "v1", "user.pb.go"), `package identityv1
+
+type User struct{}
+`)
+	writeFile(t, filepath.Join(root, "internal", "data", "ent", "schema", "user.go"), `package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/field"
+)
+
+type User struct { ent.Schema }
+
+func (User) Fields() []ent.Field {
+	return []ent.Field{
+		field.String("username").Optional().Nillable(),
+	}
+}
+`)
+	writeFile(t, filepath.Join(root, "internal", "bootstrap", "generated_data_ext.go"), `package bootstrap
+
+import (
+	"example.com/xadmin-web/internal/data/repo"
+	"github.com/chnxq/xkitpkg/app"
+)
+
+func (data *GeneratedData) GetAppCtx() *app.AppCtx { return nil }
+func (data *GeneratedData) UserRepoProvider() repo.UserRepo { return nil }
+`)
+
+	cfg := config.Config{
+		Service: "admin",
+		Module:  "example.com/xadmin-web",
+		Resources: []config.Resource{
+			{
+				Name:          "user",
+				ProtoService:  "admin.service.v1.UserService",
+				Entity:        "User",
+				DTOImport:     "example.com/xadmin-web/api/gen/identity/v1",
+				DTOType:       "User",
+				RepoInterface: "UserRepo",
+				Operations: config.OperationFlags{
+					"list": true,
+				},
+				Generate: config.GenerateFlags{
+					ServiceStub:  true,
+					RepoCRUD:     true,
+					RestRegister: true,
+					GRPCRegister: true,
+				},
+			},
+		},
+	}
+
+	runner, err := New(project.Info{
+		Root:   root,
+		Module: "example.com/xadmin-web",
+	}, cfg, Options{Version: "test-version"})
+	if err != nil {
+		t.Fatalf("new runner: %v", err)
+	}
+
+	if _, err := runner.Generate("bootstrap"); err != nil {
+		t.Fatalf("generate bootstrap: %v", err)
+	}
+
+	providersFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_data_providers.gen.go"))
+	if strings.Contains(providersFile, "func (data *GeneratedData) GetAppCtx() *app.AppCtx") {
+		t.Fatalf("bootstrap provider file should skip existing GetAppCtx")
+	}
+	if strings.Contains(providersFile, "func (data *GeneratedData) UserRepoProvider() repo.UserRepo") {
+		t.Fatalf("bootstrap provider file should skip existing repo provider")
+	}
+}
+
+func TestGeneratedBootstrapProvidersFileCompiles(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), `module example.com/xadmin-web
+
+go 1.26.0
+
+require github.com/chnxq/xkitpkg/app v0.0.0-20260421141638-80e4b484ff8f
+`)
+	writeFile(t, filepath.Join(root, "api", "protos", "admin", "v1", "i_user.proto"), `syntax = "proto3";
+
+package admin.service.v1;
+
+service UserService {
+  rpc List (ListRequest) returns (ListResponse) {}
+}`)
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_user_grpc.pb.go"), `package admin
+
+import (
+	context "context"
+	v1 "example.com/xadmin-web/api/gen/identity/v1"
+)
+
+type UserServiceServer interface {
+	List(context.Context, *v1.ListRequest) (*v1.ListResponse, error)
+	mustEmbedUnimplementedUserServiceServer()
+}
+
+var UserService_ServiceDesc = struct{
+	ServiceName string
+}{
+	ServiceName: "admin.service.v1.UserService",
+}
+`)
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_user_http.pb.go"), `package admin
+
+type UserServiceHTTPServer interface{}
+`)
+	writeFile(t, filepath.Join(root, "api", "gen", "identity", "v1", "user.pb.go"), `package identityv1
+
+type User struct{}
+`)
+	writeFile(t, filepath.Join(root, "internal", "data", "ent", "schema", "user.go"), `package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/field"
+)
+
+type User struct { ent.Schema }
+
+func (User) Fields() []ent.Field {
+	return []ent.Field{
+		field.String("username").Optional().Nillable(),
+	}
+}
+`)
+
+	cfg := config.Config{
+		Service: "admin",
+		Module:  "example.com/xadmin-web",
+		Resources: []config.Resource{
+			{
+				Name:          "user",
+				ProtoService:  "admin.service.v1.UserService",
+				Entity:        "User",
+				DTOImport:     "example.com/xadmin-web/api/gen/identity/v1",
+				DTOType:       "User",
+				RepoInterface: "UserRepo",
+				Operations: config.OperationFlags{
+					"list": true,
+				},
+				Generate: config.GenerateFlags{
+					ServiceStub:  true,
+					RepoCRUD:     true,
+					RestRegister: true,
+					GRPCRegister: true,
+				},
+			},
+		},
+	}
+
+	runner, err := New(project.Info{
+		Root:   root,
+		Module: "example.com/xadmin-web",
+	}, cfg, Options{Version: "test-version"})
+	if err != nil {
+		t.Fatalf("new runner: %v", err)
+	}
+
+	if _, err := runner.Generate("bootstrap"); err != nil {
+		t.Fatalf("generate bootstrap: %v", err)
+	}
+
+	providersFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_data_providers.gen.go"))
+	if _, err := parser.ParseFile(token.NewFileSet(), "generated_data_providers.gen.go", providersFile, parser.AllErrors); err != nil {
+		t.Fatalf("generated providers file should parse as valid Go: %v", err)
 	}
 }
 

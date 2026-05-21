@@ -70,6 +70,7 @@ Swagger UI is also template-owned startup behavior. Buf writes the OpenAPI docum
 `xkit gen bootstrap` is narrowed to dynamic glue:
 
 - `internal/bootstrap/generated_servers.gen.go`
+- `internal/bootstrap/generated_data_providers.gen.go`
 - `internal/data/bootstrap/ent_client.gen.go`
 
 Resource generation remains in:
@@ -88,6 +89,8 @@ The startup skeleton calls `NewGeneratedServers`, `RegisterGeneratedHTTPServices
 - `GeneratedComponents` groups data and service objects.
 - `GeneratedComponents.Servers` converts generated services into HTTP/gRPC transport servers.
 
+`internal/bootstrap/generated_data_providers.gen.go` is the generated accessor layer for `GeneratedData`. It owns repo provider methods such as `UserRepoProvider()` and the default `GetAppCtx()` bridge used by template-owned hooks and middleware.
+
 This keeps template-owned startup code readable while allowing `xkit gen all` to replace the dynamic assembly safely.
 
 `xkit gen bootstrap` does not write `configs/*.yaml`, `cmd/server/*`, `internal/bootstrap/app.go`, `internal/bootstrap/infra.go`, `internal/server/http.go`, or `internal/server/grpc.go`.
@@ -101,14 +104,20 @@ The following files are reserved for later handwritten changes and are created o
 - `internal/service/*_service_ext.go`
 - `internal/data/repo/*_repo_ext.go`
 - `internal/bootstrap/hooks.go`
+- `internal/bootstrap/generated_hooks_ext.go`
 - `internal/server/options.go`
+- `internal/server/manual_http_data.go`
 - `internal/data/bootstrap/data.go`
 - `internal/data/bootstrap/resources.go`
 - `configs/*.yaml`
 
 `internal/bootstrap/hooks.go` is for extra transport servers or lifecycle additions.
 
+`internal/bootstrap/generated_hooks_ext.go` is for handwritten `GeneratedData` / `GeneratedServices` bootstrap hooks that must survive repeated `xkit gen bootstrap` runs.
+
 `internal/server/options.go` is for project-specific HTTP/gRPC business middleware. Default config mapping and framework transport options belong in the template-maintained `*_options.go` files.
+
+`internal/server/manual_http_data.go` is the preserved hook for manual HTTP routes that need `GeneratedData` access without changing the legacy `RegisterManualHTTPServices` signature in existing initialized projects.
 
 `internal/data/bootstrap/data.go` is for shared data providers such as Redis, cache, object storage, queues, or domain-specific clients.
 

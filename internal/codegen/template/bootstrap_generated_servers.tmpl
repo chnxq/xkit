@@ -21,6 +21,7 @@ import (
 )
 
 type GeneratedData struct {
+	AppContext *app.AppCtx
 {{- range .RepoResources }}
 	{{ .FieldName }}Repo repo.{{ .RepoInterface }}
 {{- end }}
@@ -33,14 +34,16 @@ func NewGeneratedData(appCtx *app.AppCtx) (*GeneratedData, func(), error) {
 		return nil, entCleanup, err
 	}
 
-	data := &GeneratedData{}
+	data := &GeneratedData{AppContext: appCtx}
 {{- range .RepoResources }}
 	data.{{ .FieldName }}Repo = repo.{{ .RepoConstructor }}(appCtx, entClient)
 {{- end }}
+	data.afterInit()
 	return data, entCleanup, nil
 {{- else }}
-	_ = appCtx
-	return &GeneratedData{}, func() {}, nil
+	data := &GeneratedData{AppContext: appCtx}
+	data.afterInit()
+	return data, func() {}, nil
 {{- end }}
 }
 
@@ -52,7 +55,7 @@ type GeneratedServices struct {
 
 func NewGeneratedServices(appCtx *app.AppCtx, data *GeneratedData) *GeneratedServices {
 {{- if .ServerResources }}
-	return &GeneratedServices{
+	services := &GeneratedServices{
 {{- range .ServerResources }}
 {{- if .HasRepo }}
 		{{ .FieldName }}: service.{{ .Constructor }}(appCtx, data.{{ .FieldName }}Repo{{ range .ExtraRepoVars }}, data.{{ . | upperFirst }}{{ end }}),
@@ -61,9 +64,13 @@ func NewGeneratedServices(appCtx *app.AppCtx, data *GeneratedData) *GeneratedSer
 {{- end }}
 {{- end }}
 	}
+	services.afterInit(data)
+	return services
 {{- else }}
+	services := &GeneratedServices{}
 	_, _ = appCtx, data
-	return &GeneratedServices{}
+	services.afterInit(data)
+	return services
 {{- end }}
 }
 
@@ -112,7 +119,7 @@ func (components *GeneratedComponents) Servers(appCtx *app.AppCtx) ([]transport.
 	if err != nil {
 		return nil, fmt.Errorf("new generated http server: %w", err)
 	}
-	grpcServer, err := server.NewGRPCServer(appCtx, components.Services.GRPC())
+	grpcServer, err := server.NewGRPCServer(appCtx, components.Services.GRPC(), components.Data)
 	if err != nil {
 		return nil, fmt.Errorf("new generated grpc server: %w", err)
 	}

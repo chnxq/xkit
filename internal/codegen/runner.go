@@ -129,43 +129,45 @@ type wireTemplateData struct {
 
 type repoTemplateData struct {
 	templateBase
-	Imports          []importSpec
-	RepoName         string
-	RepoStructName   string
-	ConstructorName  string
-	EntityName       string
-	EntOperationName string
-	ResourceName     string
-	EntPackage       string
-	PredicateType    string
-	DTOType          string
-	IDType           string
-	Methods          []repoMethodData
-	Fields           []entschema.Field
-	UsesEnumSetter   bool
-	UsesTimeSetter   bool
+	Imports             []importSpec
+	RepoName            string
+	RepoStructName      string
+	ConstructorName     string
+	EntityName          string
+	EntOperationName    string
+	ResourceName        string
+	EntPackage          string
+	PredicateType       string
+	DTOType             string
+	IDType              string
+	Methods             []repoMethodData
+	Fields              []entschema.Field
+	UsesEnumSetter      bool
+	UsesTimeSetter      bool
 	UsesFieldMaskHelper bool
-	EnumHelperName   string
-	TimeHelperName   string
+	EnumHelperName      string
+	TimeHelperName      string
 	FieldMaskHelperName string
-	Filters          []filterData
-	UsesFilters      bool
-	UsesAuditFields  bool
+	Filters             []filterData
+	UsesFilters         bool
+	UsesAuditFields     bool
 }
 
 type bootstrapTemplateData struct {
 	templateBase
-	Module          string
-	ServiceName     string
-	AppName         string
-	ServerImport    string
-	DataBootImport  string
-	RepoImport      string
-	ServiceImport   string
-	RepoResources   []bootstrapResourceData
-	ServerResources []bootstrapResourceData
-	HTTPResources   []bootstrapResourceData
-	GRPCResources   []bootstrapResourceData
+	Module            string
+	ServiceName       string
+	AppName           string
+	ServerImport      string
+	DataBootImport    string
+	RepoImport        string
+	ServiceImport     string
+	RepoResources     []bootstrapResourceData
+	ProviderResources []bootstrapResourceData
+	ServerResources   []bootstrapResourceData
+	HTTPResources     []bootstrapResourceData
+	GRPCResources     []bootstrapResourceData
+	GenerateGetAppCtx bool
 }
 
 type bootstrapResourceData struct {
@@ -210,9 +212,9 @@ type existsCaseData struct {
 }
 
 type setterData struct {
-	Method string
-	Expr   string
-	Kind   string
+	Method         string
+	Expr           string
+	Kind           string
 	Condition      string
 	ClearMethod    string
 	ClearCondition string
@@ -651,6 +653,28 @@ func (r *Runner) bootstrapRepoResources(plans []resourcePlan) []bootstrapResourc
 	return resources
 }
 
+func (r *Runner) bootstrapProviderResources(plans []resourcePlan) ([]bootstrapResourceData, bool) {
+	existingMethods := receiverMethodNames(
+		filepath.Join(r.project.Root, "internal", "bootstrap"),
+		"GeneratedData",
+		map[string]struct{}{
+			"generated_data_providers.gen.go": {},
+		},
+	)
+
+	providerResources := make([]bootstrapResourceData, 0, len(plans))
+	for _, resource := range r.bootstrapRepoResources(plans) {
+		methodName := resource.FieldName + "RepoProvider"
+		if _, exists := existingMethods[methodName]; exists {
+			continue
+		}
+		providerResources = append(providerResources, resource)
+	}
+
+	_, hasGetAppCtx := existingMethods["GetAppCtx"]
+	return providerResources, !hasGetAppCtx
+}
+
 func bootstrapRegisteredResources(resources []bootstrapResourceData, plans []resourcePlan, enabled func(config.GenerateFlags) bool) []bootstrapResourceData {
 	registeredFields := make(map[string]struct{}, len(plans))
 	for _, plan := range plans {
@@ -685,26 +709,32 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 	}
 
 	serverResources := r.bootstrapResources(plans)
+	providerResources, generateGetAppCtx := r.bootstrapProviderResources(plans)
 	data := bootstrapTemplateData{
-		templateBase:    r.templateBase(),
-		Module:          r.project.Module,
-		ServiceName:     r.config.Service,
-		AppName:         r.project.Module,
-		ServerImport:    r.internalImport("server"),
-		DataBootImport:  r.internalImport("data", "bootstrap"),
-		RepoImport:      r.internalImport("data", "repo"),
-		ServiceImport:   r.internalImport("service"),
-		RepoResources:   r.bootstrapRepoResources(plans),
-		ServerResources: serverResources,
+		templateBase:      r.templateBase(),
+		Module:            r.project.Module,
+		ServiceName:       r.config.Service,
+		AppName:           r.project.Module,
+		ServerImport:      r.internalImport("server"),
+		DataBootImport:    r.internalImport("data", "bootstrap"),
+		RepoImport:        r.internalImport("data", "repo"),
+		ServiceImport:     r.internalImport("service"),
+		RepoResources:     r.bootstrapRepoResources(plans),
+		ProviderResources: providerResources,
+		ServerResources:   serverResources,
 		HTTPResources: bootstrapRegisteredResources(serverResources, plans, func(flags config.GenerateFlags) bool {
 			return flags.EffectiveRestRegister()
 		}),
 		GRPCResources: bootstrapRegisteredResources(serverResources, plans, func(flags config.GenerateFlags) bool {
 			return flags.EffectiveGRPCRegister()
 		}),
+		GenerateGetAppCtx: generateGetAppCtx,
 	}
 
 	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.go")); err != nil {
+		return Result{}, err
+	}
+	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.project.Root, "internal", "bootstrap", "generated_hooks_ext.go")); err != nil {
 		return Result{}, err
 	}
 
@@ -713,6 +743,7 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		template string
 	}{
 		{path: filepath.Join(r.project.Root, "internal", "bootstrap", "generated_servers.gen.go"), template: codegentemplate.BootstrapGeneratedServers},
+		{path: filepath.Join(r.project.Root, "internal", "bootstrap", "generated_data_providers.gen.go"), template: codegentemplate.BootstrapGeneratedDataProviders},
 		{path: filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.gen.go"), template: codegentemplate.BootstrapEntClient},
 	}
 
@@ -725,6 +756,15 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		if err := r.writeGeneratedFile(file.path, content, &result); err != nil {
 			return result, err
 		}
+	}
+
+	hooksContent, err := renderTemplate(codegentemplate.BootstrapHooksExt, nil)
+	if err != nil {
+		return result, err
+	}
+	hooksPath := filepath.Join(r.project.Root, "internal", "bootstrap", "generated_hooks_ext.go")
+	if err := r.writeExtensionFile(hooksPath, hooksContent, &result); err != nil {
+		return result, err
 	}
 
 	return result, nil
@@ -1055,28 +1095,28 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	}
 
 	data := repoTemplateData{
-		templateBase:     r.templateBase(),
-		Imports:          uniqueImports(imports),
-		RepoName:         repoName,
-		RepoStructName:   lowerFirst(repoName),
-		ConstructorName:  "New" + repoName,
-		EntityName:       entityName,
-		EntOperationName: entOperationName(entityName),
-		ResourceName:     plan.Resource.Name,
-		EntPackage:       strings.ToLower(entityName),
-		PredicateType:    entityName,
-		DTOType:          dtoType,
-		IDType:           idGoType(plan.Schema.Fields),
-		Fields:           plan.Schema.Fields,
-		UsesEnumSetter:   usesEnumSetter,
-		UsesTimeSetter:   usesTimeSetter,
+		templateBase:        r.templateBase(),
+		Imports:             uniqueImports(imports),
+		RepoName:            repoName,
+		RepoStructName:      lowerFirst(repoName),
+		ConstructorName:     "New" + repoName,
+		EntityName:          entityName,
+		EntOperationName:    entOperationName(entityName),
+		ResourceName:        plan.Resource.Name,
+		EntPackage:          strings.ToLower(entityName),
+		PredicateType:       entityName,
+		DTOType:             dtoType,
+		IDType:              idGoType(plan.Schema.Fields),
+		Fields:              plan.Schema.Fields,
+		UsesEnumSetter:      usesEnumSetter,
+		UsesTimeSetter:      usesTimeSetter,
 		UsesFieldMaskHelper: usesFieldMaskHelper,
-		EnumHelperName:   lowerFirst(entityName) + "EnumPtrFromProto",
-		TimeHelperName:   lowerFirst(entityName) + "TimePtrFromProto",
+		EnumHelperName:      lowerFirst(entityName) + "EnumPtrFromProto",
+		TimeHelperName:      lowerFirst(entityName) + "TimePtrFromProto",
 		FieldMaskHelperName: lowerFirst(entityName) + "FieldMaskContains",
-		Filters:          filters,
-		UsesFilters:      usesFilters,
-		UsesAuditFields:  usesAuditFields,
+		Filters:             filters,
+		UsesFilters:         usesFilters,
+		UsesAuditFields:     usesAuditFields,
 	}
 	data.Methods = methods
 
@@ -1471,6 +1511,54 @@ func (r *Runner) dtoFieldNames(importPath, typeName string) map[string]struct{} 
 		}
 	}
 	return out
+}
+
+func receiverMethodNames(dir, receiverName string, skipFiles map[string]struct{}) map[string]struct{} {
+	out := make(map[string]struct{})
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return out
+	}
+
+	fileSet := token.NewFileSet()
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		if _, skip := skipFiles[entry.Name()]; skip {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		file, err := parser.ParseFile(fileSet, path, nil, parser.SkipObjectResolution)
+		if err != nil {
+			continue
+		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv == nil || fn.Name == nil {
+				continue
+			}
+			if receiverMatches(fn.Recv, receiverName) {
+				out[fn.Name.Name] = struct{}{}
+			}
+		}
+	}
+	return out
+}
+
+func receiverMatches(recv *ast.FieldList, receiverName string) bool {
+	if recv == nil || len(recv.List) == 0 {
+		return false
+	}
+	switch expr := recv.List[0].Type.(type) {
+	case *ast.StarExpr:
+		if ident, ok := expr.X.(*ast.Ident); ok {
+			return ident.Name == receiverName
+		}
+	case *ast.Ident:
+		return expr.Name == receiverName
+	}
+	return false
 }
 
 func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, methodName, entPackage, enumHelperName, timeHelperName, fieldMaskHelperName string) []setterData {

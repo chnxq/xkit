@@ -156,8 +156,8 @@ go run ./cmd/server server -config_path ./configs
 | 类型 | 典型文件 | 维护方式 |
 | --- | --- | --- |
 | 启动模板代码 | `cmd/server/*`、`configs/*`、`internal/bootstrap/app.go`、`internal/server/*`、`internal/data/bootstrap/*` | `xkit init template` 复制后归目标项目维护 |
-| 动态生成代码 | `internal/service/*_service.gen.go`、`internal/data/repo/*_repo.gen.go`、`internal/server/*_register.gen.go`、`internal/bootstrap/generated_servers.gen.go`、`internal/data/bootstrap/ent_client.gen.go` | `xkit gen ...` 可重复覆盖 |
-| 手写扩展代码 | `*_ext.go`、`internal/bootstrap/hooks.go`、`internal/server/options.go`、`internal/data/bootstrap/data.go`、`internal/data/bootstrap/resources.go` | 只在缺失时创建或由模板 preserve，后续人工维护 |
+| 动态生成代码 | `internal/service/*_service.gen.go`、`internal/data/repo/*_repo.gen.go`、`internal/server/*_register.gen.go`、`internal/bootstrap/generated_servers.gen.go`、`internal/bootstrap/generated_data_providers.gen.go`、`internal/data/bootstrap/ent_client.gen.go` | `xkit gen ...` 可重复覆盖 |
+| 手写扩展代码 | `*_ext.go`、`internal/bootstrap/hooks.go`、`internal/server/options.go`、`internal/server/manual_http_data.go`、`internal/data/bootstrap/data.go`、`internal/data/bootstrap/resources.go` | 只在缺失时创建或由模板 preserve，后续人工维护 |
 | 历史兼容代码 | Wire provider set、旧 `wire.go`、旧 `wire_gen.go` | 默认流程不依赖，`gen all` 不自动生成或清理 |
 
 ## 常见问题

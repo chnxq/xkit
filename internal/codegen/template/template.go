@@ -23,5 +23,11 @@ var WireFile string
 //go:embed bootstrap_generated_servers.tmpl
 var BootstrapGeneratedServers string
 
+//go:embed bootstrap_generated_data_providers.tmpl
+var BootstrapGeneratedDataProviders string
+
+//go:embed bootstrap_hooks_ext.tmpl
+var BootstrapHooksExt string
+
 //go:embed bootstrap_ent_client.tmpl
 var BootstrapEntClient string
