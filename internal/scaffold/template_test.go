@@ -221,6 +221,47 @@ preserve:
 	}
 }
 
+func TestApplyTemplateForceReplacesManualHTTPButKeepsManualHTTPData(t *testing.T) {
+	templateRoot := t.TempDir()
+	projectRoot := t.TempDir()
+
+	writeTestFile(t, filepath.Join(templateRoot, "template.yaml"), `name: test
+kind: service-template
+version: 0.1.0
+preserve:
+  - internal/server/manual_http_data.go
+`)
+	manualHTTPPath := filepath.Join("internal", "server", "manual_http.go")
+	manualHTTPDataPath := filepath.Join("internal", "server", "manual_http_data.go")
+	writeTestFile(t, filepath.Join(templateRoot, manualHTTPPath), "package server\n\nconst fromTemplate = true\n")
+	writeTestFile(t, filepath.Join(templateRoot, manualHTTPDataPath), "package server\n\nconst fromTemplateData = true\n")
+	writeTestFile(t, filepath.Join(projectRoot, manualHTTPPath), "package server\n\nconst existingManualHTTP = true\n")
+	writeTestFile(t, filepath.Join(projectRoot, manualHTTPDataPath), "package server\n\nconst existingManualHTTPData = true\n")
+
+	result, err := ApplyTemplate(TemplateOptions{
+		TemplateRoot: templateRoot,
+		ProjectRoot:  projectRoot,
+		Force:        true,
+		GeneratedAt:  time.Date(2026, 4, 30, 23, 34, 19, 0, time.FixedZone("CST", 8*60*60)),
+	})
+	if err != nil {
+		t.Fatalf("apply template: %v", err)
+	}
+	if len(result.Written) != 2 || len(result.Skipped) != 0 {
+		t.Fatalf("unexpected result: written=%d skipped=%d", len(result.Written), len(result.Skipped))
+	}
+
+	manualHTTPContent := readTestFile(t, filepath.Join(projectRoot, manualHTTPPath))
+	if !strings.Contains(manualHTTPContent, "const fromTemplate = true") || strings.Contains(manualHTTPContent, "const existingManualHTTP = true") {
+		t.Fatalf("manual_http.go was not replaced by template content: %s", manualHTTPContent)
+	}
+
+	manualHTTPDataContent := readTestFile(t, filepath.Join(projectRoot, manualHTTPDataPath))
+	if !strings.Contains(manualHTTPDataContent, "const existingManualHTTPData = true") || strings.Contains(manualHTTPDataContent, "const fromTemplateData = true") {
+		t.Fatalf("manual_http_data.go should stay project-owned: %s", manualHTTPDataContent)
+	}
+}
+
 func TestIsGitTemplateSource(t *testing.T) {
 	t.Parallel()
 
