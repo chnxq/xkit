@@ -1,6 +1,23 @@
 # Phase 2 Repair Hotspots
 
-Use this checklist after Phase 1 if the new project still differs from the current `admin` implementation.
+Use this checklist after Phase 1 if the new project still differs from the chosen reference implementation.
+
+## 0. Resolve the reference project first
+
+The repair phase must start from a local reference directory.
+
+Allowed inputs:
+
+- local path, for example `D:\GoProjects\XAdmin\admin`
+- git repository URL
+
+If a git URL is provided:
+
+- clone it to a local working path first
+- use the cloned directory as the reference repo root
+- record the exact path and revision used during the repair session
+
+For the rest of this document, call that directory `<ReferenceProjectRoot>`.
 
 ## 1. Preserved server files fell back to template stubs
 
@@ -20,7 +37,7 @@ Use this checklist after Phase 1 if the new project still differs from the curre
 
 ### Repair
 
-Diff against `admin` and bring over the current hand-written implementation, then rewrite imports from `admin/...` to `<Module>/...`.
+Diff against `<ReferenceProjectRoot>` and bring over the current hand-written implementation, then rewrite imports from the reference module path to `<Module>/...`.
 
 ## 2. Extension helper names now collide with generated code
 
@@ -67,9 +84,9 @@ Check whether generated code now defines the same helper. If it does, remove or 
 
 Scan all generated repo files and cover every list-builder query type in one pass.
 
-## 4. Hand-written business features commonly required from admin
+## 4. Hand-written business features commonly required from the reference project
 
-Compare whether the target project also needs these groups:
+Compare whether the target project also needs these groups from `<ReferenceProjectRoot>`:
 
 - auth password verification and token handling
 - captcha support
@@ -92,5 +109,5 @@ The practical success condition is:
 
 - target repo compiles
 - bootstrap and core runtime paths are present
-- target repo is behaviorally close enough to `admin` for the intended iteration
+- target repo is behaviorally close enough to the resolved reference project for the intended iteration
 - the real process is written into `<target>/readme.md`

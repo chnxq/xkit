@@ -63,6 +63,77 @@ function Resolve-InputValue {
     return ""
 }
 
+function Show-ExecutionSummary {
+    param(
+        [string]$WorkspaceRoot,
+        [string]$ProjectName,
+        [string]$Module,
+        [string]$AppName,
+        [string]$ServiceName,
+        [string]$ProjectRoot,
+        [string]$TypeScriptRoot,
+        [string]$ConfigPath,
+        [string]$CanonicalConfigPath,
+        [bool]$InteractiveMode,
+        [bool]$SkipDryRun,
+        [bool]$SkipGoGetUpdateAll,
+        [bool]$SmokeTest
+    )
+
+    Write-Host ""
+    Write-Host "================ xkit generateAll summary ================"
+    Write-Host "WorkspaceRoot:      $WorkspaceRoot"
+    Write-Host "ProjectName:        $ProjectName"
+    Write-Host "Module:             $Module"
+    Write-Host "AppName:            $AppName"
+    Write-Host "ServiceName:        $ServiceName"
+    Write-Host "ProjectRoot:        $ProjectRoot"
+    Write-Host "TypeScriptRoot:     $TypeScriptRoot"
+    Write-Host "TargetConfig:       $ConfigPath"
+    Write-Host "CanonicalConfig:    $CanonicalConfigPath"
+    Write-Host "InteractiveMode:    $InteractiveMode"
+    Write-Host "SkipDryRun:         $SkipDryRun"
+    Write-Host "SkipGoGetUpdateAll: $SkipGoGetUpdateAll"
+    Write-Host "SmokeTest:          $SmokeTest"
+    Write-Host ""
+    Write-Host "Planned stages:"
+    Write-Host "  1. init template"
+    Write-Host "  2. init source"
+    Write-Host "  3. apply canonical admin config"
+    Write-Host "  4. generate Go/OpenAPI/TypeScript API code"
+    Write-Host "  5. generate Ent code"
+    Write-Host "  6. run xkit gen all"
+    Write-Host "  7. tidy dependencies and run tests"
+    if ($SmokeTest) {
+        Write-Host "  8. run server smoke test"
+    }
+    Write-Host "=========================================================="
+}
+
+function Confirm-OrAbort {
+    param(
+        [bool]$InteractiveMode
+    )
+
+    if (-not $InteractiveMode) {
+        return
+    }
+
+    $answer = Read-Host "Continue with this plan? [Y/n]"
+    if ([string]::IsNullOrWhiteSpace($answer)) {
+        return
+    }
+
+    $normalized = $answer.Trim().ToLowerInvariant()
+    if ($normalized -eq "y" -or $normalized -eq "yes") {
+        return
+    }
+
+    throw "Aborted by user before execution."
+}
+
+$InteractiveMode = Test-InteractiveSession
+
 $ProjectName = Resolve-InputValue `
     -Name "ProjectName" `
     -Value $ProjectName `
@@ -94,15 +165,22 @@ $TypeScriptRoot = Resolve-InputValue `
     -Hint "generated TypeScript output directory"
 $ConfigPath = Join-Path $SourceRoot "$ProjectName-config\$ServiceName.yaml"
 
-Write-Host "WorkspaceRoot:  $WorkspaceRoot"
-Write-Host "ExamplesRoot:   $ExamplesRoot"
-Write-Host "SourceRoot:     $SourceRoot"
-Write-Host "ProjectName:    $ProjectName"
-Write-Host "Module:         $Module"
-Write-Host "ProjectRoot:    $ProjectRoot"
-Write-Host "TypeScriptRoot: $TypeScriptRoot"
-Write-Host "ConfigPath:     $ConfigPath"
-Write-Host "CanonicalConfig:$CanonicalConfigPath"
+Show-ExecutionSummary `
+    -WorkspaceRoot $WorkspaceRoot `
+    -ProjectName $ProjectName `
+    -Module $Module `
+    -AppName $AppName `
+    -ServiceName $ServiceName `
+    -ProjectRoot $ProjectRoot `
+    -TypeScriptRoot $TypeScriptRoot `
+    -ConfigPath $ConfigPath `
+    -CanonicalConfigPath $CanonicalConfigPath `
+    -InteractiveMode $InteractiveMode `
+    -SkipDryRun ([bool]$SkipDryRun) `
+    -SkipGoGetUpdateAll ([bool]$SkipGoGetUpdateAll) `
+    -SmokeTest ([bool]$SmokeTest)
+
+Confirm-OrAbort -InteractiveMode $InteractiveMode
 
 function Invoke-Step {
     param(

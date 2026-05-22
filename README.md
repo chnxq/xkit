@@ -181,3 +181,7 @@ go run ./cmd/server server -config_path ./configs
 - [前端 API 集成计划](doc/frontend-api-integration-plan.md)
 - [服务代码生成规格](doc/service-codegen-spec.md)
 - [模板仓库方案记录](doc/template-repo-bootstrap-solution.md)：历史方案和决策过程，以 README 与边界文档为当前准则。
+- [xkit-helper 技能主文档](xkit-helper/SKILL.md)：面向 Codex 的三阶段操作说明，覆盖生成、对齐与功能差异复盘。
+- [xkit-helper 第一阶段生成说明](xkit-helper/references/phase-1-generate.md)：对应 `examples/generateAll.ps1` 的参数、步骤与校验点。
+- [xkit-helper 第二阶段修补热点](xkit-helper/references/phase-2-repair-hotspots.md)：生成后对齐参考项目时的常见差异与修补清单。
+- [xkit-helper 第三阶段功能差异复盘](xkit-helper/references/phase-3-feature-gap-review.md)：对比新项目与参考项目的剩余差异，以功能差异而非原始文件差异为主导，并要求将结果落盘到目标仓库文档。
