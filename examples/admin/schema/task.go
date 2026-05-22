@@ -10,7 +10,7 @@ import (
 
 	"github.com/chnxq/x-crud/entgo/mixin"
 
-	taskV1 "admin-01/api/gen/task/v1"
+	taskV1 "admin/api/gen/task/v1"
 )
 
 // Task holds the schema definition for the Task entity.

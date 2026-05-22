@@ -100,7 +100,7 @@ Vue：
 buf generate --template buf.vue.admin.typescript.gen.yaml
 ```
 
-输出到：`../../admin-02-ui/apps/web-antd/src/api/generated`
+输出路径会在执行 `xkit init source` 时按目标前端工程自动改写。
 
 ## Buf 配置与依赖
 

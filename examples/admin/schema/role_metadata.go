@@ -9,7 +9,7 @@ import (
 
 	"github.com/chnxq/x-crud/entgo/mixin"
 
-	permissionV1 "admin-01/api/gen/permission/v1"
+	permissionV1 "admin/api/gen/permission/v1"
 )
 
 // RoleMetadata 角色元数据（模板标记/覆盖项/版本控制）

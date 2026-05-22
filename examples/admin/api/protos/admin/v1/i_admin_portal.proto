@@ -9,6 +9,13 @@ import "resource/v1/menu.proto";
 
 // 后台前端初始化数据与配置服务
 service AdminPortalService {
+  // 获取登录验证码
+  rpc GetCaptcha (google.protobuf.Empty) returns (GetCaptchaResponse) {
+    option (google.api.http) = {
+      get: "/admin/v1/captcha"
+    };
+  }
+
   // 查询前端路由表
   rpc GetNavigation (google.protobuf.Empty) returns (ListRouteResponse) {
     option (google.api.http) = {
@@ -46,6 +53,12 @@ message ListRouteResponse {
 // 查询权限码列表 - 响应
 message ListPermissionCodeResponse {
   repeated string codes = 1;
+}
+
+message GetCaptchaResponse {
+  string captcha_id = 1; // 验证码会话ID（登录时放入client_id回传）
+  string image_base64 = 2; // 验证码图片（data:image/png;base64,...）
+  uint32 expires_in = 3; // 验证码有效期（秒）
 }
 
 message InitialContextResponse {

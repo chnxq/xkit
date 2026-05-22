@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xkit Helper"
+  short_description: "Bootstrap from examples/admin, then align with admin."
+  default_prompt: "Use $xkit-helper to generate a backend project from xkit/examples/admin, prompt for ProjectName, Module, AppName, and TypeScriptRoot, then align the result with the current admin implementation."

@@ -8,7 +8,7 @@ import (
 	"entgo.io/ent/schema/index"
 	"github.com/chnxq/x-crud/entgo/mixin"
 
-	resourceV1 "admin-01/api/gen/resource/v1"
+	resourceV1 "admin/api/gen/resource/v1"
 )
 
 // Menu holds the schema definition for the Menu entity.

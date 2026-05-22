@@ -23,34 +23,34 @@ managed:
     # value第一部分是生成代码的包路径，第二部分是go包名。
     - file_option: go_package
       path: admin/v1
-      value: admin-01/api/gen/admin/v1;admin
+      value: admin/api/gen/admin/v1;admin
     - file_option: go_package
       path: audit/v1
-      value: admin-01/api/gen/audit/v1;audit
+      value: admin/api/gen/audit/v1;audit
     - file_option: go_package
       path: authentication/v1
-      value: admin-01/api/gen/authentication/v1;authentication
+      value: admin/api/gen/authentication/v1;authentication
     - file_option: go_package
       path: dict/v1
-      value: admin-01/api/gen/dict/v1;dict
+      value: admin/api/gen/dict/v1;dict
     - file_option: go_package
       path: storage/v1
-      value: admin-01/api/gen/storage/v1;storage
+      value: admin/api/gen/storage/v1;storage
     - file_option: go_package
       path: internal_message/v1
-      value: admin-01/api/gen/internal_message/v1;internalmessage
+      value: admin/api/gen/internal_message/v1;internalmessage
     - file_option: go_package
       path: permission/v1
-      value: admin-01/api/gen/permission/v1;permission
+      value: admin/api/gen/permission/v1;permissionv1
     - file_option: go_package
       path: task/v1
-      value: admin-01/api/gen/task/v1;task
+      value: admin/api/gen/task/v1;taskv1
     - file_option: go_package
       path: identity/v1
-      value: admin-01/api/gen/identity/v1;identity
+      value: admin/api/gen/identity/v1;identity
     - file_option: go_package
       path: resource/v1
-      value: admin-01/api/gen/resource/v1;resource
+      value: admin/api/gen/resource/v1;resource
 
 plugins:
   # generate go code

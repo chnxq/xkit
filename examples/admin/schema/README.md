@@ -1,6 +1,6 @@
 # Ent Schema Overview
 
-本文档梳理 `internal/data/ent/schema` 下的实体模型，帮助快速理解当前后台数据层的领域划分、核心关系与多租户设计。
+本文档梳理 `examples/admin/schema` 下的实体模型，帮助快速理解当前后台数据层的领域划分、核心关系与多租户设计。
 
 ## 总览
 

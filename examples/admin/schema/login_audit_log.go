@@ -9,7 +9,7 @@ import (
 
 	"github.com/chnxq/x-crud/entgo/mixin"
 
-	auditV1 "admin-01/api/gen/audit/v1"
+	auditV1 "admin/api/gen/audit/v1"
 )
 
 // LoginAuditLog holds the schema definition for the LoginAuditLog entity.
