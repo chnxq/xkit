@@ -67,6 +67,13 @@ func (DictType) Edges() []ent.Edge {
 				OnDelete: entsql.Cascade,
 			}).
 			StorageKey(edge.Column("type_id")),
+
+		edge.To("i18ns", DictTypeI18n.Type).
+			Required().
+			Annotations(entsql.Annotation{
+				OnDelete: entsql.Cascade,
+			}).
+			StorageKey(edge.Column("dict_type_id")),
 	}
 }
 
