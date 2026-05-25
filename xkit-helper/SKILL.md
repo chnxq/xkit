@@ -81,6 +81,10 @@ The target-specific generated config is:
 
 - `xkit/examples/admin/<ProjectName>-config/admin.yaml`
 
+If `ProjectName` is `admin`, the generated config uses this collision-free path instead:
+
+- `xkit/examples/admin/admin-target-config/admin.yaml`
+
 After `init source`, verify that the target config was overwritten from the canonical config and that these replacements occurred:
 
 - `module: admin` -> `module: <Module>`

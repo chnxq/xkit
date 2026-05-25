@@ -163,7 +163,11 @@ $TypeScriptRoot = Resolve-InputValue `
     -Value $TypeScriptRoot `
     -DefaultValue (Join-Path $ProjectRoot ".generated-ui") `
     -Hint "generated TypeScript output directory"
-$ConfigPath = Join-Path $SourceRoot "$ProjectName-config\$ServiceName.yaml"
+$ConfigDirName = "$ProjectName-config"
+if ((Join-Path $SourceRoot $ConfigDirName) -eq (Join-Path $SourceRoot "admin-config")) {
+    $ConfigDirName = "$ProjectName-target-config"
+}
+$ConfigPath = Join-Path $SourceRoot "$ConfigDirName\$ServiceName.yaml"
 
 Show-ExecutionSummary `
     -WorkspaceRoot $WorkspaceRoot `
@@ -190,7 +194,11 @@ function Invoke-Step {
 
     Write-Host ""
     Write-Host "==> $Name"
+    $global:LASTEXITCODE = 0
     & $Action
+    if ($global:LASTEXITCODE -ne 0) {
+        throw "$Name failed with exit code $global:LASTEXITCODE"
+    }
 }
 
 function Sync-CanonicalConfig {
@@ -253,6 +261,7 @@ try {
             go run ./cmd/xkit init source $SourceRoot `
                 --project $ProjectRoot `
                 --service $ServiceName `
+                --config $ConfigPath `
                 --typescript-project $TypeScriptRoot `
                 --dry-run
         }
@@ -262,6 +271,7 @@ try {
         go run ./cmd/xkit init source $SourceRoot `
             --project $ProjectRoot `
             --service $ServiceName `
+            --config $ConfigPath `
             --typescript-project $TypeScriptRoot `
             --force
     }
@@ -312,7 +322,7 @@ try {
     Invoke-Step "Generate Ent code" {
         Push-Location $ProjectRoot
         try {
-            go run -mod=mod entgo.io/ent/cmd/ent generate ./internal/data/ent/schema --feature privacy,sql/upsert,sql/versioned-migration
+            go run -mod=mod entgo.io/ent/cmd/ent generate ./internal/data/ent/schema --feature privacy,sql/upsert,sql/versioned-migration,sql/modifier
         } finally {
             Pop-Location
         }

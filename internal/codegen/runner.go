@@ -1064,6 +1064,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	}
 	if usesAuditFields {
 		imports = append(imports,
+			importSpec{Path: "context"},
 			importSpec{Alias: "crudviewer", Path: "github.com/chnxq/x-crud/viewer"},
 			importSpec{Path: "time"},
 		)
@@ -1305,8 +1306,19 @@ func looksLikeGoSource(content []byte) bool {
 
 func uniqueImports(imports []importSpec) []importSpec {
 	seen := make(map[string]struct{})
+	seenPathWithoutAlias := make(map[string]struct{})
 	var out []importSpec
 	for _, spec := range imports {
+		if spec.Alias == "" {
+			seenPathWithoutAlias[spec.Path] = struct{}{}
+		}
+	}
+	for _, spec := range imports {
+		if spec.Alias != "" {
+			if _, ok := seenPathWithoutAlias[spec.Path]; ok {
+				continue
+			}
+		}
 		key := spec.Alias + "|" + spec.Path
 		if _, ok := seen[key]; ok {
 			continue
