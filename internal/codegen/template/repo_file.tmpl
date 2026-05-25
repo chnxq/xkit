@@ -157,6 +157,11 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	if req == nil || req.Data == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
 	}
+	if custom, ok := any(r).(interface {
+		{{ .CustomHookName }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error)
+	}); ok {
+		return custom.{{ .CustomHookName }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }}{{end}})
+	}
 
 	builder := r.entClient.Client().{{ $.EntityName }}.Create()
 {{- if and .AuditUsesNow .AuditUsesViewer}}
@@ -197,6 +202,11 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	if req == nil || req.Data == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
 	}
+	if custom, ok := any(r).(interface {
+		{{ .CustomHookName }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error)
+	}); ok {
+		return custom.{{ .CustomHookName }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }}{{end}})
+	}
 
 	builder := r.entClient.Client().{{ $.EntityName }}.UpdateOneID(req.GetId())
 {{- if and .AuditUsesNow .AuditUsesViewer}}
@@ -236,6 +246,11 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 {{else if eq .Kind "delete"}}
 	if req == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
+	}
+	if custom, ok := any(r).(interface {
+		{{ .CustomHookName }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error)
+	}); ok {
+		return custom.{{ .CustomHookName }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }}{{end}})
 	}
 
 	switch typedReq := any(req).(type) {
@@ -300,7 +315,21 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		return {{ .ZeroReturn }}, err
 	}
 
-	return r.mapper.ToDTO(entity), nil
+	dto := r.mapper.ToDTO(entity)
+	if custom, ok := any(r).(interface {
+		{{ .CustomHookName }}(context.Context, []*ent.{{ $.EntityName }}) ([]*{{ $.DTOType }}, error)
+	}); ok {
+		items, err := custom.{{ .CustomHookName }}(ctx, []*ent.{{ $.EntityName }}{entity})
+		if err != nil {
+			return {{ .ZeroReturn }}, err
+		}
+		if len(items) == 0 {
+			return {{ .ZeroReturn }}, fmt.Errorf("{{ $.ResourceName }} relation hydration returned no result")
+		}
+		dto = items[0]
+	}
+
+	return dto, nil
 {{else if eq .Kind "list"}}
 	if req == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
@@ -348,8 +377,17 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	}
 
 	items := make([]*{{ $.DTOType }}, 0, len(entities))
-	for _, entity := range entities {
-		items = append(items, r.mapper.ToDTO(entity))
+	if custom, ok := any(r).(interface {
+		{{ .CustomHookName }}(context.Context, []*ent.{{ $.EntityName }}) ([]*{{ $.DTOType }}, error)
+	}); ok {
+		items, err = custom.{{ .CustomHookName }}(ctx, entities)
+		if err != nil {
+			return {{ .ZeroReturn }}, err
+		}
+	} else {
+		for _, entity := range entities {
+			items = append(items, r.mapper.ToDTO(entity))
+		}
 	}
 
 	return &{{ .ResponseType | trimPointer }}{ {{ .ListTotalField }}: uint64(total), {{ .ListItemsField }}: items }, nil

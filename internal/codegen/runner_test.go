@@ -376,8 +376,14 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoFile, "if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
 		t.Fatalf("repo file is missing generated List body")
 	}
+	if !strings.Contains(repoFile, "userEnrichListDTOs(context.Context, []*ent.User) ([]*identityv1.User, error)") || !strings.Contains(repoFile, "custom.userEnrichListDTOs(ctx, entities)") {
+		t.Fatalf("repo file is missing optional list enrichment hook")
+	}
 	if !strings.Contains(repoFile, "entity, err := builder.Where(user.IDEQ(req.GetId())).Only(ctx)") {
 		t.Fatalf("repo file is missing generated Get body")
+	}
+	if !strings.Contains(repoFile, "userEnrichGetDTO(context.Context, []*ent.User) ([]*identityv1.User, error)") || !strings.Contains(repoFile, "custom.userEnrichGetDTO(ctx, []*ent.User{entity})") {
+		t.Fatalf("repo file is missing optional get enrichment hook")
 	}
 	if !strings.Contains(repoFile, "func (r *userRepo) Count") || !strings.Contains(repoFile, "total, err := builder.Count(ctx)") || !strings.Contains(repoFile, "return &identityv1.CountResponse{Count: uint64(total)}, nil") {
 		t.Fatalf("repo file is missing generated Count body")
@@ -393,6 +399,15 @@ return {{successReturn}}, nil`,
 	}
 	if !strings.Contains(repoFile, "func (r *userRepo) Create") {
 		t.Fatalf("repo file is missing Create method")
+	}
+	if !strings.Contains(repoFile, "userCustomCreate(ctx context.Context, req *identityv1.CreateUserRequest)") || !strings.Contains(repoFile, "return custom.userCustomCreate(ctx, req)") {
+		t.Fatalf("repo file is missing optional create hook")
+	}
+	if !strings.Contains(repoFile, "userCustomUpdate(ctx context.Context, req *identityv1.UpdateUserRequest)") || !strings.Contains(repoFile, "return custom.userCustomUpdate(ctx, req)") {
+		t.Fatalf("repo file is missing optional update hook")
+	}
+	if !strings.Contains(repoFile, "userCustomDelete(ctx context.Context, req *identityv1.DeleteUserRequest)") || !strings.Contains(repoFile, "return custom.userCustomDelete(ctx, req)") {
+		t.Fatalf("repo file is missing optional delete hook")
 	}
 	if !strings.Contains(repoFile, "builder.SetNillableUsername(req.Data.Username)") {
 		t.Fatalf("repo file is missing generated username setter")
@@ -724,7 +739,7 @@ func TestBootstrapResourcesCollectServiceReposWithoutRepoCRUD(t *testing.T) {
 					RepoCRUD:    true,
 				},
 			},
-			Binding: binding.ServiceBinding{ServiceName: "UserService"},
+			Binding:       binding.ServiceBinding{ServiceName: "UserService"},
 			ResourceField: "User",
 		},
 		{
@@ -739,7 +754,7 @@ func TestBootstrapResourcesCollectServiceReposWithoutRepoCRUD(t *testing.T) {
 					ServiceStub: true,
 				},
 			},
-			Binding: binding.ServiceBinding{ServiceName: "UserPortalService"},
+			Binding:       binding.ServiceBinding{ServiceName: "UserPortalService"},
 			ResourceField: "UserPortal",
 		},
 		{
@@ -751,7 +766,7 @@ func TestBootstrapResourcesCollectServiceReposWithoutRepoCRUD(t *testing.T) {
 					RepoCRUD: true,
 				},
 			},
-			Binding: binding.ServiceBinding{ServiceName: "UserCredentialService"},
+			Binding:       binding.ServiceBinding{ServiceName: "UserCredentialService"},
 			ResourceField: "UserCredential",
 		},
 	}

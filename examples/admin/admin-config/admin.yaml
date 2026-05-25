@@ -221,7 +221,7 @@ resources:
             - tenant_id
       generate:
         service_stub: true
-        repo_crud: true
+        repo_crud: false
         rest_register: true
         grpc_register: true
     - name: internal_message_category
@@ -268,7 +268,7 @@ resources:
             - tenant_id
       generate:
         service_stub: true
-        repo_crud: true
+        repo_crud: false
         rest_register: true
         grpc_register: true
     - name: language

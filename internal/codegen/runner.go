@@ -188,6 +188,7 @@ type repoMethodData struct {
 	ResponseType    string
 	Kind            string
 	Body            string
+	CustomHookName  string
 	Setters         []setterData
 	AuditSetters    []setterData
 	AuditUsesNow    bool
@@ -1042,6 +1043,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	}
 
 	imports := []importSpec{
+		{Path: "context"},
 		{Path: "fmt"},
 		{Path: "github.com/chnxq/x-crud/entgo", Alias: "entCrud"},
 		{Path: "github.com/chnxq/x-utils/copierutil"},
@@ -1064,7 +1066,6 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	}
 	if usesAuditFields {
 		imports = append(imports,
-			importSpec{Path: "context"},
 			importSpec{Alias: "crudviewer", Path: "github.com/chnxq/x-crud/viewer"},
 			importSpec{Path: "time"},
 		)
@@ -1096,6 +1097,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 			ResponseType:    firstResult(normalizedResults),
 			Kind:            kind,
 			Body:            r.repoMethodBody(plan, method.Name, nameParams(normalizedParams), firstResult(normalizedResults)),
+			CustomHookName:  repoCustomHookName(kind, entityName, method.Name),
 			Setters:         setters,
 			AuditSetters:    auditSetters,
 			AuditUsesNow:    auditSettersUseExpr(auditSetters, "now"),
@@ -1182,6 +1184,27 @@ func repoInterfaceName(plan resourcePlan) string {
 		entityName = strings.TrimSuffix(plan.Binding.ServiceName, "Service")
 	}
 	return entityName + "Repo"
+}
+
+func repoCustomHookName(kind, entityName, methodName string) string {
+	prefix := lowerFirst(entityName)
+	switch kind {
+	case "create":
+		return prefix + "CustomCreate"
+	case "update":
+		return prefix + "CustomUpdate"
+	case "delete":
+		return prefix + "CustomDelete"
+	case "get":
+		return prefix + "EnrichGetDTO"
+	case "list":
+		return prefix + "EnrichListDTOs"
+	default:
+		if methodName == "" {
+			return prefix + "Custom"
+		}
+		return prefix + "Custom" + methodName
+	}
 }
 
 func (r *Runner) writeGeneratedFile(path string, content []byte, result *Result) error {
