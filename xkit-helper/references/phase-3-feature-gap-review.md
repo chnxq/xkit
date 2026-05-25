@@ -72,6 +72,21 @@ Common acceptable differences:
 - template-owned startup scaffolding that is intentionally generic
 - reference-only demo data or environment-specific operational scripts
 
+### 5. Include a dynamic route and frontend page parity check
+
+For Vben-style frontends using backend access mode, a page file can exist but still be unreachable when the backend route tree omits the path.
+
+Record this check as a feature item, not as a raw diff:
+
+- frontend access mode and `homePath`
+- backend `/admin/v1/routes` or `GetNavigation` behavior for the logged-in user
+- whether the route tree contains the home page, commonly `/analytics`
+- whether backend menu components map to existing frontend `views/**/*.vue`
+- whether permissions/roles are loaded from relation tables or from DTO fields that may be empty after regeneration
+- whether empty role/menu results have a safe fallback or a deliberate access-denied behavior
+
+Classify missing home-route registration as `blocking`, because it can make login succeed while the first page cannot be displayed.
+
 ## Required output file
 
 Write the result into the target repo at:
@@ -107,6 +122,7 @@ Also include a short header section with:
 - captcha and login protection
 - viewer auth and permission middleware
 - menu, portal, and profile APIs
+- backend dynamic routes versus frontend pages, including `/analytics` and other home/menu paths
 - user, role, permission, org-unit, tenant management
 - audit log families and DB logging behavior
 - analytics metrics and dashboard data

@@ -150,8 +150,22 @@ The main patterns seen so far are:
 - generated code now defines helpers that collide with older extension helpers
 - generated repos require additional Ent `Modify(...)` methods
 - auth, captcha, viewer auth, manual HTTP services, analytics, messages, or audit behaviors exist in the reference project but were not carried into the target repo
+- backend access-mode menus/routes return paths that the frontend cannot register, or omit the user's home route such as `/analytics`
+- generated files in the reference project contain business behavior that the new generator no longer emits; do not skip these just because the filename ends with `.gen.go`
 
-### 3. Re-verify after each repair round
+### 3. Verify portal route and permission behavior before leaving Phase 2
+
+When the target will be used by a Vben frontend in backend access mode, treat navigation as a runtime contract, not just a backend compile check.
+
+Check these points explicitly:
+
+- `GetNavigation` or `/admin/v1/routes` returns a route tree containing the frontend `homePath`, commonly `/analytics`
+- every non-layout backend menu `component` maps to an existing frontend `src/views/**/*.vue`
+- layout-only components such as `BasicLayout` and `IFrameView` are treated as special cases
+- user role IDs used by navigation and permission loading come from actual relation tables such as `sys_user_roles`, not from an empty DTO field accidentally produced by a regenerated repo
+- an empty role/menu result has a deliberate behavior: either a safe default dashboard route or a clearly rejected access state
+
+### 4. Re-verify after each repair round
 
 At minimum, rerun:
 
@@ -165,7 +179,7 @@ If startup behavior matters to the current task, optionally run:
 go run ./cmd/server server -config_path ./configs
 ```
 
-### 4. Record the actual process in the target repo
+### 5. Record the actual process in the target repo
 
 Write `<target>/readme.md` in Chinese with:
 
