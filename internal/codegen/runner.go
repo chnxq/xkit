@@ -129,28 +129,29 @@ type wireTemplateData struct {
 
 type repoTemplateData struct {
 	templateBase
-	Imports             []importSpec
-	RepoName            string
-	RepoStructName      string
-	ConstructorName     string
-	EntityName          string
-	EntOperationName    string
-	ResourceName        string
-	EntPackage          string
-	PredicateType       string
-	DTOType             string
-	IDType              string
-	Methods             []repoMethodData
-	Fields              []entschema.Field
-	UsesEnumSetter      bool
-	UsesTimeSetter      bool
-	UsesFieldMaskHelper bool
-	EnumHelperName      string
-	TimeHelperName      string
-	FieldMaskHelperName string
-	Filters             []filterData
-	UsesFilters         bool
-	UsesAuditFields     bool
+	Imports              []importSpec
+	RepoName             string
+	RepoStructName       string
+	ConstructorName      string
+	EntityName           string
+	EntOperationName     string
+	ResourceName         string
+	EntPackage           string
+	PredicateType        string
+	DTOType              string
+	IDType               string
+	DefaultListSortField string
+	Methods              []repoMethodData
+	Fields               []entschema.Field
+	UsesEnumSetter       bool
+	UsesTimeSetter       bool
+	UsesFieldMaskHelper  bool
+	EnumHelperName       string
+	TimeHelperName       string
+	FieldMaskHelperName  string
+	Filters              []filterData
+	UsesFilters          bool
+	UsesAuditFields      bool
 }
 
 type bootstrapTemplateData struct {
@@ -1146,28 +1147,29 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	}
 
 	data := repoTemplateData{
-		templateBase:        r.templateBase(),
-		Imports:             uniqueImports(imports),
-		RepoName:            repoName,
-		RepoStructName:      lowerFirst(repoName),
-		ConstructorName:     "New" + repoName,
-		EntityName:          entityName,
-		EntOperationName:    entOperationName(entityName),
-		ResourceName:        plan.Resource.Name,
-		EntPackage:          strings.ToLower(entityName),
-		PredicateType:       entityName,
-		DTOType:             dtoType,
-		IDType:              idGoType(plan.Schema.Fields),
-		Fields:              plan.Schema.Fields,
-		UsesEnumSetter:      usesEnumSetter,
-		UsesTimeSetter:      usesTimeSetter,
-		UsesFieldMaskHelper: usesFieldMaskHelper,
-		EnumHelperName:      lowerFirst(entityName) + "EnumPtrFromProto",
-		TimeHelperName:      lowerFirst(entityName) + "TimePtrFromProto",
-		FieldMaskHelperName: lowerFirst(entityName) + "FieldMaskContains",
-		Filters:             filters,
-		UsesFilters:         usesFilters,
-		UsesAuditFields:     usesAuditFields,
+		templateBase:         r.templateBase(),
+		Imports:              uniqueImports(imports),
+		RepoName:             repoName,
+		RepoStructName:       lowerFirst(repoName),
+		ConstructorName:      "New" + repoName,
+		EntityName:           entityName,
+		EntOperationName:     entOperationName(entityName),
+		ResourceName:         plan.Resource.Name,
+		EntPackage:           strings.ToLower(entityName),
+		PredicateType:        entityName,
+		DTOType:              dtoType,
+		IDType:               idGoType(plan.Schema.Fields),
+		DefaultListSortField: defaultListSortField(plan.Schema.Fields),
+		Fields:               plan.Schema.Fields,
+		UsesEnumSetter:       usesEnumSetter,
+		UsesTimeSetter:       usesTimeSetter,
+		UsesFieldMaskHelper:  usesFieldMaskHelper,
+		EnumHelperName:       lowerFirst(entityName) + "EnumPtrFromProto",
+		TimeHelperName:       lowerFirst(entityName) + "TimePtrFromProto",
+		FieldMaskHelperName:  lowerFirst(entityName) + "FieldMaskContains",
+		Filters:              filters,
+		UsesFilters:          usesFilters,
+		UsesAuditFields:      usesAuditFields,
 	}
 	data.Methods = methods
 
@@ -1752,6 +1754,17 @@ func quotedStringList(values []string) string {
 		quoted = append(quoted, fmt.Sprintf("%q", value))
 	}
 	return strings.Join(quoted, ", ")
+}
+
+func defaultListSortField(fields []entschema.Field) string {
+	for _, candidate := range []string{"sort_order", "order", "sortOrder"} {
+		for _, field := range fields {
+			if field.Name == candidate {
+				return candidate
+			}
+		}
+	}
+	return "id"
 }
 
 func repoAuditSetters(fields []entschema.Field, methodName string) []setterData {

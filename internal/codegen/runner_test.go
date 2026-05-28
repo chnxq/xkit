@@ -10,6 +10,7 @@ import (
 
 	"github.com/chnxq/xkit/internal/binding"
 	"github.com/chnxq/xkit/internal/config"
+	"github.com/chnxq/xkit/internal/entschema"
 	"github.com/chnxq/xkit/internal/project"
 )
 
@@ -373,6 +374,9 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoFile, "func (r *userRepo) List") {
 		t.Fatalf("repo file is missing List method skeleton")
 	}
+	if !strings.Contains(repoFile, `listReq.Sorting = generatedDefaultSorting(listReq.Sorting, "id", paginationv1.Sorting_ASC)`) {
+		t.Fatalf("repo file is missing default id ascending sorting")
+	}
 	if !strings.Contains(repoFile, "if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
 		t.Fatalf("repo file is missing generated List body")
 	}
@@ -620,6 +624,34 @@ func (data *GeneratedData) UserRepoProvider() repo.UserRepo { return nil }
 	}
 	if strings.Contains(providersFile, "func (data *GeneratedData) UserRepoProvider() repo.UserRepo") {
 		t.Fatalf("bootstrap provider file should skip existing repo provider")
+	}
+}
+
+func TestDefaultListSortFieldPrefersSortOrder(t *testing.T) {
+	t.Parallel()
+
+	fields := []entschema.Field{
+		{Name: "id"},
+		{Name: "name"},
+		{Name: "sort_order"},
+	}
+
+	if got := defaultListSortField(fields); got != "sort_order" {
+		t.Fatalf("defaultListSortField() = %q, want sort_order", got)
+	}
+}
+
+func TestDefaultListSortFieldFallsBackToID(t *testing.T) {
+	t.Parallel()
+
+	fields := []entschema.Field{
+		{Name: "id"},
+		{Name: "name"},
+		{Name: "created_at"},
+	}
+
+	if got := defaultListSortField(fields); got != "id" {
+		t.Fatalf("defaultListSortField() = %q, want id", got)
 	}
 }
 
