@@ -374,8 +374,8 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoFile, "func (r *userRepo) List") {
 		t.Fatalf("repo file is missing List method skeleton")
 	}
-	if !strings.Contains(repoFile, `listReq.Sorting = generatedDefaultSorting(listReq.Sorting, "id", paginationv1.Sorting_ASC)`) {
-		t.Fatalf("repo file is missing default id ascending sorting")
+	if !strings.Contains(repoFile, `listReq.Sorting = withDefaultSorting(`) || !strings.Contains(repoFile, `"id"`) || !strings.Contains(repoFile, `paginationv1.Sorting_ASC`) {
+		t.Fatalf("repo file is missing shared default id ascending sorting")
 	}
 	if !strings.Contains(repoFile, "if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
 		t.Fatalf("repo file is missing generated List body")
@@ -630,28 +630,99 @@ func (data *GeneratedData) UserRepoProvider() repo.UserRepo { return nil }
 func TestDefaultListSortFieldPrefersSortOrder(t *testing.T) {
 	t.Parallel()
 
-	fields := []entschema.Field{
-		{Name: "id"},
-		{Name: "name"},
-		{Name: "sort_order"},
+	plan := resourcePlan{
+		Resource: config.Resource{Name: "role", Entity: "Role"},
+		Schema: entschema.Schema{Fields: []entschema.Field{
+			{Name: "id"},
+			{Name: "name"},
+			{Name: "sort_order"},
+		}},
 	}
 
-	if got := defaultListSortField(fields); got != "sort_order" {
+	if got := defaultListSortField(plan); got != "sort_order" {
 		t.Fatalf("defaultListSortField() = %q, want sort_order", got)
+	}
+	if got := defaultListSortDirection(plan); got != "ASC" {
+		t.Fatalf("defaultListSortDirection() = %q, want ASC", got)
 	}
 }
 
 func TestDefaultListSortFieldFallsBackToID(t *testing.T) {
 	t.Parallel()
 
-	fields := []entschema.Field{
-		{Name: "id"},
-		{Name: "name"},
-		{Name: "created_at"},
+	plan := resourcePlan{
+		Resource: config.Resource{Name: "user", Entity: "User"},
+		Schema: entschema.Schema{Fields: []entschema.Field{
+			{Name: "id"},
+			{Name: "name"},
+			{Name: "created_at"},
+		}},
 	}
 
-	if got := defaultListSortField(fields); got != "id" {
+	if got := defaultListSortField(plan); got != "id" {
 		t.Fatalf("defaultListSortField() = %q, want id", got)
+	}
+	if got := defaultListSortDirection(plan); got != "ASC" {
+		t.Fatalf("defaultListSortDirection() = %q, want ASC", got)
+	}
+}
+
+func TestDefaultListSortForLogUsesCreatedAtDesc(t *testing.T) {
+	t.Parallel()
+
+	plan := resourcePlan{
+		Resource: config.Resource{Name: "api_audit_log", Entity: "ApiAuditLog"},
+		Schema: entschema.Schema{Fields: []entschema.Field{
+			{Name: "id"},
+			{Name: "created_at"},
+		}},
+	}
+
+	if got := defaultListSortField(plan); got != "created_at" {
+		t.Fatalf("defaultListSortField() = %q, want created_at", got)
+	}
+	if got := defaultListSortDirection(plan); got != "DESC" {
+		t.Fatalf("defaultListSortDirection() = %q, want DESC", got)
+	}
+}
+
+func TestDefaultListSortForTaskUsesIDDesc(t *testing.T) {
+	t.Parallel()
+
+	plan := resourcePlan{
+		Resource: config.Resource{Name: "task", Entity: "Task"},
+		Schema: entschema.Schema{Fields: []entschema.Field{
+			{Name: "id"},
+			{Name: "created_at"},
+			{Name: "name"},
+		}},
+	}
+
+	if got := defaultListSortField(plan); got != "id" {
+		t.Fatalf("defaultListSortField() = %q, want id", got)
+	}
+	if got := defaultListSortDirection(plan); got != "DESC" {
+		t.Fatalf("defaultListSortDirection() = %q, want DESC", got)
+	}
+}
+
+func TestDefaultListSortForMessageCategoryStillUsesSortOrderAsc(t *testing.T) {
+	t.Parallel()
+
+	plan := resourcePlan{
+		Resource: config.Resource{Name: "internal_message_category", Entity: "InternalMessageCategory"},
+		Schema: entschema.Schema{Fields: []entschema.Field{
+			{Name: "id"},
+			{Name: "sort_order"},
+			{Name: "created_at"},
+		}},
+	}
+
+	if got := defaultListSortField(plan); got != "sort_order" {
+		t.Fatalf("defaultListSortField() = %q, want sort_order", got)
+	}
+	if got := defaultListSortDirection(plan); got != "ASC" {
+		t.Fatalf("defaultListSortDirection() = %q, want ASC", got)
 	}
 }
 

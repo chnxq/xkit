@@ -10,18 +10,6 @@ import (
 {{end}}
 )
 
-func generatedDefaultSorting(items []*paginationv1.Sorting, field string, direction paginationv1.Sorting_Direction) []*paginationv1.Sorting {
-	if len(items) > 0 || field == "" {
-		return items
-	}
-	return []*paginationv1.Sorting{
-		{
-			Field: field,
-			Direction: direction,
-		},
-	}
-}
-
 type {{ .RepoName }} interface {
 {{range .Methods}}
 	{{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error)
@@ -368,7 +356,11 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		Sorting: req.Sorting,
 		FieldMask: req.FieldMask,
 	}
-	listReq.Sorting = generatedDefaultSorting(listReq.Sorting, "{{if $.DefaultListSortField}}{{ $.DefaultListSortField }}{{else}}id{{end}}", paginationv1.Sorting_ASC)
+	listReq.Sorting = withDefaultSorting(
+		listReq.Sorting,
+		"{{if $.DefaultListSortField}}{{ $.DefaultListSortField }}{{else}}id{{end}}",
+		paginationv1.Sorting_{{if $.DefaultListSortDirection}}{{ $.DefaultListSortDirection }}{{else}}ASC{{end}},
+	)
 	if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
 		limit := uint32(20)
 		offset := req.GetOffset()

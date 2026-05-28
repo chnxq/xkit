@@ -129,29 +129,30 @@ type wireTemplateData struct {
 
 type repoTemplateData struct {
 	templateBase
-	Imports              []importSpec
-	RepoName             string
-	RepoStructName       string
-	ConstructorName      string
-	EntityName           string
-	EntOperationName     string
-	ResourceName         string
-	EntPackage           string
-	PredicateType        string
-	DTOType              string
-	IDType               string
-	DefaultListSortField string
-	Methods              []repoMethodData
-	Fields               []entschema.Field
-	UsesEnumSetter       bool
-	UsesTimeSetter       bool
-	UsesFieldMaskHelper  bool
-	EnumHelperName       string
-	TimeHelperName       string
-	FieldMaskHelperName  string
-	Filters              []filterData
-	UsesFilters          bool
-	UsesAuditFields      bool
+	Imports                  []importSpec
+	RepoName                 string
+	RepoStructName           string
+	ConstructorName          string
+	EntityName               string
+	EntOperationName         string
+	ResourceName             string
+	EntPackage               string
+	PredicateType            string
+	DTOType                  string
+	IDType                   string
+	DefaultListSortField     string
+	DefaultListSortDirection string
+	Methods                  []repoMethodData
+	Fields                   []entschema.Field
+	UsesEnumSetter           bool
+	UsesTimeSetter           bool
+	UsesFieldMaskHelper      bool
+	EnumHelperName           string
+	TimeHelperName           string
+	FieldMaskHelperName      string
+	Filters                  []filterData
+	UsesFilters              bool
+	UsesAuditFields          bool
 }
 
 type bootstrapTemplateData struct {
@@ -1147,29 +1148,30 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	}
 
 	data := repoTemplateData{
-		templateBase:         r.templateBase(),
-		Imports:              uniqueImports(imports),
-		RepoName:             repoName,
-		RepoStructName:       lowerFirst(repoName),
-		ConstructorName:      "New" + repoName,
-		EntityName:           entityName,
-		EntOperationName:     entOperationName(entityName),
-		ResourceName:         plan.Resource.Name,
-		EntPackage:           strings.ToLower(entityName),
-		PredicateType:        entityName,
-		DTOType:              dtoType,
-		IDType:               idGoType(plan.Schema.Fields),
-		DefaultListSortField: defaultListSortField(plan.Schema.Fields),
-		Fields:               plan.Schema.Fields,
-		UsesEnumSetter:       usesEnumSetter,
-		UsesTimeSetter:       usesTimeSetter,
-		UsesFieldMaskHelper:  usesFieldMaskHelper,
-		EnumHelperName:       lowerFirst(entityName) + "EnumPtrFromProto",
-		TimeHelperName:       lowerFirst(entityName) + "TimePtrFromProto",
-		FieldMaskHelperName:  lowerFirst(entityName) + "FieldMaskContains",
-		Filters:              filters,
-		UsesFilters:          usesFilters,
-		UsesAuditFields:      usesAuditFields,
+		templateBase:             r.templateBase(),
+		Imports:                  uniqueImports(imports),
+		RepoName:                 repoName,
+		RepoStructName:           lowerFirst(repoName),
+		ConstructorName:          "New" + repoName,
+		EntityName:               entityName,
+		EntOperationName:         entOperationName(entityName),
+		ResourceName:             plan.Resource.Name,
+		EntPackage:               strings.ToLower(entityName),
+		PredicateType:            entityName,
+		DTOType:                  dtoType,
+		IDType:                   idGoType(plan.Schema.Fields),
+		DefaultListSortField:     defaultListSortField(plan),
+		DefaultListSortDirection: defaultListSortDirection(plan),
+		Fields:                   plan.Schema.Fields,
+		UsesEnumSetter:           usesEnumSetter,
+		UsesTimeSetter:           usesTimeSetter,
+		UsesFieldMaskHelper:      usesFieldMaskHelper,
+		EnumHelperName:           lowerFirst(entityName) + "EnumPtrFromProto",
+		TimeHelperName:           lowerFirst(entityName) + "TimePtrFromProto",
+		FieldMaskHelperName:      lowerFirst(entityName) + "FieldMaskContains",
+		Filters:                  filters,
+		UsesFilters:              usesFilters,
+		UsesAuditFields:          usesAuditFields,
 	}
 	data.Methods = methods
 
@@ -1756,15 +1758,58 @@ func quotedStringList(values []string) string {
 	return strings.Join(quoted, ", ")
 }
 
-func defaultListSortField(fields []entschema.Field) string {
+func defaultListSortField(plan resourcePlan) string {
+	if isRecordLikeResource(plan) && hasField(plan.Schema.Fields, "created_at") {
+		return "created_at"
+	}
+	if isRecentEntityResource(plan) {
+		return "id"
+	}
 	for _, candidate := range []string{"sort_order", "order", "sortOrder"} {
-		for _, field := range fields {
-			if field.Name == candidate {
-				return candidate
-			}
+		if hasField(plan.Schema.Fields, candidate) {
+			return candidate
 		}
 	}
 	return "id"
+}
+
+func defaultListSortDirection(plan resourcePlan) string {
+	if isRecordLikeResource(plan) && hasField(plan.Schema.Fields, "created_at") {
+		return "DESC"
+	}
+	if isRecentEntityResource(plan) {
+		return "DESC"
+	}
+	return "ASC"
+}
+
+func hasField(fields []entschema.Field, name string) bool {
+	for _, field := range fields {
+		if field.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func isRecordLikeResource(plan resourcePlan) bool {
+	name := strings.ToLower(plan.Resource.Name)
+	entity := strings.ToLower(plan.Resource.Entity)
+	return strings.Contains(name, "log") || strings.Contains(entity, "log") || strings.Contains(name, "record") || strings.Contains(entity, "record")
+}
+
+func isRecentEntityResource(plan resourcePlan) bool {
+	name := strings.ToLower(plan.Resource.Name)
+	entity := strings.ToLower(plan.Resource.Entity)
+	for _, keyword := range []string{"message", "task"} {
+		if strings.Contains(name, keyword) || strings.Contains(entity, keyword) {
+			if strings.Contains(name, "category") || strings.Contains(entity, "category") {
+				return false
+			}
+			return true
+		}
+	}
+	return false
 }
 
 func repoAuditSetters(fields []entschema.Field, methodName string) []setterData {
