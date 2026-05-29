@@ -38,7 +38,7 @@ round across `admin`, `admin-ui`, and `xkit`.
 ### `admin`
 
 - Branch: `main`
-- HEAD: `d6a9a37 fix(admin): resolve tenant names for tenant-scoped resources`
+- HEAD: `b934b17 fix(admin): restore login audit identity context`
 - Working tree: clean
 
 Recent tenant-related backend landmarks:
@@ -47,11 +47,13 @@ Recent tenant-related backend landmarks:
 - `82012a8` `refactor(admin): stabilize tenant-aware backend behavior`
 - `6d5a157` `refactor(admin): unify platform tenant display name`
 - `d6a9a37` `fix(admin): resolve tenant names for tenant-scoped resources`
+- `ad7584a` `fix(admin): backfill login audit tenant context`
+- `b934b17` `fix(admin): restore login audit identity context`
 
 ### `admin-ui`
 
 - Branch: `xadmin-api-integration`
-- HEAD: `925218b1 fix(ui): restore permission layout and align table toolbar helpers`
+- HEAD: `91f9b0dc fix(admin-ui): avoid stale auth on public requests`
 - Working tree: clean
 
 Recent frontend landmarks:
@@ -62,6 +64,7 @@ Recent frontend landmarks:
 - `b9f4d368` `fix(ui): normalize tenant labels and guard encoding regressions`
 - `1ce30916` `refactor(ui): refresh generated admin client formatting`
 - `925218b1` `fix(ui): restore permission layout and align table toolbar helpers`
+- `91f9b0dc` `fix(admin-ui): avoid stale auth on public requests`
 
 ### `xkit`
 
@@ -231,6 +234,50 @@ That direction should continue:
 
 - avoid repeating project-local post-generation patches
 - push stable tenant/sorting behavior into generator defaults
+
+## 8. Login And Logout Audit Identity Context Was Repaired
+
+Late in the 2026-05-30 thread, login/logout audit logging exposed a separate
+identity-context regression that was independent from ordinary tenant UI work.
+
+Observed symptom:
+
+- `LOGOUT` records could lose `tenant_id`, `user_id`, and `username`
+- `LOGIN` records could still miss `tenant_id` and `user_id` even after logout
+  was repaired
+
+Confirmed root causes:
+
+- frontend briefly stopped sending `Authorization` on `/admin/v1/logout`, so
+  logout audit logging lost token-derived identity context
+- backend login audit relied on fallback user lookup paths, but
+  `admin/internal/data/repo/user_repo.gen.go` `Get()` only honored `Id` lookup
+  and ignored `Username` query branches
+
+Fixes that landed:
+
+- `admin-ui/apps/web-antd/src/api/request.ts`
+  - public request allowlist now excludes `/admin/v1/logout`
+  - stale auth suppression still applies to truly public auth endpoints
+- `admin/internal/bootstrap/db_logging_ext.go`
+  - login audit builder now receives `reply`
+  - successful login can parse the returned `access_token` and recover
+    `uid/tid/sub` directly
+- `admin/internal/data/repo/user_repo.gen.go`
+  - `Get()` now correctly supports `QueryBy`
+  - confirmed support for `Id` and `Username`
+
+Validated outcome:
+
+- manual retest confirmed `LOGIN` and `LOGOUT` audit rows now both contain
+  correct `tenant_id / user_id / username`
+- `go test ./internal/bootstrap/... ./internal/server/... ./internal/data/repo/...`
+  passed during this repair round
+
+Commits:
+
+- `admin`: `b934b17` `fix(admin): restore login audit identity context`
+- `admin-ui`: `91f9b0dc` `fix(admin-ui): avoid stale auth on public requests`
 
 ## Verified Current State
 
