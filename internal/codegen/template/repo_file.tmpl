@@ -148,7 +148,7 @@ func (r *{{ .RepoStructName }}) generatedAuditContext(ctx context.Context) (time
 }
 
 {{end}}
-{{range .Methods}}
+{{range $method := .Methods}}
 // {{ .Name }} is generated from the source proto contract.
 func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error) {
 {{if .Body}}
@@ -174,12 +174,28 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 {{- range .Setters}}
 {{- if .Condition}}
 	if {{ .Condition }} {
+{{- if and (eq $.TenantScope "tenant_scoped") (eq .Method "SetNillableTenantID")}}
+		tenantID, err := resolveCreateTenantID(ctx, {{ .Expr }})
+		if err != nil {
+			return {{ $method.ZeroReturn }}, err
+		}
+		builder.{{ .Method }}(tenantID)
+{{- else}}
 	builder.{{ .Method }}({{ .Expr }})
+{{- end}}
 	}{{if .ClearCondition}} else if {{ .ClearCondition }} {
 		builder.{{ .ClearMethod }}()
 	}{{end}}
 {{- else}}
+{{- if and (eq $.TenantScope "tenant_scoped") (eq .Method "SetNillableTenantID")}}
+	tenantID, err := resolveCreateTenantID(ctx, {{ .Expr }})
+	if err != nil {
+		return {{ $method.ZeroReturn }}, err
+	}
+	builder.{{ .Method }}(tenantID)
+{{- else}}
 	builder.{{ .Method }}({{ .Expr }})
+{{- end}}
 {{- end}}
 {{- end}}
 {{- range .AuditSetters}}
@@ -208,6 +224,16 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		return custom.{{ .CustomHookName }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }}{{end}})
 	}
 
+{{- if eq $.TenantScope "tenant_scoped"}}
+	current, err := r.entClient.Client().{{ $.EntityName }}.Query().Where({{ $.EntPackage }}.IDEQ(req.GetId())).Only(ctx)
+	if err != nil {
+		r.log.Errorf("get {{ $.ResourceName }} before update failed: %s", err.Error())
+		return {{ .ZeroReturn }}, err
+	}
+	if err := ensureTenantAccessible(ctx, current.TenantID); err != nil {
+		return {{ .ZeroReturn }}, err
+	}
+{{- end}}
 	builder := r.entClient.Client().{{ $.EntityName }}.UpdateOneID(req.GetId())
 {{- if and .AuditUsesNow .AuditUsesViewer}}
 	now, viewer := r.generatedAuditContext(ctx)
@@ -255,11 +281,33 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 
 	switch typedReq := any(req).(type) {
 	case interface{ GetId() {{ $.IDType }} }:
+{{- if eq $.TenantScope "tenant_scoped"}}
+		entity, err := r.entClient.Client().{{ $.EntityName }}.Query().Where({{ $.EntPackage }}.IDEQ(typedReq.GetId())).Only(ctx)
+		if err != nil {
+			r.log.Errorf("get {{ $.ResourceName }} before delete failed: %s", err.Error())
+			return {{ .ZeroReturn }}, err
+		}
+		if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {
+			return {{ .ZeroReturn }}, err
+		}
+{{- end}}
 		if err := r.entClient.Client().{{ $.EntityName }}.DeleteOneID(typedReq.GetId()).Exec(ctx); err != nil {
 			r.log.Errorf("delete {{ $.ResourceName }} failed: %s", err.Error())
 			return {{ .ZeroReturn }}, err
 		}
 	case interface{ GetIds() []{{ $.IDType }} }:
+{{- if eq $.TenantScope "tenant_scoped"}}
+		entities, err := r.entClient.Client().{{ $.EntityName }}.Query().Where({{ $.EntPackage }}.IDIn(typedReq.GetIds()...)).All(ctx)
+		if err != nil {
+			r.log.Errorf("list {{ $.ResourceName }}s before delete failed: %s", err.Error())
+			return {{ .ZeroReturn }}, err
+		}
+		for _, entity := range entities {
+			if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {
+				return {{ .ZeroReturn }}, err
+			}
+		}
+{{- end}}
 		if _, err := r.entClient.Client().{{ $.EntityName }}.Delete().Where({{ $.EntPackage }}.IDIn(typedReq.GetIds()...)).Exec(ctx); err != nil {
 			r.log.Errorf("delete {{ $.ResourceName }} failed: %s", err.Error())
 			return {{ .ZeroReturn }}, err
@@ -314,6 +362,11 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		r.log.Errorf("get {{ $.ResourceName }} failed: %s", err.Error())
 		return {{ .ZeroReturn }}, err
 	}
+{{- if eq $.TenantScope "tenant_scoped"}}
+	if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {
+		return {{ .ZeroReturn }}, err
+	}
+{{- end}}
 
 	dto := r.mapper.ToDTO(entity)
 	if custom, ok := any(r).(interface {
@@ -337,6 +390,12 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 
 	builder := r.entClient.Client().{{ $.EntityName }}.Query()
 	countBuilder := r.entClient.Client().{{ $.EntityName }}.Query()
+{{- if eq $.TenantScope "tenant_scoped"}}
+	if tenantID := viewerTenantID(ctx); tenantID != nil {
+		builder.Where({{ $.EntPackage }}.TenantIDEQ(*tenantID))
+		countBuilder.Where({{ $.EntPackage }}.TenantIDEQ(*tenantID))
+	}
+{{- end}}
 {{if .UsesFilters}}
 	if err := r.applyGeneratedFilters(builder, req); err != nil {
 		return {{ .ZeroReturn }}, err

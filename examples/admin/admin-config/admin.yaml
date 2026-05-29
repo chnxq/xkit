@@ -426,6 +426,7 @@ resources:
       entity: OrgUnit
       dto_import: admin/api/gen/identity/v1
       dto_type: OrgUnit
+      tenant_scope: tenant_scoped
       repo_interface: OrgUnitRepo
       filters:
         allow:
@@ -586,6 +587,7 @@ resources:
       entity: Position
       dto_import: admin/api/gen/identity/v1
       dto_type: Position
+      tenant_scope: tenant_scoped
       repo_interface: PositionRepo
       filters:
         allow:
@@ -716,6 +718,7 @@ resources:
       entity: User
       dto_import: admin/api/gen/identity/v1
       dto_type: User
+      tenant_scope: tenant_scoped
       repo_interface: UserRepo
       exists_fields:
         - id

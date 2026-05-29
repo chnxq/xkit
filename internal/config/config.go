@@ -20,6 +20,7 @@ type Resource struct {
 	Entity         string                         `yaml:"entity,omitempty"`
 	DTOImport      string                         `yaml:"dto_import,omitempty"`
 	DTOType        string                         `yaml:"dto_type,omitempty"`
+	TenantScope    string                         `yaml:"tenant_scope,omitempty"`
 	RepoInterface  string                         `yaml:"repo_interface,omitempty"`
 	ServiceRepos   []RepoConfig                   `yaml:"service_repos,omitempty"`
 	ExistsFields   []string                       `yaml:"exists_fields,omitempty"`

@@ -153,6 +153,7 @@ type repoTemplateData struct {
 	Filters                  []filterData
 	UsesFilters              bool
 	UsesAuditFields          bool
+	TenantScope              string
 }
 
 type bootstrapTemplateData struct {
@@ -1072,6 +1073,11 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 			importSpec{Path: "time"},
 		)
 	}
+	if strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped" {
+		imports = append(imports,
+			importSpec{Alias: dtoAlias, Path: dtoImport},
+		)
+	}
 	usedAliases := make(map[string]struct{})
 	var methods []repoMethodData
 	usesEnumSetter := false
@@ -1172,6 +1178,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		Filters:                  filters,
 		UsesFilters:              usesFilters,
 		UsesAuditFields:          usesAuditFields,
+		TenantScope:              strings.TrimSpace(plan.Resource.TenantScope),
 	}
 	data.Methods = methods
 

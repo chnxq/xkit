@@ -222,6 +222,7 @@ func (User) Mixin() []ent.Mixin {
 				Entity:        "User",
 				DTOImport:     "example.com/xadmin-web/api/gen/identity/v1",
 				DTOType:       "User",
+				TenantScope:   "tenant_scoped",
 				RepoInterface: "UserRepo",
 				ExistsFields:  []string{"id", "username"},
 				Filters: config.FilterConfig{
@@ -374,6 +375,9 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoFile, "func (r *userRepo) List") {
 		t.Fatalf("repo file is missing List method skeleton")
 	}
+	if !strings.Contains(repoFile, "if tenantID := viewerTenantID(ctx); tenantID != nil {") || !strings.Contains(repoFile, "builder.Where(user.TenantIDEQ(*tenantID))") {
+		t.Fatalf("repo file is missing generated tenant-scoped list filter")
+	}
 	if !strings.Contains(repoFile, `listReq.Sorting = withDefaultSorting(`) || !strings.Contains(repoFile, `"id"`) || !strings.Contains(repoFile, `paginationv1.Sorting_ASC`) {
 		t.Fatalf("repo file is missing shared default id ascending sorting")
 	}
@@ -385,6 +389,9 @@ return {{successReturn}}, nil`,
 	}
 	if !strings.Contains(repoFile, "entity, err := builder.Where(user.IDEQ(req.GetId())).Only(ctx)") {
 		t.Fatalf("repo file is missing generated Get body")
+	}
+	if !strings.Contains(repoFile, "if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {") {
+		t.Fatalf("repo file is missing generated tenant-scoped get guard")
 	}
 	if !strings.Contains(repoFile, "userEnrichGetDTO(context.Context, []*ent.User) ([]*identityv1.User, error)") || !strings.Contains(repoFile, "custom.userEnrichGetDTO(ctx, []*ent.User{entity})") {
 		t.Fatalf("repo file is missing optional get enrichment hook")
@@ -445,6 +452,9 @@ return {{successReturn}}, nil`,
 	}
 	if !strings.Contains(repoFile, "case interface{ GetId() uint32 }:") || !strings.Contains(repoFile, "DeleteOneID(typedReq.GetId()).Exec(ctx)") {
 		t.Fatalf("repo file is missing generated single-id delete body")
+	}
+	if !strings.Contains(repoFile, "get user before delete failed") || !strings.Contains(repoFile, "ensureTenantAccessible(ctx, entity.TenantID)") {
+		t.Fatalf("repo file is missing generated tenant-scoped delete guard")
 	}
 	if !strings.Contains(repoFile, "case interface{ GetIds() []uint32 }:") || !strings.Contains(repoFile, "IDIn(typedReq.GetIds()...)") {
 		t.Fatalf("repo file is missing generated multi-id delete body")
