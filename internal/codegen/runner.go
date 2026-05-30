@@ -344,8 +344,12 @@ func (r *Runner) generateServiceFiles() (Result, error) {
 			return result, err
 		}
 
-		extContent, err := renderTemplate(codegentemplate.ServiceExt, map[string]string{
-			"StructName": plan.Binding.ServiceName,
+		extContent, err := renderTemplate(codegentemplate.ServiceExt, struct {
+			templateBase
+			StructName string
+		}{
+			templateBase: r.templateBase(),
+			StructName:   plan.Binding.ServiceName,
 		})
 		if err != nil {
 			return result, err
@@ -388,8 +392,12 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 			return result, err
 		}
 
-		extContent, err := renderTemplate(codegentemplate.RepoExt, map[string]string{
-			"RepoName": repoInterfaceName(plan),
+		extContent, err := renderTemplate(codegentemplate.RepoExt, struct {
+			templateBase
+			RepoName string
+		}{
+			templateBase: r.templateBase(),
+			RepoName:     repoInterfaceName(plan),
 		})
 		if err != nil {
 			return result, err
@@ -818,7 +826,7 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		}
 	}
 
-	hooksContent, err := renderTemplate(codegentemplate.BootstrapHooksExt, nil)
+	hooksContent, err := renderTemplate(codegentemplate.BootstrapHooksExt, r.templateBase())
 	if err != nil {
 		return result, err
 	}
@@ -1402,7 +1410,65 @@ func (r *Runner) version() string {
 }
 
 func (r *Runner) writeExtensionFile(path string, content []byte, result *Result) error {
-	return r.writeFile(path, content, result, true)
+	if r.options.DryRun {
+		result.Written = append(result.Written, path)
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create directory for %s: %w", path, err)
+	}
+
+	existing, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("read existing extension file %s: %w", path, err)
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", path, err)
+		}
+		result.Written = append(result.Written, path)
+		return nil
+	}
+
+	merged := refreshExtensionHeader(existing, content)
+	if bytes.Equal(existing, merged) {
+		result.Skipped = append(result.Skipped, path)
+		return nil
+	}
+	if err := os.WriteFile(path, merged, 0o644); err != nil {
+		return fmt.Errorf("write refreshed extension file %s: %w", path, err)
+	}
+
+	result.Written = append(result.Written, path)
+	return nil
+}
+
+func refreshExtensionHeader(existing, generated []byte) []byte {
+	generatedHeader, _ := splitLeadingCommentAndBody(generated)
+	_, existingBody := splitLeadingCommentAndBody(existing)
+	if len(existingBody) == 0 {
+		return generated
+	}
+	return append(append([]byte{}, generatedHeader...), existingBody...)
+}
+
+func splitLeadingCommentAndBody(content []byte) ([]byte, []byte) {
+	lines := bytes.SplitAfter(content, []byte("\n"))
+	headerEnd := 0
+	for _, line := range lines {
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) == 0 {
+			headerEnd += len(line)
+			continue
+		}
+		if bytes.HasPrefix(trimmed, []byte("//")) {
+			headerEnd += len(line)
+			continue
+		}
+		break
+	}
+	return content[:headerEnd], content[headerEnd:]
 }
 
 func (r *Runner) writeFile(path string, content []byte, result *Result, skipIfExists bool) error {
