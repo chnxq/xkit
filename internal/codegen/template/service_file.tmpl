@@ -41,10 +41,10 @@ func {{ .ConstructorName }}({{if .HasRepo}}ctx *app.AppCtx, {{ .RepoField }} {{ 
 // {{ .Name }} is generated from the source proto contract.
 // Classification: {{ .Classification }}.
 func (s *{{ $.StructName }}) {{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }} {{ $param.Type }}{{end}}) ({{ .ResponseType }}, error) {
-{{- if .Delegate}}
-	return s.{{ .RepoField }}.{{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }}{{end}})
-{{- else if .Body}}
+{{- if .Body}}
 {{ .Body }}
+{{- else if .Delegate}}
+	return s.{{ .RepoField }}.{{ .Name }}({{range $index, $param := .Params}}{{if $index}}, {{end}}{{ $param.Name }}{{end}})
 {{- else}}
 {{- range .Params}}
 	_ = {{.Name}}

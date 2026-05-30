@@ -174,8 +174,24 @@ func serviceNamesFromContent(content string) map[string]string {
 			continue
 		}
 		names[serviceName+"Server"] = fullName
+		names[normalizeBindingTypeName(serviceName)+"Server"] = fullName
 	}
 	return names
+}
+
+func normalizeBindingTypeName(name string) string {
+	if name == "" {
+		return ""
+	}
+	replacer := strings.NewReplacer(
+		"I18n", "I18N",
+		"Id", "ID",
+		"Api", "API",
+		"Http", "HTTP",
+		"Uri", "URI",
+		"Url", "URL",
+	)
+	return replacer.Replace(name)
 }
 
 func fieldListTypes(fset *token.FileSet, fields *ast.FieldList) []string {

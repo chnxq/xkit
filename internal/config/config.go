@@ -22,10 +22,13 @@ type Resource struct {
 	DTOType        string                         `yaml:"dto_type,omitempty"`
 	TenantScope    string                         `yaml:"tenant_scope,omitempty"`
 	RepoInterface  string                         `yaml:"repo_interface,omitempty"`
+	Tree           *TreeConfig                    `yaml:"tree,omitempty"`
+	Aggregates     []AggregateConfig              `yaml:"aggregates,omitempty"`
 	ServiceRepos   []RepoConfig                   `yaml:"service_repos,omitempty"`
 	ExistsFields   []string                       `yaml:"exists_fields,omitempty"`
 	Filters        FilterConfig                   `yaml:"filters,omitempty"`
 	ServiceMethods map[string]ServiceMethodConfig `yaml:"service_methods,omitempty"`
+	RepoMethods    map[string]RepoMethodConfig    `yaml:"repo_methods,omitempty"`
 	Operations     OperationFlags                 `yaml:"operations,omitempty"`
 	Generate       GenerateFlags                  `yaml:"generate,omitempty"`
 }
@@ -34,6 +37,29 @@ type ServiceMethodConfig struct {
 	Imports []ImportConfig `yaml:"imports,omitempty"`
 	Repos   []RepoConfig   `yaml:"repos,omitempty"`
 	Body    string         `yaml:"body,omitempty"`
+}
+
+type RepoMethodConfig struct {
+	Imports []ImportConfig `yaml:"imports,omitempty"`
+	Body    string         `yaml:"body,omitempty"`
+}
+
+type TreeConfig struct {
+	ParentField   string `yaml:"parent_field,omitempty"`
+	PathField     string `yaml:"path_field,omitempty"`
+	ChildrenField string `yaml:"children_field,omitempty"`
+	ListMethod    string `yaml:"list_method,omitempty"`
+}
+
+type AggregateConfig struct {
+	Name            string `yaml:"name"`
+	Resource        string `yaml:"resource,omitempty"`
+	RepoInterface   string `yaml:"repo_interface,omitempty"`
+	ForeignKey      string `yaml:"foreign_key,omitempty"`
+	ParentField     string `yaml:"parent_field,omitempty"`
+	CollectionField string `yaml:"collection_field,omitempty"`
+	CurrentField    string `yaml:"current_field,omitempty"`
+	Primary         bool   `yaml:"primary,omitempty"`
 }
 
 type ImportConfig struct {

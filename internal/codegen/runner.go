@@ -80,6 +80,8 @@ type serviceTemplateData struct {
 	RepoType        string
 	ExtraRepos      []serviceRepoData
 	ResourceName    string
+	Tree            *treeConfigData
+	Aggregates      []aggregateConfigData
 }
 
 type serviceRepoData struct {
@@ -154,6 +156,26 @@ type repoTemplateData struct {
 	UsesFilters              bool
 	UsesAuditFields          bool
 	TenantScope              string
+	Tree                     *treeConfigData
+	Aggregates               []aggregateConfigData
+}
+
+type treeConfigData struct {
+	ParentField   string
+	PathField     string
+	ChildrenField string
+	ListMethod    string
+}
+
+type aggregateConfigData struct {
+	Name            string
+	RepoField       string
+	RepoType        string
+	ForeignKey      string
+	ParentField     string
+	CollectionField string
+	CurrentField    string
+	Primary         bool
 }
 
 type bootstrapTemplateData struct {
@@ -397,21 +419,23 @@ func (r *Runner) generateRegisterFiles() (Result, error) {
 
 	for _, plan := range plans {
 		if plan.Resource.Generate.EffectiveRestRegister() {
+			httpInterfaceName := bindingHTTPServerInterfaceName(plan.Binding)
 			httpServices = append(httpServices, registerServiceData{
 				FieldName:     plan.ResourceField,
 				Alias:         plan.APIPackageAlias,
-				InterfaceName: plan.Binding.ServiceName + "HTTPServer",
-				RegisterFunc:  "Register" + plan.Binding.ServiceName + "HTTPServer",
+				InterfaceName: httpInterfaceName,
+				RegisterFunc:  "Register" + strings.TrimSuffix(httpInterfaceName, "HTTPServer") + "HTTPServer",
 			})
 			httpImports = append(httpImports, importSpec{Alias: plan.APIPackageAlias, Path: plan.Binding.ImportPath})
 		}
 
 		if plan.Resource.Generate.EffectiveGRPCRegister() {
+			grpcInterfaceName := bindingGRPCServerInterfaceName(plan.Binding)
 			grpcServices = append(grpcServices, registerServiceData{
 				FieldName:     plan.ResourceField,
 				Alias:         plan.APIPackageAlias,
-				InterfaceName: plan.Binding.ServiceName + "Server",
-				RegisterFunc:  "Register" + plan.Binding.ServiceName + "Server",
+				InterfaceName: grpcInterfaceName,
+				RegisterFunc:  "Register" + strings.TrimSuffix(grpcInterfaceName, "Server") + "Server",
 			})
 			grpcImports = append(grpcImports, importSpec{Alias: plan.APIPackageAlias, Path: plan.Binding.ImportPath})
 		}
@@ -881,13 +905,15 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 		StructName:      plan.Binding.ServiceName,
 		ConstructorName: "New" + plan.Binding.ServiceName,
 		APIPackageAlias: plan.APIPackageAlias,
-		Embeds:          serviceEmbeds(plan.APIPackageAlias, plan.Binding.ServiceName),
+		Embeds:          serviceEmbeds(plan.APIPackageAlias, plan.Binding),
 		Methods:         methods,
 		HasRepo:         hasRepo,
 		RepoField:       repoField,
 		RepoType:        repoType,
 		ExtraRepos:      extraRepos,
 		ResourceName:    plan.Resource.Name,
+		Tree:            buildTreeConfig(plan.Resource.Tree),
+		Aggregates:      r.aggregateConfigs(plan),
 	}
 
 	return renderTemplate(codegentemplate.ServiceFile, data)
@@ -935,8 +961,30 @@ func (r *Runner) extraServiceRepos(plan resourcePlan) []serviceRepoData {
 }
 
 func (r *Runner) serviceRepoConfigs(plan resourcePlan) []config.RepoConfig {
-	repos := make([]config.RepoConfig, 0, len(plan.Resource.ServiceRepos)+len(plan.Resource.ServiceMethods))
+	repos := make([]config.RepoConfig, 0, len(plan.Resource.ServiceRepos)+len(plan.Resource.ServiceMethods)+len(plan.Resource.Aggregates))
 	repos = append(repos, plan.Resource.ServiceRepos...)
+	for _, aggregate := range plan.Resource.Aggregates {
+		repoInterface := strings.TrimSpace(aggregate.RepoInterface)
+		if repoInterface == "" && strings.TrimSpace(aggregate.Resource) != "" {
+			for _, resource := range r.config.Resources {
+				if resource.Name == aggregate.Resource && strings.TrimSpace(resource.RepoInterface) != "" {
+					repoInterface = strings.TrimSpace(resource.RepoInterface)
+					break
+				}
+			}
+		}
+		if repoInterface == "" {
+			continue
+		}
+		field := lowerFirst(strings.TrimSuffix(repoInterface, "Repo")) + "Repo"
+		if strings.TrimSpace(aggregate.Name) != "" {
+			field = lowerFirst(strings.TrimSpace(aggregate.Name)) + "Repo"
+		}
+		repos = append(repos, config.RepoConfig{
+			Field:     field,
+			Interface: repoInterface,
+		})
+	}
 	for _, methodConfig := range plan.Resource.ServiceMethods {
 		repos = append(repos, methodConfig.Repos...)
 	}
@@ -946,6 +994,21 @@ func (r *Runner) serviceRepoConfigs(plan resourcePlan) []config.RepoConfig {
 func (r *Runner) serviceConfiguredImports(plan resourcePlan) []importSpec {
 	var imports []importSpec
 	for _, methodConfig := range plan.Resource.ServiceMethods {
+		for _, importConfig := range methodConfig.Imports {
+			path := strings.TrimSpace(importConfig.Path)
+			if path == "" {
+				continue
+			}
+			path = strings.ReplaceAll(path, "{{module}}", r.project.Module)
+			imports = append(imports, importSpec{Alias: strings.TrimSpace(importConfig.Alias), Path: filepath.ToSlash(path)})
+		}
+	}
+	return imports
+}
+
+func (r *Runner) repoConfiguredImports(plan resourcePlan) []importSpec {
+	var imports []importSpec
+	for _, methodConfig := range plan.Resource.RepoMethods {
 		for _, importConfig := range methodConfig.Imports {
 			path := strings.TrimSpace(importConfig.Path)
 			if path == "" {
@@ -976,7 +1039,29 @@ func isSupportedRepoSpecialMethod(resource config.Resource, methodName string) b
 	return resource.Name == "user_credential" && methodName == "ResetCredential"
 }
 
+func hasConfiguredRepoMethod(resource config.Resource, methodName string) bool {
+	methodConfig, ok := resource.RepoMethods[methodName]
+	return ok && strings.TrimSpace(methodConfig.Body) != ""
+}
+
 func (r *Runner) repoMethodBody(plan resourcePlan, methodName string, params []namedType, responseType string) string {
+	if methodConfig, ok := plan.Resource.RepoMethods[methodName]; ok && strings.TrimSpace(methodConfig.Body) != "" {
+		body := strings.TrimRight(methodConfig.Body, "\r\n")
+		replacements := map[string]string{
+			"{{successReturn}}": serviceSuccessReturn(responseType),
+		}
+		for _, param := range params {
+			replacements["{{param."+param.Name+"}}"] = param.Name
+			if param.Type == "context.Context" {
+				replacements["{{ctx}}"] = param.Name
+			}
+		}
+		for key, value := range replacements {
+			body = strings.ReplaceAll(body, key, value)
+		}
+		return indentLines(body, "\t")
+	}
+
 	if !isSupportedRepoSpecialMethod(plan.Resource, methodName) {
 		return ""
 	}
@@ -1078,12 +1163,13 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 			importSpec{Alias: dtoAlias, Path: dtoImport},
 		)
 	}
+	imports = append(imports, r.repoConfiguredImports(plan)...)
 	usedAliases := make(map[string]struct{})
 	var methods []repoMethodData
 	usesEnumSetter := false
 	usesTimeSetter := false
 	for _, method := range plan.Binding.Methods {
-		if !isCRUDMethod(method.Name) && !isSupportedRepoSpecialMethod(plan.Resource, method.Name) {
+		if !isCRUDMethod(method.Name) && !isSupportedRepoSpecialMethod(plan.Resource, method.Name) && !hasConfiguredRepoMethod(plan.Resource, method.Name) {
 			continue
 		}
 		kind := repoMethodKind(method.Name)
@@ -1179,10 +1265,67 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		UsesFilters:              usesFilters,
 		UsesAuditFields:          usesAuditFields,
 		TenantScope:              strings.TrimSpace(plan.Resource.TenantScope),
+		Tree:                     buildTreeConfig(plan.Resource.Tree),
+		Aggregates:               r.aggregateConfigs(plan),
 	}
 	data.Methods = methods
 
 	return renderTemplate(codegentemplate.RepoFile, data)
+}
+
+func buildTreeConfig(plan *config.TreeConfig) *treeConfigData {
+	if plan == nil {
+		return nil
+	}
+	listMethod := strings.TrimSpace(plan.ListMethod)
+	if listMethod == "" {
+		listMethod = "ListTree"
+	}
+	return &treeConfigData{
+		ParentField:   strings.TrimSpace(plan.ParentField),
+		PathField:     strings.TrimSpace(plan.PathField),
+		ChildrenField: strings.TrimSpace(plan.ChildrenField),
+		ListMethod:    listMethod,
+	}
+}
+
+func (r *Runner) aggregateConfigs(plan resourcePlan) []aggregateConfigData {
+	if len(plan.Resource.Aggregates) == 0 {
+		return nil
+	}
+
+	byName := make(map[string]config.Resource, len(r.config.Resources))
+	for _, resource := range r.config.Resources {
+		byName[resource.Name] = resource
+	}
+
+	aggregates := make([]aggregateConfigData, 0, len(plan.Resource.Aggregates))
+	for _, item := range plan.Resource.Aggregates {
+		repoInterface := strings.TrimSpace(item.RepoInterface)
+		if repoInterface == "" && strings.TrimSpace(item.Resource) != "" {
+			if resource, ok := byName[item.Resource]; ok {
+				repoInterface = strings.TrimSpace(resource.RepoInterface)
+			}
+		}
+		if repoInterface == "" {
+			continue
+		}
+		repoField := lowerFirst(strings.TrimSuffix(repoInterface, "Repo")) + "Repo"
+		if strings.TrimSpace(item.Name) != "" {
+			repoField = lowerFirst(strings.TrimSpace(item.Name)) + "Repo"
+		}
+		aggregates = append(aggregates, aggregateConfigData{
+			Name:            strings.TrimSpace(item.Name),
+			RepoField:       repoField,
+			RepoType:        "repo." + repoInterface,
+			ForeignKey:      strings.TrimSpace(item.ForeignKey),
+			ParentField:     strings.TrimSpace(item.ParentField),
+			CollectionField: strings.TrimSpace(item.CollectionField),
+			CurrentField:    strings.TrimSpace(item.CurrentField),
+			Primary:         item.Primary,
+		})
+	}
+	return aggregates
 }
 
 func repoInterfaceName(plan resourcePlan) string {
@@ -1395,11 +1538,26 @@ func apiAlias(importPath string) string {
 	return sanitizeIdentifier(parts[len(parts)-1])
 }
 
-func serviceEmbeds(alias, serviceName string) []string {
+func serviceEmbeds(alias string, binding binding.ServiceBinding) []string {
 	return []string{
-		alias + "." + serviceName + "HTTPServer",
-		alias + ".Unimplemented" + serviceName + "Server",
+		alias + "." + bindingHTTPServerInterfaceName(binding),
+		alias + ".Unimplemented" + strings.TrimSuffix(bindingGRPCServerInterfaceName(binding), "Server") + "Server",
 	}
+}
+
+func bindingGRPCServerInterfaceName(binding binding.ServiceBinding) string {
+	if strings.TrimSpace(binding.InterfaceName) != "" {
+		return binding.InterfaceName
+	}
+	return binding.ServiceName + "Server"
+}
+
+func bindingHTTPServerInterfaceName(binding binding.ServiceBinding) string {
+	name := bindingGRPCServerInterfaceName(binding)
+	if strings.HasSuffix(name, "Server") {
+		return strings.TrimSuffix(name, "Server") + "HTTPServer"
+	}
+	return binding.ServiceName + "HTTPServer"
 }
 
 func isCRUDMethod(name string) bool {

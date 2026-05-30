@@ -7,6 +7,60 @@ resources:
       dto_import: admin/api/gen/resource/v1
       dto_type: Api
       repo_interface: ApiRepo
+      service_methods:
+        Create:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "api create"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Create({{ctx}}, {{param.req}})
+        Update:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "api update"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Update({{ctx}}, {{param.req}})
+        Delete:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "api delete"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
+        SyncApis:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "api sync"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            if custom, ok := any(s.{{repoField}}).(interface {
+            	SyncApisFromOpenAPI(context.Context) error
+            }); ok {
+            	if err := custom.SyncApisFromOpenAPI({{ctx}}); err != nil {
+            		return nil, err
+            	}
+            	return {{successReturn}}, nil
+            }
+            return {{successReturn}}, nil
+        GetWalkRouteData:
+          imports:
+            - path: fmt
+          body: |
+            _ = {{param.req}}
+            if reader, ok := s.{{repoField}}.(repo.ApiOpenAPISyncer); ok {
+            	return reader.GetOpenAPIRouteData({{ctx}})
+            }
+            return nil, fmt.Errorf("api repo does not support OpenAPI route data")
       filters:
         allow:
             - id
@@ -108,25 +162,155 @@ resources:
         repo_crud: true
         rest_register: true
         grpc_register: true
-    - name: dict_entry
-      proto_service: admin.service.v1.DictEntryService
-      entity: DictEntry
+    - name: dict_category
+      proto_service: admin.service.v1.DictCategoryService
+      entity: DictCategory
       dto_import: admin/api/gen/dict/v1
-      dto_type: DictEntry
-      repo_interface: DictEntryRepo
+      dto_type: DictCategory
+      repo_interface: DictCategoryRepo
+      repo_methods:
+        List:
+          body: |
+            if req == nil {
+            	return nil, fmt.Errorf("invalid parameter")
+            }
+
+            builder := r.entClient.Client().DictCategory.Query()
+            countBuilder := r.entClient.Client().DictCategory.Query()
+            if tenantID := viewerTenantID(ctx); tenantID != nil {
+            	builder.Where(dictcategory.Or(
+            		dictcategory.TenantIDIsNil(),
+            		dictcategory.TenantIDEQ(platformTenantID),
+            		dictcategory.TenantIDEQ(*tenantID),
+            	))
+            	countBuilder.Where(dictcategory.Or(
+            		dictcategory.TenantIDIsNil(),
+            		dictcategory.TenantIDEQ(platformTenantID),
+            		dictcategory.TenantIDEQ(*tenantID),
+            	))
+            }
+
+            if err := r.applyGeneratedFilters(builder, req); err != nil {
+            	return nil, err
+            }
+            if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
+            	return nil, err
+            }
+
+            listReq := &v1.PagingRequest{
+            	Page: req.Page,
+            	PageSize: req.PageSize,
+            	Offset: req.Offset,
+            	Limit: req.Limit,
+            	Token: req.Token,
+            	NoPaging: req.NoPaging,
+            	OrderBy: req.OrderBy,
+            	Sorting: req.Sorting,
+            	FieldMask: req.FieldMask,
+            }
+            listReq.Sorting = withDefaultSorting(listReq.Sorting, "sort_order", paginationv1.Sorting_ASC)
+            if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
+            	limit := uint32(20)
+            	offset := req.GetOffset()
+            	listReq.Limit = &limit
+            	listReq.Offset = &offset
+            }
+            if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
+            	return nil, err
+            }
+
+            total, err := countBuilder.Count(ctx)
+            if err != nil {
+            	r.log.Errorf("count dict_category failed: %s", err.Error())
+            	return nil, err
+            }
+            entities, err := builder.All(ctx)
+            if err != nil {
+            	r.log.Errorf("list dict_category failed: %s", err.Error())
+            	return nil, err
+            }
+
+            items := make([]*dictv1.DictCategory, 0, len(entities))
+            if custom, ok := any(r).(interface {
+            	dictCategoryEnrichListDTOs(context.Context, []*ent.DictCategory) ([]*dictv1.DictCategory, error)
+            }); ok {
+            	items, err = custom.dictCategoryEnrichListDTOs(ctx, entities)
+            	if err != nil {
+            		return nil, err
+            	}
+            } else {
+            	for _, entity := range entities {
+            		items = append(items, r.mapper.ToDTO(entity))
+            	}
+            }
+
+            return &dictv1.ListDictCategoryResponse{Total: uint64(total), Items: items}, nil
+        Get:
+          body: |
+            if req == nil {
+            	return nil, fmt.Errorf("invalid parameter")
+            }
+
+            builder := r.entClient.Client().DictCategory.Query()
+            switch req.GetQueryBy().(type) {
+            case *dictv1.GetDictCategoryRequest_Id:
+            	builder.Where(dictcategory.IDEQ(req.GetId()))
+            case *dictv1.GetDictCategoryRequest_CategoryKey:
+            	builder.Where(dictcategory.CategoryKeyEQ(req.GetCategoryKey()))
+            default:
+            	return nil, fmt.Errorf("invalid query by type")
+            }
+
+            entity, err := builder.Only(ctx)
+            if err != nil {
+            	r.log.Errorf("get dict_category failed: %s", err.Error())
+            	return nil, err
+            }
+            if err := ensureHybridTenantAccessible(ctx, entity.TenantID); err != nil {
+            	return nil, err
+            }
+
+            dto := r.mapper.ToDTO(entity)
+            if custom, ok := any(r).(interface {
+            	dictCategoryEnrichGetDTO(context.Context, []*ent.DictCategory) ([]*dictv1.DictCategory, error)
+            }); ok {
+            	items, err := custom.dictCategoryEnrichGetDTO(ctx, []*ent.DictCategory{entity})
+            	if err != nil {
+            		return nil, err
+            	}
+            	if len(items) == 0 {
+            		return nil, fmt.Errorf("dict_category relation hydration returned no result")
+            	}
+            	dto = items[0]
+            }
+
+            return dto, nil
+      tree:
+        parent_field: parent_id
+        path_field: path
+        children_field: children
+        list_method: ListTree
       filters:
         allow:
             - id
-            - entry_value
-            - numeric_value
+            - parent_id
+            - path
+            - category_key
+            - category_name
+            - category_level
+            - scene
+            - is_builtin
+            - is_enabled
             - created_by
             - updated_by
             - deleted_by
             - sort_order
             - tenant_id
+            - remark
       operations:
         create: true
         delete: true
+        get: true
         list: true
         update: true
       generate:
@@ -134,22 +318,292 @@ resources:
         repo_crud: true
         rest_register: true
         grpc_register: true
-    - name: dict_type
-      proto_service: admin.service.v1.DictTypeService
-      entity: DictType
+    - name: dict_label
+      proto_service: admin.service.v1.DictLabelService
+      entity: DictLabel
       dto_import: admin/api/gen/dict/v1
-      dto_type: DictType
-      repo_interface: DictTypeRepo
+      dto_type: DictLabel
+      repo_interface: DictLabelRepo
+      repo_methods:
+        List:
+          body: |
+            if req == nil {
+            	return nil, fmt.Errorf("invalid parameter")
+            }
+
+            builder := r.entClient.Client().DictLabel.Query()
+            countBuilder := r.entClient.Client().DictLabel.Query()
+            if tenantID := viewerTenantID(ctx); tenantID != nil {
+            	builder.Where(dictlabel.Or(
+            		dictlabel.TenantIDIsNil(),
+            		dictlabel.TenantIDEQ(platformTenantID),
+            		dictlabel.TenantIDEQ(*tenantID),
+            	))
+            	countBuilder.Where(dictlabel.Or(
+            		dictlabel.TenantIDIsNil(),
+            		dictlabel.TenantIDEQ(platformTenantID),
+            		dictlabel.TenantIDEQ(*tenantID),
+            	))
+            }
+
+            if err := r.applyGeneratedFilters(builder, req); err != nil {
+            	return nil, err
+            }
+            if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
+            	return nil, err
+            }
+
+            listReq := &v1.PagingRequest{
+            	Page: req.Page,
+            	PageSize: req.PageSize,
+            	Offset: req.Offset,
+            	Limit: req.Limit,
+            	Token: req.Token,
+            	NoPaging: req.NoPaging,
+            	OrderBy: req.OrderBy,
+            	Sorting: req.Sorting,
+            	FieldMask: req.FieldMask,
+            }
+            listReq.Sorting = withDefaultSorting(listReq.Sorting, "sort_order", paginationv1.Sorting_ASC)
+            if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
+            	limit := uint32(20)
+            	offset := req.GetOffset()
+            	listReq.Limit = &limit
+            	listReq.Offset = &offset
+            }
+            if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
+            	return nil, err
+            }
+
+            total, err := countBuilder.Count(ctx)
+            if err != nil {
+            	r.log.Errorf("count dict_label failed: %s", err.Error())
+            	return nil, err
+            }
+            entities, err := builder.All(ctx)
+            if err != nil {
+            	r.log.Errorf("list dict_label failed: %s", err.Error())
+            	return nil, err
+            }
+
+            items := make([]*dictv1.DictLabel, 0, len(entities))
+            if custom, ok := any(r).(interface {
+            	dictLabelEnrichListDTOs(context.Context, []*ent.DictLabel) ([]*dictv1.DictLabel, error)
+            }); ok {
+            	items, err = custom.dictLabelEnrichListDTOs(ctx, entities)
+            	if err != nil {
+            		return nil, err
+            	}
+            } else {
+            	for _, entity := range entities {
+            		items = append(items, r.mapper.ToDTO(entity))
+            	}
+            }
+
+            return &dictv1.ListDictLabelResponse{Total: uint64(total), Items: items}, nil
+        Get:
+          body: |
+            if req == nil {
+            	return nil, fmt.Errorf("invalid parameter")
+            }
+
+            builder := r.entClient.Client().DictLabel.Query()
+            switch req.GetQueryBy().(type) {
+            case *dictv1.GetDictLabelRequest_Id:
+            	builder.Where(dictlabel.IDEQ(req.GetId()))
+            case *dictv1.GetDictLabelRequest_LabelKey:
+            	builder.Where(dictlabel.LabelKeyEQ(req.GetLabelKey()))
+            default:
+            	return nil, fmt.Errorf("invalid query by type")
+            }
+
+            entity, err := builder.Only(ctx)
+            if err != nil {
+            	r.log.Errorf("get dict_label failed: %s", err.Error())
+            	return nil, err
+            }
+            if err := ensureHybridTenantAccessible(ctx, entity.TenantID); err != nil {
+            	return nil, err
+            }
+
+            dto := r.mapper.ToDTO(entity)
+            if custom, ok := any(r).(interface {
+            	dictLabelEnrichGetDTO(context.Context, []*ent.DictLabel) ([]*dictv1.DictLabel, error)
+            }); ok {
+            	items, err := custom.dictLabelEnrichGetDTO(ctx, []*ent.DictLabel{entity})
+            	if err != nil {
+            		return nil, err
+            	}
+            	if len(items) == 0 {
+            		return nil, fmt.Errorf("dict_label relation hydration returned no result")
+            	}
+            	dto = items[0]
+            }
+
+            return dto, nil
+        Create:
+          imports:
+            - path: encoding/json
+            - path: strings
+          body: |
+            if req == nil || req.Data == nil {
+            	return nil, fmt.Errorf("invalid parameter")
+            }
+            if custom, ok := any(r).(interface {
+            	dictLabelCustomCreate(ctx context.Context, req *dictv1.CreateDictLabelRequest) (*emptypb.Empty, error)
+            }); ok {
+            	return custom.dictLabelCustomCreate(ctx, req)
+            }
+
+            builder := r.entClient.Client().DictLabel.Create()
+            now, viewer := r.generatedAuditContext(ctx)
+            builder.SetCategoryID(req.Data.GetCategoryId())
+            builder.SetLabelKey(req.Data.GetLabelKey())
+            builder.SetNillableLabelCode(req.Data.LabelCode)
+            builder.SetLabelKind(dictlabel.LabelKind(req.Data.GetLabelKind().String()))
+            builder.SetNillableDefaultText(req.Data.DefaultText)
+            if req.Data.PayloadJson != nil {
+            	payloadJSON := strings.TrimSpace(req.Data.GetPayloadJson())
+            	payloadValue := map[string]any{}
+            	if payloadJSON != "" {
+            		if err := json.Unmarshal([]byte(payloadJSON), &payloadValue); err != nil {
+            			return nil, fmt.Errorf("invalid payload_json: %w", err)
+            		}
+            	}
+            	builder.SetPayloadJSON(payloadValue)
+            }
+            builder.SetIsBuiltin(req.Data.GetIsBuiltin())
+            builder.SetStatus(dictlabel.Status(req.Data.GetStatus().String()))
+            builder.SetNillableSortOrder(req.Data.SortOrder)
+            builder.SetNillableTenantID(req.Data.TenantId)
+            builder.SetNillableRemark(req.Data.Remark)
+            builder.SetCreatedAt(now)
+            builder.SetCreatedBy(uint32(viewer.UserID()))
+
+            entity, err := builder.Save(ctx)
+            if err != nil {
+            	r.log.Errorf("insert dict_label failed: %s", err.Error())
+            	return nil, err
+            }
+
+            _ = entity
+            return nil, nil
+        Update:
+          imports:
+            - path: encoding/json
+            - path: strings
+          body: |
+            if req == nil || req.Data == nil {
+            	return nil, fmt.Errorf("invalid parameter")
+            }
+            if custom, ok := any(r).(interface {
+            	dictLabelCustomUpdate(ctx context.Context, req *dictv1.UpdateDictLabelRequest) (*emptypb.Empty, error)
+            }); ok {
+            	return custom.dictLabelCustomUpdate(ctx, req)
+            }
+            builder := r.entClient.Client().DictLabel.UpdateOneID(req.GetId())
+            now, viewer := r.generatedAuditContext(ctx)
+            builder.SetCategoryID(req.Data.GetCategoryId())
+            if req.Data.LabelCode != nil {
+            	builder.SetNillableLabelCode(req.Data.LabelCode)
+            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "label_code", "labelCode") {
+            	builder.ClearLabelCode()
+            }
+            builder.SetLabelKind(dictlabel.LabelKind(req.Data.GetLabelKind().String()))
+            if req.Data.DefaultText != nil {
+            	builder.SetNillableDefaultText(req.Data.DefaultText)
+            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "default_text", "defaultText") {
+            	builder.ClearDefaultText()
+            }
+            if req.Data.PayloadJson != nil {
+            	payloadJSON := strings.TrimSpace(req.Data.GetPayloadJson())
+            	payloadValue := map[string]any{}
+            	if payloadJSON != "" {
+            		if err := json.Unmarshal([]byte(payloadJSON), &payloadValue); err != nil {
+            			return nil, fmt.Errorf("invalid payload_json: %w", err)
+            		}
+            	}
+            	builder.SetPayloadJSON(payloadValue)
+            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "payload_json", "payloadJson") {
+            	builder.ClearPayloadJSON()
+            }
+            builder.SetIsBuiltin(req.Data.GetIsBuiltin())
+            builder.SetStatus(dictlabel.Status(req.Data.GetStatus().String()))
+            if req.Data.SortOrder != nil {
+            	builder.SetNillableSortOrder(req.Data.SortOrder)
+            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "sort_order", "sortOrder") {
+            	builder.ClearSortOrder()
+            }
+            if req.Data.Remark != nil {
+            	builder.SetNillableRemark(req.Data.Remark)
+            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "remark") {
+            	builder.ClearRemark()
+            }
+            builder.SetUpdatedAt(now)
+            builder.SetUpdatedBy(uint32(viewer.UserID()))
+
+            if err := builder.Exec(ctx); err != nil {
+            	r.log.Errorf("update dict_label failed: %s", err.Error())
+            	return nil, err
+            }
+
+            return nil, nil
+      aggregates:
+        - name: labelI18n
+          resource: dict_label_i18n
+          foreign_key: label_id
+          parent_field: id
+          collection_field: items_i18n
+          current_field: current_i18n
+          primary: true
       filters:
         allow:
             - id
-            - type_code
-            - type_name
+            - category_id
+            - category_key
+            - label_key
+            - label_code
+            - label_kind
+            - default_text
+            - is_builtin
+            - is_enabled
+            - status
+            - sort_order
+            - tenant_id
             - created_by
             - updated_by
             - deleted_by
-            - sort_order
+            - remark
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: dict_label_i18n
+      proto_service: admin.service.v1.DictLabelI18nService
+      entity: DictLabelI18n
+      dto_import: admin/api/gen/dict/v1
+      dto_type: DictLabelI18N
+      repo_interface: DictLabelI18nRepo
+      filters:
+        allow:
+            - id
+            - label_id
+            - label_key
+            - language_code
+            - language_name
+            - text_value
+            - short_text
             - tenant_id
+            - created_by
+            - updated_by
+            - deleted_by
       operations:
         create: true
         delete: true
@@ -166,6 +620,7 @@ resources:
       entity: File
       dto_import: admin/api/gen/storage/v1
       dto_type: File
+      tenant_scope: tenant_scoped
       repo_interface: FileRepo
       filters:
         allow:
@@ -206,6 +661,120 @@ resources:
       service_repos:
         - field: internalMessageRecipientRepo
           interface: InternalMessageRecipientRepo
+      service_methods:
+        ListMessage:
+          body: |
+            if {{param.req}} == nil {
+            	return nil, v11.ErrorBadRequest("paging request is required")
+            }
+            listReq := repo.PagingRequest{
+            	Limit: int({{param.req}}.GetLimit()),
+            	Offset: int({{param.req}}.GetOffset()),
+            	Sorting: {{param.req}}.GetSorting(),
+            }
+            return s.{{repoField}}.ListByPaging({{ctx}}, listReq)
+        GetMessage:
+          body: |
+            if {{param.req}} == nil {
+            	return nil, v11.ErrorBadRequest("request is required")
+            }
+            return s.{{repoField}}.GetByID({{ctx}}, {{param.req}}.GetId())
+        UpdateMessage:
+          imports:
+            - alias: crudviewer
+              path: github.com/chnxq/x-crud/viewer
+          body: |
+            if {{param.req}} == nil || {{param.req}}.Data == nil {
+            	return nil, v11.ErrorBadRequest("message payload is required")
+            }
+            viewer := crudviewer.MustFromContext({{ctx}})
+            updatedBy := uint32(viewer.UserID())
+            {{param.req}}.Data.UpdatedBy = &updatedBy
+            if err := s.{{repoField}}.UpdateByID({{ctx}}, {{param.req}}.GetId(), {{param.req}}.Data); err != nil {
+            	return nil, err
+            }
+            return {{successReturn}}, nil
+        DeleteMessage:
+          body: |
+            if {{param.req}} == nil {
+            	return nil, v11.ErrorBadRequest("request is required")
+            }
+            if err := s.{{repoField}}.DeleteByID({{ctx}}, {{param.req}}.GetId()); err != nil {
+            	return nil, err
+            }
+            return {{successReturn}}, nil
+        SendMessage:
+          imports:
+            - alias: crudviewer
+              path: github.com/chnxq/x-crud/viewer
+          body: |
+            if {{param.req}} == nil {
+            	return nil, v11.ErrorBadRequest("request is required")
+            }
+
+            title := normalizeRequiredText({{param.req}}.GetTitle())
+            content := normalizeRequiredText({{param.req}}.GetContent())
+            if title == "" || content == "" {
+            	return nil, v11.ErrorBadRequest("title and content are required")
+            }
+
+            viewer := crudviewer.MustFromContext({{ctx}})
+            senderID := uint32(viewer.UserID())
+            tenantID := uint32(viewer.TenantID())
+
+            recipientIDs := {{param.req}}.GetTargetUserIds()
+            if {{param.req}}.GetTargetAll() {
+            	var err error
+            	recipientIDs, err = s.listAllUserIDs({{ctx}})
+            	if err != nil {
+            		return nil, err
+            	}
+            }
+            if {{param.req}}.GetRecipientUserId() > 0 {
+            	recipientIDs = append(recipientIDs, {{param.req}}.GetRecipientUserId())
+            }
+            recipientIDs = dedupeUint32(recipientIDs)
+            if len(recipientIDs) == 0 {
+            	return nil, v11.ErrorBadRequest("recipient ids are required")
+            }
+
+            var categoryID *uint32
+            if {{param.req}}.GetCategoryId() > 0 {
+            	value := {{param.req}}.GetCategoryId()
+            	categoryID = &value
+            }
+
+            messageID, err := s.{{repoField}}.CreateAndSend({{ctx}}, repo.SendMessageArgs{
+            	Title: title,
+            	Content: content,
+            	Type: {{param.req}}.GetType(),
+            	CategoryID: categoryID,
+            	SenderID: senderID,
+            	TenantID: tenantID,
+            	RecipientIDs: recipientIDs,
+            })
+            if err != nil {
+            	return nil, err
+            }
+
+            s.publishNotificationEvents({{ctx}}, recipientIDs, messageID, title, content)
+            return &v11.SendMessageResponse{MessageId: messageID}, nil
+        RevokeMessage:
+          imports:
+            - alias: crudviewer
+              path: github.com/chnxq/x-crud/viewer
+          body: |
+            if {{param.req}} == nil || {{param.req}}.GetMessageId() == 0 {
+            	return nil, v11.ErrorBadRequest("message id is required")
+            }
+            viewer := crudviewer.MustFromContext({{ctx}})
+            if err := s.{{repoField}}.Revoke({{ctx}}, repo.RevokeMessageArgs{
+            	MessageID: {{param.req}}.GetMessageId(),
+            	SenderID: uint32(viewer.UserID()),
+            }); err != nil {
+            	return nil, err
+            }
+            return {{successReturn}}, nil
       filters:
         allow:
             - id
@@ -221,7 +790,6 @@ resources:
             - tenant_id
       generate:
         service_stub: true
-        repo_crud: false
         rest_register: true
         grpc_register: true
     - name: internal_message_category
@@ -268,7 +836,6 @@ resources:
             - tenant_id
       generate:
         service_stub: true
-        repo_crud: false
         rest_register: true
         grpc_register: true
     - name: language
@@ -335,6 +902,7 @@ resources:
       entity: LoginPolicy
       dto_import: admin/api/gen/authentication/v1
       dto_type: LoginPolicy
+      tenant_scope: tenant_scoped
       repo_interface: LoginPolicyRepo
       filters:
         allow:
@@ -365,6 +933,34 @@ resources:
       dto_import: admin/api/gen/resource/v1
       dto_type: Menu
       repo_interface: MenuRepo
+      service_methods:
+        Create:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "menu create"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Create({{ctx}}, {{param.req}})
+        Update:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "menu update"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Update({{ctx}}, {{param.req}})
+        Delete:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "menu delete"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
       filters:
         allow:
             - id
@@ -377,6 +973,7 @@ resources:
             - created_by
             - updated_by
             - deleted_by
+            - parent_id
             - remark
             - status
       operations:
@@ -476,6 +1073,14 @@ resources:
           interface: MenuRepo
         - field: apiRepo
           interface: ApiRepo
+      service_methods:
+        SyncPermissions:
+          body: |
+            _ = {{param.req}}
+            if err := s.syncPermissions({{ctx}}); err != nil {
+            	return nil, err
+            }
+            return {{successReturn}}, nil
       filters:
         allow:
             - id
@@ -531,6 +1136,34 @@ resources:
       dto_import: admin/api/gen/permission/v1
       dto_type: PermissionGroup
       repo_interface: PermissionGroupRepo
+      service_methods:
+        Create:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "permission group create"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Create({{ctx}}, {{param.req}})
+        Update:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "permission group update"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Update({{ctx}}, {{param.req}})
+        Delete:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "permission group delete"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
       filters:
         allow:
             - id
@@ -541,6 +1174,8 @@ resources:
             - deleted_by
             - status
             - sort_order
+            - parent_id
+            - path
       operations:
         create: true
         delete: true
@@ -626,6 +1261,84 @@ resources:
       dto_import: admin/api/gen/permission/v1
       dto_type: Role
       repo_interface: RoleRepo
+      repo_methods:
+        List:
+          body: |
+            if req == nil {
+            	return nil, fmt.Errorf("invalid parameter")
+            }
+
+            builder := r.roleQueryWithHybridTenantScope(ctx)
+            countBuilder := r.roleQueryWithHybridTenantScope(ctx)
+
+            if err := r.applyGeneratedFilters(builder, req); err != nil {
+            	return nil, err
+            }
+            if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
+            	return nil, err
+            }
+
+            listReq := &v1.PagingRequest{
+            	Page: req.Page,
+            	PageSize: req.PageSize,
+            	Offset: req.Offset,
+            	Limit: req.Limit,
+            	Token: req.Token,
+            	NoPaging: req.NoPaging,
+            	OrderBy: req.OrderBy,
+            	Sorting: req.Sorting,
+            	FieldMask: req.FieldMask,
+            }
+            listReq.Sorting = withDefaultSorting(listReq.Sorting, "sort_order", paginationv1.Sorting_ASC)
+            if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
+            	limit := uint32(20)
+            	offset := req.GetOffset()
+            	listReq.Limit = &limit
+            	listReq.Offset = &offset
+            }
+            if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
+            	return nil, err
+            }
+
+            total, err := countBuilder.Count(ctx)
+            if err != nil {
+            	r.log.Errorf("count role failed: %s", err.Error())
+            	return nil, err
+            }
+            entities, err := builder.All(ctx)
+            if err != nil {
+            	r.log.Errorf("list role failed: %s", err.Error())
+            	return nil, err
+            }
+
+            items, err := r.roleEnrichListDTOs(ctx, entities)
+            if err != nil {
+            	return nil, err
+            }
+            return &permissionv1.ListRoleResponse{Total: uint64(total), Items: items}, nil
+        Get:
+          body: |
+            if req == nil {
+            	return nil, fmt.Errorf("invalid parameter")
+            }
+
+            entity, err := r.entClient.Client().Role.Query().Where(role.IDEQ(req.GetId())).Only(ctx)
+            if err != nil {
+            	r.log.Errorf("get role failed: %s", err.Error())
+            	return nil, err
+            }
+            if err := ensureHybridTenantAccessible(ctx, entity.TenantID); err != nil {
+            	return nil, err
+            }
+
+            items, err := r.roleEnrichGetDTO(ctx, []*ent.Role{entity})
+            if err != nil {
+            	return nil, err
+            }
+            if len(items) == 0 {
+            	return nil, fmt.Errorf("role relation hydration returned no result")
+            }
+            return items[0], nil
       filters:
         allow:
             - id
@@ -685,6 +1398,34 @@ resources:
       dto_import: admin/api/gen/identity/v1
       dto_type: Tenant
       repo_interface: TenantRepo
+      service_methods:
+        Create:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "tenant create"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Create({{ctx}}, {{param.req}})
+        Update:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "tenant update"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Update({{ctx}}, {{param.req}})
+        Delete:
+          imports:
+            - alias: identityv1
+              path: '{{module}}/api/gen/identity/v1'
+          body: |
+            if _, err := requirePlatformContext({{ctx}}, "tenant delete"); err != nil {
+            	return nil, identityv1.ErrorForbidden("%s", err.Error())
+            }
+            return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
       filters:
         allow:
             - id
@@ -723,6 +1464,49 @@ resources:
       exists_fields:
         - id
         - username
+      repo_methods:
+        Get:
+          body: |
+            if req == nil {
+            	return nil, fmt.Errorf("invalid parameter")
+            }
+
+            builder := r.entClient.Client().User.Query()
+            switch req.GetQueryBy().(type) {
+            case *identityv1.GetUserRequest_Id:
+            	builder.Where(user.IDEQ(req.GetId()))
+            case *identityv1.GetUserRequest_Username:
+            	builder.Where(user.UsernameEQ(req.GetUsername()))
+            default:
+            	return nil, fmt.Errorf("invalid query by type")
+            }
+
+            entity, err := builder.Only(ctx)
+            if err != nil {
+            	if !ent.IsNotFound(err) {
+            		r.log.Errorf("get user failed: %s", err.Error())
+            	}
+            	return nil, err
+            }
+            if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {
+            	return nil, err
+            }
+
+            dto := r.mapper.ToDTO(entity)
+            if custom, ok := any(r).(interface {
+            	userEnrichGetDTO(context.Context, []*ent.User) ([]*identityv1.User, error)
+            }); ok {
+            	items, err := custom.userEnrichGetDTO(ctx, []*ent.User{entity})
+            	if err != nil {
+            		return nil, err
+            	}
+            	if len(items) == 0 {
+            		return nil, fmt.Errorf("user relation hydration returned no result")
+            	}
+            	dto = items[0]
+            }
+
+            return dto, nil
       filters:
         allow:
             - id

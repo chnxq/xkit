@@ -12,6 +12,7 @@ import (
 	"github.com/chnxq/xkit/internal/config"
 	"github.com/chnxq/xkit/internal/entschema"
 	"github.com/chnxq/xkit/internal/project"
+	xproto "github.com/chnxq/xkit/internal/proto"
 )
 
 func TestRunnerGenerateAll_WritesPhaseOneFiles(t *testing.T) {
@@ -994,6 +995,161 @@ func TestServiceMethodBodyWithoutConfigFallsBackToTODO(t *testing.T) {
 
 	if body != "" {
 		t.Fatalf("service method body should be empty without service_methods config, got %q", body)
+	}
+}
+
+func TestServiceMethodBodyUsesConfiguredSpecialMethod(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	body := runner.serviceMethodBody(resourcePlan{
+		Resource: config.Resource{
+			Name: "internal_message",
+			ServiceMethods: map[string]config.ServiceMethodConfig{
+				"ListMessage": {
+					Body: "return s.{{repoField}}.ListByPaging({{ctx}}, repo.PagingRequest{})",
+				},
+			},
+		},
+	}, "ListMessage", []namedType{
+		{Name: "ctx", Type: "context.Context"},
+		{Name: "req", Type: "*v1.PagingRequest"},
+	}, "*v11.ListInternalMessageResponse", "internalMessageRepo", true)
+
+	if body == "" {
+		t.Fatalf("expected configured special method body to be generated")
+	}
+	if !strings.Contains(body, "s.internalMessageRepo.ListByPaging(ctx, repo.PagingRequest{})") {
+		t.Fatalf("configured special method body was not rendered correctly: %q", body)
+	}
+}
+
+func TestRenderServiceFileIncludesConfiguredSpecialMethods(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{
+		project: project.Info{Module: "admin"},
+	}
+	plan := resourcePlan{
+		Resource: config.Resource{
+			Name:          "internal_message",
+			Entity:        "InternalMessage",
+			RepoInterface: "InternalMessageRepo",
+			ServiceRepos: []config.RepoConfig{
+				{Field: "internalMessageRecipientRepo", Interface: "InternalMessageRecipientRepo"},
+			},
+			ServiceMethods: map[string]config.ServiceMethodConfig{
+				"ListMessage": {Body: "return s.{{repoField}}.ListByPaging({{ctx}}, repo.PagingRequest{})"},
+				"GetMessage":  {Body: "return s.{{repoField}}.GetByID({{ctx}}, {{param.req}}.GetId())"},
+			},
+		},
+		Proto: xproto.Service{
+			Methods: []xproto.Method{
+				{Name: "ListMessage", Classification: "query"},
+				{Name: "GetMessage", Classification: "query"},
+			},
+		},
+		Binding: binding.ServiceBinding{
+			ServiceName: "InternalMessageService",
+			ImportPath:  "admin/api/gen/admin/v1",
+			Imports: map[string]string{
+				"repo": "admin/internal/data/repo",
+				"v11":  "admin/api/gen/internal_message/v1",
+			},
+			Methods: []binding.Method{
+				{
+					Name:    "ListMessage",
+					Params:  []string{"context.Context", "*paginationv1.PagingRequest"},
+					Results: []string{"*v11.ListInternalMessageResponse"},
+				},
+				{
+					Name:    "GetMessage",
+					Params:  []string{"context.Context", "*v11.GetInternalMessageRequest"},
+					Results: []string{"*v11.InternalMessage"},
+				},
+			},
+		},
+		APIPackageAlias: "adminv1",
+	}
+
+	content, err := runner.renderServiceFile(plan)
+	if err != nil {
+		t.Fatalf("render service file: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "func (s *InternalMessageService) ListMessage") {
+		t.Fatalf("rendered service file missing ListMessage: %s", got)
+	}
+	if !strings.Contains(got, "return s.internalMessageRepo.ListByPaging(ctx, repo.PagingRequest{})") {
+		t.Fatalf("rendered service file missing configured ListMessage body: %s", got)
+	}
+	if !strings.Contains(got, "return s.internalMessageRepo.GetByID(ctx, req.GetId())") {
+		t.Fatalf("rendered service file missing configured GetMessage body: %s", got)
+	}
+	if !strings.Contains(got, "internalMessageRecipientRepo repo.InternalMessageRecipientRepo") {
+		t.Fatalf("rendered service file missing extra repo injection: %s", got)
+	}
+}
+
+func TestRenderRepoFileIncludesConfiguredRepoMethods(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{
+		project: project.Info{Module: "admin"},
+	}
+	plan := resourcePlan{
+		Resource: config.Resource{
+			Name:          "role",
+			Entity:        "Role",
+			RepoInterface: "RoleRepo",
+			RepoMethods: map[string]config.RepoMethodConfig{
+				"List": {Body: "return &permissionv1.ListRoleResponse{}, nil"},
+				"Get":  {Body: "return &permissionv1.Role{}, nil"},
+			},
+			Operations: map[string]bool{
+				"list": true,
+				"get":  true,
+			},
+		},
+		Binding: binding.ServiceBinding{
+			ServiceName: "RoleService",
+			ImportPath:  "admin/api/gen/admin/v1",
+			Imports: map[string]string{
+				"permissionv1": "admin/api/gen/permission/v1",
+			},
+			Methods: []binding.Method{
+				{
+					Name:    "List",
+					Params:  []string{"context.Context", "*paginationv1.PagingRequest"},
+					Results: []string{"*permissionv1.ListRoleResponse"},
+				},
+				{
+					Name:    "Get",
+					Params:  []string{"context.Context", "*permissionv1.GetRoleRequest"},
+					Results: []string{"*permissionv1.Role"},
+				},
+			},
+		},
+		APIPackageAlias: "adminv1",
+		Schema:          entschema.Schema{},
+	}
+
+	content, err := runner.renderRepoFile(plan)
+	if err != nil {
+		t.Fatalf("render repo file: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "func (r *roleRepo) List") {
+		t.Fatalf("rendered repo file missing List: %s", got)
+	}
+	if !strings.Contains(got, "return &permissionv1.ListRoleResponse{}, nil") {
+		t.Fatalf("rendered repo file missing configured List body: %s", got)
+	}
+	if !strings.Contains(got, "func (r *roleRepo) Get") {
+		t.Fatalf("rendered repo file missing Get: %s", got)
+	}
+	if !strings.Contains(got, "return &permissionv1.Role{}, nil") {
+		t.Fatalf("rendered repo file missing configured Get body: %s", got)
 	}
 }
 

@@ -108,25 +108,31 @@ resources:
         repo_crud: true
         rest_register: true
         grpc_register: true
-    - name: dict_entry
-      proto_service: admin.service.v1.DictEntryService
-      entity: DictEntry
+    - name: dict_category
+      proto_service: admin.service.v1.DictCategoryService
+      entity: DictCategory
       dto_import: admin/api/gen/dict/v1
-      dto_type: DictEntry
-      repo_interface: DictEntryRepo
+      dto_type: DictCategory
+      repo_interface: DictCategoryRepo
       filters:
         allow:
             - id
-            - entry_value
-            - numeric_value
+            - category_key
+            - category_name
+            - category_level
+            - scene
             - created_by
             - updated_by
             - deleted_by
             - sort_order
             - tenant_id
+            - remark
+            - parent_id
+            - path
       operations:
         create: true
         delete: true
+        get: true
         list: true
         update: true
       generate:
@@ -134,21 +140,54 @@ resources:
         repo_crud: true
         rest_register: true
         grpc_register: true
-    - name: dict_type
-      proto_service: admin.service.v1.DictTypeService
-      entity: DictType
+    - name: dict_label
+      proto_service: admin.service.v1.DictLabelService
+      entity: DictLabel
       dto_import: admin/api/gen/dict/v1
-      dto_type: DictType
-      repo_interface: DictTypeRepo
+      dto_type: DictLabel
+      repo_interface: DictLabelRepo
       filters:
         allow:
             - id
-            - type_code
-            - type_name
+            - category_id
+            - label_key
+            - label_code
+            - label_kind
+            - default_text
+            - status
             - created_by
             - updated_by
             - deleted_by
             - sort_order
+            - tenant_id
+            - remark
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: dict_label_i18n
+      proto_service: admin.service.v1.DictLabelI18nService
+      entity: DictLabelI18n
+      dto_import: admin/api/gen/dict/v1
+      dto_type: DictLabelI18n
+      repo_interface: DictLabelI18nRepo
+      filters:
+        allow:
+            - id
+            - label_id
+            - language_code
+            - text_value
+            - short_text
+            - created_by
+            - updated_by
+            - deleted_by
             - tenant_id
       operations:
         create: true
@@ -203,9 +242,6 @@ resources:
       dto_import: admin/api/gen/internal_message/v1
       dto_type: InternalMessage
       repo_interface: InternalMessageRepo
-      service_repos:
-        - field: internalMessageRecipientRepo
-          interface: InternalMessageRecipientRepo
       filters:
         allow:
             - id
@@ -221,7 +257,6 @@ resources:
             - tenant_id
       generate:
         service_stub: true
-        repo_crud: false
         rest_register: true
         grpc_register: true
     - name: internal_message_category
@@ -256,7 +291,7 @@ resources:
     - name: internal_message_recipient
       proto_service: admin.service.v1.InternalMessageRecipientService
       entity: InternalMessageRecipient
-      dto_import: admin/api/gen/internal_message/v1
+      dto_import: admin/api/gen/admin/v1
       dto_type: InternalMessageRecipient
       repo_interface: InternalMessageRecipientRepo
       filters:
@@ -268,7 +303,6 @@ resources:
             - tenant_id
       generate:
         service_stub: true
-        repo_crud: false
         rest_register: true
         grpc_register: true
     - name: language
@@ -377,6 +411,7 @@ resources:
             - created_by
             - updated_by
             - deleted_by
+            - parent_id
             - remark
             - status
       operations:
@@ -426,7 +461,6 @@ resources:
       entity: OrgUnit
       dto_import: admin/api/gen/identity/v1
       dto_type: OrgUnit
-      tenant_scope: tenant_scoped
       repo_interface: OrgUnitRepo
       filters:
         allow:
@@ -452,6 +486,8 @@ resources:
             - sort_order
             - tenant_id
             - remark
+            - parent_id
+            - path
       operations:
         create: true
         delete: true
@@ -469,13 +505,6 @@ resources:
       dto_import: admin/api/gen/permission/v1
       dto_type: Permission
       repo_interface: PermissionRepo
-      service_repos:
-        - field: permissionGroupRepo
-          interface: PermissionGroupRepo
-        - field: menuRepo
-          interface: MenuRepo
-        - field: apiRepo
-          interface: ApiRepo
       filters:
         allow:
             - id
@@ -541,6 +570,8 @@ resources:
             - deleted_by
             - status
             - sort_order
+            - parent_id
+            - path
       operations:
         create: true
         delete: true
@@ -587,7 +618,6 @@ resources:
       entity: Position
       dto_import: admin/api/gen/identity/v1
       dto_type: Position
-      tenant_scope: tenant_scoped
       repo_interface: PositionRepo
       filters:
         allow:
@@ -718,7 +748,6 @@ resources:
       entity: User
       dto_import: admin/api/gen/identity/v1
       dto_type: User
-      tenant_scope: tenant_scoped
       repo_interface: UserRepo
       exists_fields:
         - id
