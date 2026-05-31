@@ -799,13 +799,6 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.go")); err != nil {
 		return Result{}, err
 	}
-	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.project.Root, "internal", "bootstrap", "generated_hooks_ext.go")); err != nil {
-		return Result{}, err
-	}
-	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client_ext.go")); err != nil {
-		return Result{}, err
-	}
-
 	files := []struct {
 		path     string
 		template string
