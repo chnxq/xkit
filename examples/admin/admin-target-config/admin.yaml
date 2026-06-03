@@ -1067,6 +1067,8 @@ resources:
       dto_type: Permission
       repo_interface: PermissionRepo
       service_repos:
+        - field: roleRepo
+          interface: RoleRepo
         - field: permissionGroupRepo
           interface: PermissionGroupRepo
         - field: menuRepo

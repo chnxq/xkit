@@ -1424,8 +1424,13 @@ func (r *Runner) writeExtensionFile(path string, content []byte, result *Result)
 		return nil
 	}
 
+	if generatedContentEquivalent(existing, content) {
+		result.Skipped = append(result.Skipped, path)
+		return nil
+	}
+
 	merged := refreshExtensionHeader(existing, content)
-	if bytes.Equal(existing, merged) {
+	if generatedContentEquivalent(existing, merged) {
 		result.Skipped = append(result.Skipped, path)
 		return nil
 	}
@@ -1482,12 +1487,43 @@ func (r *Runner) writeFile(path string, content []byte, result *Result, skipIfEx
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create directory for %s: %w", path, err)
 	}
+	existing, err := os.ReadFile(path)
+	if err == nil {
+		if generatedContentEquivalent(existing, content) {
+			result.Skipped = append(result.Skipped, path)
+			return nil
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("read existing file %s: %w", path, err)
+	}
 	if err := os.WriteFile(path, content, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 
 	result.Written = append(result.Written, path)
 	return nil
+}
+
+func generatedContentEquivalent(existing, generated []byte) bool {
+	if bytes.Equal(existing, generated) {
+		return true
+	}
+	return bytes.Equal(normalizeGeneratedHeader(existing), normalizeGeneratedHeader(generated))
+}
+
+func normalizeGeneratedHeader(content []byte) []byte {
+	content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
+	lines := bytes.SplitAfter(content, []byte("\n"))
+	normalized := make([][]byte, 0, len(lines))
+	for _, line := range lines {
+		trimmed := bytes.TrimSpace(line)
+		if bytes.HasPrefix(trimmed, []byte("// generated at:")) {
+			normalized = append(normalized, []byte("// generated at: <normalized>\n"))
+			continue
+		}
+		normalized = append(normalized, line)
+	}
+	return bytes.Join(normalized, nil)
 }
 
 func renderTemplate(source string, data any) ([]byte, error) {
