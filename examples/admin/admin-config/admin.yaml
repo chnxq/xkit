@@ -680,19 +680,16 @@ resources:
         repo_crud: true
         rest_register: true
         grpc_register: true
-    - name: task
-      proto_service: admin.service.v1.TaskService
-      entity: Task
+    - name: task_group
+      proto_service: admin.service.v1.TaskGroupService
+      entity: TaskGroup
       dto_import: admin/api/gen/task/v1
-      dto_type: Task
-      repo_interface: TaskRepo
+      dto_type: TaskGroup
+      repo_interface: TaskGroupRepo
       filters:
         allow:
             - id
-            - type
-            - type_name
-            - task_payload
-            - cron_spec
+            - group_name
             - created_by
             - updated_by
             - deleted_by
@@ -704,6 +701,67 @@ resources:
         get: true
         list: true
         update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: task
+      proto_service: admin.service.v1.TaskService
+      entity: Task
+      dto_import: admin/api/gen/task/v1
+      dto_type: Task
+      repo_interface: TaskRepo
+      filters:
+        allow:
+            - id
+            - task_name
+            - group_id
+            - task_type
+            - cron_expression
+            - invoke_target
+            - args
+            - retry
+            - concurrent
+            - entry_id
+            - status
+            - created_by
+            - updated_by
+            - deleted_by
+            - remark
+            - tenant_id
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: task_log
+      proto_service: admin.service.v1.TaskLogService
+      entity: TaskLog
+      dto_import: admin/api/gen/task/v1
+      dto_type: TaskLog
+      repo_interface: TaskLogRepo
+      filters:
+        allow:
+            - id
+            - task_id
+            - input
+            - output
+            - error
+            - status
+            - process_time
+            - execute_time
+            - tenant_id
+      operations:
+        delete: true
+        get: true
+        list: true
       generate:
         service_stub: true
         repo_crud: true
