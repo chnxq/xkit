@@ -79,12 +79,18 @@ type serviceTemplateData struct {
 	RepoField       string
 	RepoType        string
 	ExtraRepos      []serviceRepoData
+	ExtraFields     []serviceFieldData
 	ResourceName    string
 	Tree            *treeConfigData
 	Aggregates      []aggregateConfigData
 }
 
 type serviceRepoData struct {
+	Field string
+	Type  string
+}
+
+type serviceFieldData struct {
 	Field string
 	Type  string
 }
@@ -859,6 +865,7 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 	repoType := "repo." + repoName
 	hasRepo := repoName != ""
 	extraRepos := r.extraServiceRepos(plan)
+	extraFields := r.extraServiceFields(plan)
 	if hasRepo {
 		imports = append(imports,
 			importSpec{Path: "github.com/chnxq/xkitmod/log"},
@@ -914,6 +921,7 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 		RepoField:       repoField,
 		RepoType:        repoType,
 		ExtraRepos:      extraRepos,
+		ExtraFields:     extraFields,
 		ResourceName:    plan.Resource.Name,
 		Tree:            buildTreeConfig(plan.Resource.Tree),
 		Aggregates:      r.aggregateConfigs(plan),
@@ -963,6 +971,20 @@ func (r *Runner) extraServiceRepos(plan resourcePlan) []serviceRepoData {
 	return repos
 }
 
+func (r *Runner) extraServiceFields(plan resourcePlan) []serviceFieldData {
+	fields := make([]serviceFieldData, 0, len(plan.Resource.ServiceFields))
+	for _, field := range plan.Resource.ServiceFields {
+		if strings.TrimSpace(field.Field) == "" || strings.TrimSpace(field.Type) == "" {
+			continue
+		}
+		fields = append(fields, serviceFieldData{
+			Field: strings.TrimSpace(field.Field),
+			Type:  strings.TrimSpace(field.Type),
+		})
+	}
+	return fields
+}
+
 func (r *Runner) serviceRepoConfigs(plan resourcePlan) []config.RepoConfig {
 	repos := make([]config.RepoConfig, 0, len(plan.Resource.ServiceRepos)+len(plan.Resource.ServiceMethods)+len(plan.Resource.Aggregates))
 	repos = append(repos, plan.Resource.ServiceRepos...)
@@ -996,6 +1018,14 @@ func (r *Runner) serviceRepoConfigs(plan resourcePlan) []config.RepoConfig {
 
 func (r *Runner) serviceConfiguredImports(plan resourcePlan) []importSpec {
 	var imports []importSpec
+	for _, importConfig := range plan.Resource.ServiceImports {
+		path := strings.TrimSpace(importConfig.Path)
+		if path == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{{module}}", r.project.Module)
+		imports = append(imports, importSpec{Alias: strings.TrimSpace(importConfig.Alias), Path: filepath.ToSlash(path)})
+	}
 	for _, methodConfig := range plan.Resource.ServiceMethods {
 		for _, importConfig := range methodConfig.Imports {
 			path := strings.TrimSpace(importConfig.Path)

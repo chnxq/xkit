@@ -296,6 +296,16 @@ resources:
       dto_import: admin/api/gen/admin/v1
       dto_type: InternalMessageRecipient
       repo_interface: InternalMessageRecipientRepo
+      service_methods:
+        ListUserInbox:
+          body: |
+            return s.listUserInboxImpl({{ctx}}, {{param.req}})
+        DeleteNotificationFromInbox:
+          body: |
+            return s.deleteNotificationFromInboxImpl({{ctx}}, {{param.req}})
+        MarkNotificationAsRead:
+          body: |
+            return s.markNotificationAsReadImpl({{ctx}}, {{param.req}})
       filters:
         allow:
             - id
@@ -690,6 +700,44 @@ resources:
       dto_import: admin/api/gen/task/v1
       dto_type: TaskGroup
       repo_interface: TaskGroupRepo
+      service_imports:
+        - alias: taskruntime
+          path: '{{module}}/internal/task'
+      service_repos:
+        - field: taskRepo
+          interface: TaskRepo
+        - field: taskLogRepo
+          interface: TaskLogRepo
+        - field: apiAuditLogRepo
+          interface: ApiAuditLogRepo
+        - field: loginAuditLogRepo
+          interface: LoginAuditLogRepo
+        - field: permissionAuditLogRepo
+          interface: PermissionAuditLogRepo
+      service_fields:
+        - field: scheduler
+          type: '*taskScheduler'
+        - field: executorRegistry
+          type: '*taskruntime.Registry'
+      service_methods:
+        Create:
+          body: |
+            return s.create({{ctx}}, {{param.req}})
+        Update:
+          body: |
+            return s.update({{ctx}}, {{param.req}})
+        Delete:
+          body: |
+            return s.delete({{ctx}}, {{param.req}})
+        Start:
+          body: |
+            return s.start({{ctx}}, {{param.req}})
+        Stop:
+          body: |
+            return s.stop({{ctx}}, {{param.req}})
+        RunOnce:
+          body: |
+            return s.runOnce({{ctx}}, {{param.req}})
       filters:
         allow:
             - id
@@ -716,6 +764,44 @@ resources:
       dto_import: admin/api/gen/task/v1
       dto_type: Task
       repo_interface: TaskRepo
+      service_imports:
+        - alias: taskruntime
+          path: '{{module}}/internal/task'
+      service_repos:
+        - field: taskGroupRepo
+          interface: TaskGroupRepo
+        - field: taskLogRepo
+          interface: TaskLogRepo
+        - field: apiAuditLogRepo
+          interface: ApiAuditLogRepo
+        - field: loginAuditLogRepo
+          interface: LoginAuditLogRepo
+        - field: permissionAuditLogRepo
+          interface: PermissionAuditLogRepo
+      service_fields:
+        - field: scheduler
+          type: '*taskScheduler'
+        - field: executorRegistry
+          type: '*taskruntime.Registry'
+      service_methods:
+        Create:
+          body: |
+            return s.create({{ctx}}, {{param.req}})
+        Update:
+          body: |
+            return s.update({{ctx}}, {{param.req}})
+        Delete:
+          body: |
+            return s.delete({{ctx}}, {{param.req}})
+        Start:
+          body: |
+            return s.start({{ctx}}, {{param.req}})
+        Stop:
+          body: |
+            return s.stop({{ctx}}, {{param.req}})
+        RunOnce:
+          body: |
+            return s.runOnce({{ctx}}, {{param.req}})
       filters:
         allow:
             - id

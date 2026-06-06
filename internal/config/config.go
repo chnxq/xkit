@@ -24,7 +24,9 @@ type Resource struct {
 	RepoInterface  string                         `yaml:"repo_interface,omitempty"`
 	Tree           *TreeConfig                    `yaml:"tree,omitempty"`
 	Aggregates     []AggregateConfig              `yaml:"aggregates,omitempty"`
+	ServiceImports []ImportConfig                 `yaml:"service_imports,omitempty"`
 	ServiceRepos   []RepoConfig                   `yaml:"service_repos,omitempty"`
+	ServiceFields  []ServiceFieldConfig           `yaml:"service_fields,omitempty"`
 	ExistsFields   []string                       `yaml:"exists_fields,omitempty"`
 	Filters        FilterConfig                   `yaml:"filters,omitempty"`
 	ServiceMethods map[string]ServiceMethodConfig `yaml:"service_methods,omitempty"`
@@ -37,6 +39,11 @@ type ServiceMethodConfig struct {
 	Imports []ImportConfig `yaml:"imports,omitempty"`
 	Repos   []RepoConfig   `yaml:"repos,omitempty"`
 	Body    string         `yaml:"body,omitempty"`
+}
+
+type ServiceFieldConfig struct {
+	Field string `yaml:"field"`
+	Type  string `yaml:"type"`
 }
 
 type RepoMethodConfig struct {

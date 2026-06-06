@@ -22,6 +22,9 @@ type {{ .StructName }} struct {
 {{- range .ExtraRepos}}
 	{{ .Field }} {{ .Type }}
 {{- end}}
+{{- range .ExtraFields}}
+	{{ .Field }} {{ .Type }}
+{{- end}}
 {{end}}
 }
 
