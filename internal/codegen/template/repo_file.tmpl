@@ -89,6 +89,26 @@ func {{ .FieldMaskHelperName }}(paths []string, candidates ...string) bool {
 }
 {{end}}
 {{if .UsesFilters}}
+func {{ .FilterTimeHelperName }}(value, field string) (time.Time, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return time.Time{}, fmt.Errorf("invalid %s filter value: empty", field)
+	}
+
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02",
+	} {
+		if parsed, err := time.Parse(layout, trimmed); err == nil {
+			return parsed, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("invalid %s filter value: %q", field, value)
+}
+
 func (r *{{ .RepoStructName }}) applyGeneratedFilters(builder *ent.{{ .EntOperationName }}Query, req *paginationv1.PagingRequest) error {
 	if req == nil || req.GetFilterExpr() == nil {
 		return nil
@@ -131,6 +151,21 @@ func (r *{{ .RepoStructName }}) applyGeneratedFilters(builder *ent.{{ .EntOperat
 					return fmt.Errorf("invalid {{ .Field }} filter value: %w", err)
 				}
 				builder.Where({{ $.EntPackage }}.{{ .Predicate }}EQ({{ .CastType }}(value)))
+			}
+{{else if eq .Kind "Time"}}
+			value, err := {{ $.FilterTimeHelperName }}(condition.GetValue(), "{{ .TimeField }}")
+			if err != nil {
+				return err
+			}
+			switch condition.GetOp() {
+			case paginationv1.Operator_GT:
+				builder.Where({{ $.EntPackage }}.{{ .Predicate }}GT(value))
+			case paginationv1.Operator_GTE:
+				builder.Where({{ $.EntPackage }}.{{ .Predicate }}GTE(value))
+			case paginationv1.Operator_LT:
+				builder.Where({{ $.EntPackage }}.{{ .Predicate }}LT(value))
+			case paginationv1.Operator_LTE:
+				builder.Where({{ $.EntPackage }}.{{ .Predicate }}LTE(value))
 			}
 {{end}}
 {{end}}

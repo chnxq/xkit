@@ -151,6 +151,7 @@ type repoTemplateData struct {
 	UsesFieldMaskHelper      bool
 	EnumHelperName           string
 	TimeHelperName           string
+	FilterTimeHelperName     string
 	FieldMaskHelperName      string
 	Filters                  []filterData
 	UsesFilters              bool
@@ -252,6 +253,7 @@ type filterData struct {
 	Kind         string
 	CastType     string
 	ParseBitSize string
+	TimeField    string
 }
 
 var aliasPattern = regexp.MustCompile(`\b([A-Za-z_][A-Za-z0-9_]*)\.`)
@@ -1144,12 +1146,13 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		{Path: filepath.ToSlash(filepath.Join(r.project.Module, "internal", "data", "ent", "predicate"))},
 		{Alias: dtoAlias, Path: dtoImport},
 	}
-	filters := repoFilters(plan.Schema.Fields, plan.Resource.Filters.Allow)
+	filters := repoFilters(plan.Schema.Fields, effectiveFilterAllow(plan))
 	usesFilters := len(filters) > 0
 	usesAuditFields := hasGeneratedAuditFields(plan.Schema.Fields)
 	if usesFilters {
 		imports = append(imports,
 			importSpec{Path: "strconv"},
+			importSpec{Path: "strings"},
 			importSpec{Alias: "paginationv1", Path: "github.com/chnxq/x-crud/api/gen/pagination/v1"},
 		)
 	}
@@ -1261,6 +1264,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		UsesFieldMaskHelper:      usesFieldMaskHelper,
 		EnumHelperName:           lowerFirst(entityName) + "EnumPtrFromProto",
 		TimeHelperName:           lowerFirst(entityName) + "TimePtrFromProto",
+		FilterTimeHelperName:     lowerFirst(entityName) + "ParseFilterTime",
 		FieldMaskHelperName:      lowerFirst(entityName) + "FieldMaskContains",
 		Filters:                  filters,
 		UsesFilters:              usesFilters,
@@ -2276,10 +2280,25 @@ func repoFilters(fields []entschema.Field, allowed []string) []filterData {
 			Kind:         kind,
 			CastType:     filterCastType(field.Kind),
 			ParseBitSize: filterParseBitSize(field.Kind),
+			TimeField:    name,
 		})
 		seen[name] = struct{}{}
 	}
 	return filters
+}
+
+func effectiveFilterAllow(plan resourcePlan) []string {
+	allowed := append([]string{}, plan.Resource.Filters.Allow...)
+	if isAutoAppendCreatedAtFilterResource(plan) && hasField(plan.Schema.Fields, "created_at") && !slices.Contains(allowed, "created_at") {
+		allowed = append(allowed, "created_at")
+	}
+	return allowed
+}
+
+func isAutoAppendCreatedAtFilterResource(plan resourcePlan) bool {
+	name := strings.ToLower(plan.Resource.Name)
+	entity := strings.ToLower(plan.Resource.Entity)
+	return strings.HasSuffix(name, "_log") || strings.HasSuffix(entity, "log")
 }
 
 func idGoType(fields []entschema.Field) string {
@@ -2348,6 +2367,8 @@ func filterKind(kind string) string {
 		return "String"
 	case "Enum":
 		return "Enum"
+	case "Time":
+		return "Time"
 	case "Uint", "Uint8", "Uint16", "Uint32", "Uint64":
 		return "Uint"
 	case "Int", "Int8", "Int16", "Int32", "Int64":

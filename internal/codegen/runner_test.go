@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -227,7 +228,7 @@ func (User) Mixin() []ent.Mixin {
 				RepoInterface: "UserRepo",
 				ExistsFields:  []string{"id", "username"},
 				Filters: config.FilterConfig{
-					Allow: []string{"id", "username", "status"},
+					Allow: []string{"id", "username", "status", "last_login_at"},
 				},
 				ServiceMethods: map[string]config.ServiceMethodConfig{
 					"EditUserPassword": {
@@ -408,6 +409,9 @@ return {{successReturn}}, nil`,
 	}
 	if !strings.Contains(repoFile, "case \"status\":") || !strings.Contains(repoFile, "builder.Where(user.StatusEQ(user.Status(condition.GetValue())))") {
 		t.Fatalf("repo file is missing generated enum filter")
+	}
+	if !strings.Contains(repoFile, "case \"last_login_at\":") || !strings.Contains(repoFile, "userParseFilterTime(condition.GetValue(), \"last_login_at\")") || !strings.Contains(repoFile, "builder.Where(user.LastLoginAtGTE(value))") {
+		t.Fatalf("repo file is missing generated time filter")
 	}
 	if !strings.Contains(repoFile, "func (r *userRepo) Create") {
 		t.Fatalf("repo file is missing Create method")
@@ -1113,6 +1117,9 @@ func TestGeneratedEntNamesUseInitialismsWhereEntDoes(t *testing.T) {
 	if got := filterParseBitSize("Int32"); got != "32" {
 		t.Fatalf("filterParseBitSize(Int32) = %q, want 32", got)
 	}
+	if got := filterKind("Time"); got != "Time" {
+		t.Fatalf("filterKind(Time) = %q, want Time", got)
+	}
 	if supportsGeneratedSetterKind("Strings") {
 		t.Fatalf("Strings fields should be left for manual conversion")
 	}
@@ -1402,6 +1409,81 @@ func TestWriteExtensionFileSkipsTimestampAndLineEndingOnlyChanges(t *testing.T) 
 	got := readFile(t, path)
 	if got != string(existing) {
 		t.Fatalf("extension file should keep original content when only header timestamp and line endings change, got:\n%s", got)
+	}
+}
+
+func TestEffectiveFilterAllowAppendsCreatedAtForRecordLikeResource(t *testing.T) {
+	plan := resourcePlan{
+		Resource: config.Resource{
+			Name: "api_audit_log",
+			Filters: config.FilterConfig{
+				Allow: []string{"id", "user_id"},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "id", Kind: "Uint32"},
+				{Name: "created_at", Kind: "Time"},
+				{Name: "user_id", Kind: "Uint32"},
+			},
+		},
+	}
+
+	got := effectiveFilterAllow(plan)
+	if !slices.Contains(got, "created_at") {
+		t.Fatalf("effectiveFilterAllow() = %v, want created_at to be appended", got)
+	}
+}
+
+func TestEffectiveFilterAllowKeepsCreatedAtSingle(t *testing.T) {
+	plan := resourcePlan{
+		Resource: config.Resource{
+			Name: "task_log",
+			Filters: config.FilterConfig{
+				Allow: []string{"id", "created_at", "task_id"},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "id", Kind: "Uint32"},
+				{Name: "created_at", Kind: "Time"},
+				{Name: "task_id", Kind: "Uint64"},
+			},
+		},
+	}
+
+	got := effectiveFilterAllow(plan)
+	count := 0
+	for _, item := range got {
+		if item == "created_at" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("effectiveFilterAllow() created_at count = %d, want 1; full=%v", count, got)
+	}
+}
+
+func TestEffectiveFilterAllowDoesNotAppendCreatedAtForNonLogResource(t *testing.T) {
+	plan := resourcePlan{
+		Resource: config.Resource{
+			Name: "login_policy",
+			Filters: config.FilterConfig{
+				Allow: []string{"id", "target_id"},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "id", Kind: "Uint32"},
+				{Name: "created_at", Kind: "Time"},
+				{Name: "target_id", Kind: "Uint32"},
+			},
+		},
+	}
+
+	got := effectiveFilterAllow(plan)
+	if slices.Contains(got, "created_at") {
+		t.Fatalf("effectiveFilterAllow() = %v, want created_at not to be appended for non-log resource", got)
 	}
 }
 

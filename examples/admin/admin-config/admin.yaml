@@ -63,6 +63,7 @@ resources:
             - response
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
@@ -100,6 +101,7 @@ resources:
             - db_user
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
@@ -356,6 +358,7 @@ resources:
             - risk_level
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
@@ -448,6 +451,7 @@ resources:
             - ip_address
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
