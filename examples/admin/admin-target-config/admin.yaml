@@ -1387,23 +1387,15 @@ resources:
       repo_interface: TaskGroupRepo
       service_imports:
         - alias: taskruntime
-          path: '{{module}}/internal/task'
+          path: '{{module}}/internal/task/runtime'
       service_repos:
         - field: taskRepo
           interface: TaskRepo
-        - field: taskLogRepo
-          interface: TaskLogRepo
-        - field: apiAuditLogRepo
-          interface: ApiAuditLogRepo
-        - field: loginAuditLogRepo
-          interface: LoginAuditLogRepo
-        - field: permissionAuditLogRepo
-          interface: PermissionAuditLogRepo
       service_fields:
         - field: scheduler
-          type: '*taskScheduler'
-        - field: executorRegistry
-          type: '*taskruntime.Registry'
+          type: '*taskruntime.Scheduler'
+        - field: runtimeRunner
+          type: '*taskruntime.Runner'
       service_methods:
         Create:
           body: |
@@ -1451,23 +1443,15 @@ resources:
       repo_interface: TaskRepo
       service_imports:
         - alias: taskruntime
-          path: '{{module}}/internal/task'
+          path: '{{module}}/internal/task/runtime'
       service_repos:
         - field: taskGroupRepo
           interface: TaskGroupRepo
-        - field: taskLogRepo
-          interface: TaskLogRepo
-        - field: apiAuditLogRepo
-          interface: ApiAuditLogRepo
-        - field: loginAuditLogRepo
-          interface: LoginAuditLogRepo
-        - field: permissionAuditLogRepo
-          interface: PermissionAuditLogRepo
       service_fields:
         - field: scheduler
-          type: '*taskScheduler'
-        - field: executorRegistry
-          type: '*taskruntime.Registry'
+          type: '*taskruntime.Scheduler'
+        - field: runtimeRunner
+          type: '*taskruntime.Runner'
       service_methods:
         Create:
           body: |
