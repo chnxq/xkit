@@ -1059,6 +1059,59 @@ func TestBootstrapResourcesCollectServiceReposWithoutRepoCRUD(t *testing.T) {
 	}
 }
 
+func TestBootstrapResourcesIgnoreRepoTypedServiceFields(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plans := []resourcePlan{
+		{
+			Resource: config.Resource{
+				Name:          "task_group",
+				ProtoService:  "admin.service.v1.TaskGroupService",
+				RepoInterface: "TaskGroupRepo",
+				ServiceFields: []config.ServiceFieldConfig{
+					{Field: "taskRepo", Type: "repo.TaskRepo"},
+					{Field: "scheduler", Type: "*taskruntime.Scheduler"},
+				},
+				Generate: config.GenerateFlags{
+					ServiceStub: true,
+					RepoCRUD:    true,
+				},
+			},
+			Binding:       binding.ServiceBinding{ServiceName: "TaskGroupService"},
+			ResourceField: "TaskGroup",
+		},
+		{
+			Resource: config.Resource{
+				Name:          "task",
+				ProtoService:  "admin.service.v1.TaskService",
+				RepoInterface: "TaskRepo",
+				ServiceFields: []config.ServiceFieldConfig{
+					{Field: "taskGroupRepo", Type: "repo.TaskGroupRepo"},
+					{Field: "scheduler", Type: "*taskruntime.Scheduler"},
+				},
+				Generate: config.GenerateFlags{
+					ServiceStub: true,
+					RepoCRUD:    true,
+				},
+			},
+			Binding:       binding.ServiceBinding{ServiceName: "TaskService"},
+			ResourceField: "Task",
+		},
+	}
+
+	serverResources := runner.bootstrapResources(plans)
+	if len(serverResources) != 2 {
+		t.Fatalf("bootstrapResources count mismatch: got %d want 2", len(serverResources))
+	}
+
+	for _, item := range serverResources {
+		if len(item.ServiceRepoVars) != 0 {
+			t.Fatalf("repo-typed service_fields should not be treated as constructor repos: %#v", item)
+		}
+	}
+}
+
 func TestResourceOperationEnabled(t *testing.T) {
 	t.Parallel()
 
@@ -1231,6 +1284,69 @@ func TestRenderServiceFileIncludesConfiguredSpecialMethods(t *testing.T) {
 	}
 	if !strings.Contains(got, "internalMessageRecipientRepo repo.InternalMessageRecipientRepo") {
 		t.Fatalf("rendered service file missing extra repo injection: %s", got)
+	}
+}
+
+func TestRenderServiceFileKeepsServiceFieldsOutOfConstructorInjection(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{
+		project: project.Info{Module: "admin"},
+	}
+	plan := resourcePlan{
+		Resource: config.Resource{
+			Name:          "task",
+			Entity:        "Task",
+			RepoInterface: "TaskRepo",
+			ServiceImports: []config.ImportConfig{
+				{Alias: "taskruntime", Path: "{{module}}/internal/task/runtime"},
+			},
+			ServiceFields: []config.ServiceFieldConfig{
+				{Field: "taskGroupRepo", Type: "repo.TaskGroupRepo"},
+				{Field: "scheduler", Type: "*taskruntime.Scheduler"},
+			},
+			ServiceMethods: map[string]config.ServiceMethodConfig{
+				"Start": {Body: "return s.start({{ctx}}, {{param.req}})"},
+			},
+		},
+		Proto: xproto.Service{
+			Methods: []xproto.Method{
+				{Name: "Start", Classification: "special"},
+			},
+		},
+		Binding: binding.ServiceBinding{
+			ServiceName: "TaskService",
+			ImportPath:  "admin/api/gen/admin/v1",
+			Imports: map[string]string{
+				"taskv1": "admin/api/gen/task/v1",
+			},
+			Methods: []binding.Method{
+				{
+					Name:    "Start",
+					Params:  []string{"context.Context", "*taskv1.StartTaskRequest"},
+					Results: []string{"*emptypb.Empty"},
+				},
+			},
+		},
+		APIPackageAlias: "adminv1",
+	}
+
+	content, err := runner.renderServiceFile(plan)
+	if err != nil {
+		t.Fatalf("render service file: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "taskGroupRepo repo.TaskGroupRepo") {
+		t.Fatalf("rendered service file missing runtime-bound service field: %s", got)
+	}
+	if !strings.Contains(got, "scheduler     *taskruntime.Scheduler") {
+		t.Fatalf("rendered service file missing scheduler service field: %s", got)
+	}
+	if !strings.Contains(got, "func NewTaskService(ctx *app.AppCtx, taskRepo repo.TaskRepo) *TaskService") {
+		t.Fatalf("rendered service constructor should only inject the main repo: %s", got)
+	}
+	if strings.Contains(got, "func NewTaskService(ctx *app.AppCtx, taskRepo repo.TaskRepo, taskGroupRepo repo.TaskGroupRepo") {
+		t.Fatalf("rendered service constructor should not inject repo-typed service fields: %s", got)
 	}
 }
 

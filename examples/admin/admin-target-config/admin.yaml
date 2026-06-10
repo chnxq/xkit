@@ -1388,10 +1388,9 @@ resources:
       service_imports:
         - alias: taskruntime
           path: '{{module}}/internal/task/runtime'
-      service_repos:
-        - field: taskRepo
-          interface: TaskRepo
       service_fields:
+        - field: taskRepo
+          type: repo.TaskRepo
         - field: scheduler
           type: '*taskruntime.Scheduler'
         - field: runtimeRunner
@@ -1444,10 +1443,9 @@ resources:
       service_imports:
         - alias: taskruntime
           path: '{{module}}/internal/task/runtime'
-      service_repos:
-        - field: taskGroupRepo
-          interface: TaskGroupRepo
       service_fields:
+        - field: taskGroupRepo
+          type: repo.TaskGroupRepo
         - field: scheduler
           type: '*taskruntime.Scheduler'
         - field: runtimeRunner
