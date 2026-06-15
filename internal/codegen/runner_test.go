@@ -120,7 +120,7 @@ type ResetCredentialRequest struct{}
 type UserCredential struct{}
 type Empty struct{}
 `)
-writeFile(t, filepath.Join(root, "api", "gen", "identity", "v1", "user.pb.go"), `package identityv1
+	writeFile(t, filepath.Join(root, "api", "gen", "identity", "v1", "user.pb.go"), `package identityv1
 
 type User struct {
 	Username    *string
@@ -470,15 +470,16 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 16 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 16)
+	if len(result.Written) != 17 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 17)
 	}
 
 	expectedPaths := []string{
 		filepath.Join(root, "internal", "service", "user_service.gen.go"),
 		filepath.Join(root, "internal", "service", "user_service_ext.go"),
+		filepath.Join(root, "internal", "service", "service_shared_ext.go"),
 		filepath.Join(root, "internal", "data", "repo", "user_repo.gen.go"),
-		filepath.Join(root, "internal", "data", "repo", "list_sorting_ext.go"),
+		filepath.Join(root, "internal", "data", "repo", "repo_shared_ext.go"),
 		filepath.Join(root, "internal", "data", "repo", "user_repo_ext.go"),
 		filepath.Join(root, "internal", "data", "repo", "user_credential_repo_ext.go"),
 		filepath.Join(root, "internal", "data", "repo", "dict_label_repo.gen.go"),
@@ -525,6 +526,10 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(serviceFile, "userCredentialRepo repo.UserCredentialRepo") || !strings.Contains(serviceFile, "s.userCredentialRepo.ResetCredential") {
 		t.Fatalf("service file is missing generated EditUserPassword credential reset")
 	}
+	serviceSharedFile := readFile(t, filepath.Join(root, "internal", "service", "service_shared_ext.go"))
+	if !strings.Contains(serviceSharedFile, "func requireViewerContext(") || !strings.Contains(serviceSharedFile, "func requirePlatformContext(") {
+		t.Fatalf("service shared helper file is missing viewer/platform context helpers")
+	}
 
 	repoFile := readFile(t, filepath.Join(root, "internal", "data", "repo", "user_repo.gen.go"))
 	if !strings.Contains(repoFile, "func NewUserRepo") {
@@ -545,9 +550,12 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoFile, `listReq.Sorting = withDefaultSorting(`) || !strings.Contains(repoFile, `"id"`) || !strings.Contains(repoFile, `paginationv1.Sorting_ASC`) {
 		t.Fatalf("repo file is missing shared default id ascending sorting")
 	}
-	repoSharedFile := readFile(t, filepath.Join(root, "internal", "data", "repo", "list_sorting_ext.go"))
+	repoSharedFile := readFile(t, filepath.Join(root, "internal", "data", "repo", "repo_shared_ext.go"))
 	if !strings.Contains(repoSharedFile, "func withDefaultSorting(") || !strings.Contains(repoSharedFile, "paginationv1.Sorting_Direction") {
 		t.Fatalf("repo shared helper file is missing withDefaultSorting helper")
+	}
+	if !strings.Contains(repoSharedFile, "func ensureTenantAccessible(") || !strings.Contains(repoSharedFile, "func viewerTenantID(") {
+		t.Fatalf("repo shared helper file is missing tenant scope helpers")
 	}
 	if !strings.Contains(repoFile, "if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
 		t.Fatalf("repo file is missing generated List body")

@@ -8,6 +8,9 @@ var ServiceFile string
 //go:embed service_ext.tmpl
 var ServiceExt string
 
+//go:embed service_shared_ext.tmpl
+var ServiceSharedExt string
+
 //go:embed repo_file.tmpl
 var RepoFile string
 

@@ -36,6 +36,7 @@ type generatedMeta struct {
 
 type templateBase struct {
 	Generated generatedMeta
+	Module    string
 }
 
 type Result struct {
@@ -337,6 +338,15 @@ func (r *Runner) generateServiceFiles() (Result, error) {
 	}
 
 	var result Result
+	sharedContent, err := renderTemplate(codegentemplate.ServiceSharedExt, r.templateBase())
+	if err != nil {
+		return result, err
+	}
+	sharedPath := filepath.Join(r.internalDir("service"), "service_shared_ext.go")
+	if err := r.writeExtensionFile(sharedPath, sharedContent, &result); err != nil {
+		return result, err
+	}
+
 	for _, plan := range plans {
 		if !plan.Resource.Generate.EffectiveServiceStub() {
 			continue
@@ -389,7 +399,7 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 	if err != nil {
 		return result, err
 	}
-	sharedPath := filepath.Join(r.internalDir("data", "repo"), "list_sorting_ext.go")
+	sharedPath := filepath.Join(r.internalDir("data", "repo"), "repo_shared_ext.go")
 	if err := r.writeExtensionFile(sharedPath, sharedContent, &result); err != nil {
 		return result, err
 	}
@@ -1460,6 +1470,7 @@ func (r *Runner) templateBase() templateBase {
 			Version:     r.version(),
 			GeneratedAt: time.Now().Format("2006-01-02 15:04:05 MST"),
 		},
+		Module: r.project.Module,
 	}
 }
 
