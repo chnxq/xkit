@@ -155,8 +155,10 @@ type repoTemplateData struct {
 	UsesEnumSetter           bool
 	UsesTimeSetter           bool
 	UsesFieldMaskHelper      bool
+	UsesJSONDecoder          bool
 	EnumHelperName           string
 	TimeHelperName           string
+	JSONHelperName           string
 	FilterTimeHelperName     string
 	FieldMaskHelperName      string
 	Filters                  []filterData
@@ -251,6 +253,7 @@ type setterData struct {
 	Condition      string
 	ClearMethod    string
 	ClearCondition string
+	Pre            string
 }
 
 type filterData struct {
@@ -382,6 +385,15 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 	}
 
 	var result Result
+	sharedContent, err := renderTemplate(codegentemplate.RepoSharedExt, r.templateBase())
+	if err != nil {
+		return result, err
+	}
+	sharedPath := filepath.Join(r.internalDir("data", "repo"), "list_sorting_ext.go")
+	if err := r.writeExtensionFile(sharedPath, sharedContent, &result); err != nil {
+		return result, err
+	}
+
 	for _, plan := range plans {
 		if !plan.Resource.Generate.EffectiveRepoCRUD() {
 			continue
@@ -650,7 +662,7 @@ func (r *Runner) bootstrapResources(plans []resourcePlan) []bootstrapResourceDat
 			continue
 		}
 		repoName := strings.TrimSpace(plan.Resource.RepoInterface)
-		hasRepo := repoName != ""
+		hasRepo := repoName != "" && plan.Resource.Generate.EffectiveRepoCRUD()
 		data := bootstrapResourceData{
 			FieldName:       plan.ResourceField,
 			RepoVar:         repoVarFromInterface(repoName),
@@ -668,6 +680,9 @@ func (r *Runner) bootstrapResources(plans []resourcePlan) []bootstrapResourceDat
 				continue
 			}
 			extraRepoVar := repoVarFromInterface(strings.TrimSpace(extraPlan.Resource.RepoInterface))
+			if !extraPlan.Resource.Generate.EffectiveRepoCRUD() {
+				continue
+			}
 			if !slices.Contains(data.ServiceRepoVars, extraRepoVar) {
 				data.ServiceRepoVars = append(data.ServiceRepoVars, extraRepoVar)
 			}
@@ -688,7 +703,7 @@ func (r *Runner) bootstrapRepoResources(plans []resourcePlan) []bootstrapResourc
 	seen := make(map[string]struct{}, len(plans))
 	for _, plan := range plans {
 		repoName := strings.TrimSpace(plan.Resource.RepoInterface)
-		if repoName == "" {
+		if repoName == "" || !plan.Resource.Generate.EffectiveRepoCRUD() {
 			continue
 		}
 		if _, ok := seen[repoName]; ok {
@@ -703,7 +718,7 @@ func (r *Runner) bootstrapRepoResources(plans []resourcePlan) []bootstrapResourc
 				continue
 			}
 			extraRepoName := strings.TrimSpace(extraPlan.Resource.RepoInterface)
-			if extraRepoName == "" {
+			if extraRepoName == "" || !extraPlan.Resource.Generate.EffectiveRepoCRUD() {
 				continue
 			}
 			if _, ok := seen[extraRepoName]; ok {
@@ -863,7 +878,7 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 	}
 	repoField := lowerFirst(strings.TrimSuffix(repoName, "Repo")) + "Repo"
 	repoType := "repo." + repoName
-	hasRepo := repoName != ""
+	hasRepo := repoName != "" && plan.Resource.Generate.EffectiveRepoCRUD()
 	extraRepos := r.extraServiceRepos(plan)
 	extraFields := r.extraServiceFields(plan)
 	if hasRepo {
@@ -1157,6 +1172,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	if strings.TrimSpace(plan.Resource.DTOType) != "" {
 		dtoName = strings.TrimSpace(plan.Resource.DTOType)
 	}
+	dtoName = r.resolveGeneratedTypeName(dtoImport, dtoName)
 	dtoType := dtoAlias + "." + dtoName
 	repoName := strings.TrimSpace(plan.Resource.RepoInterface)
 	if repoName == "" {
@@ -1212,10 +1228,11 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		}
 		normalizedParams := normalizeTypeAliases(method.Params, plan.Binding.Imports, dtoImport, dtoAlias)
 		normalizedResults := normalizeTypeAliases(method.Results, plan.Binding.Imports, dtoImport, dtoAlias)
+		zeroReturnValue := zeroReturn(firstResult(normalizedResults))
 		enumHelperName := lowerFirst(entityName) + "EnumPtrFromProto"
 		timeHelperName := lowerFirst(entityName) + "TimePtrFromProto"
 		maskHelperName := lowerFirst(entityName) + "FieldMaskContains"
-		setters := repoSetters(plan.Schema.Fields, r.dtoFieldNames(dtoImport, dtoName), method.Name, strings.ToLower(entityName), enumHelperName, timeHelperName, maskHelperName)
+		setters := repoSetters(plan.Schema.Fields, r.dtoFieldTypes(dtoImport, dtoName), method.Name, strings.ToLower(entityName), enumHelperName, timeHelperName, maskHelperName, zeroReturnValue)
 		auditSetters := repoAuditSetters(plan.Schema.Fields, method.Name)
 		usesEnumSetter = usesEnumSetter || settersUseKind(setters, "Enum")
 		usesTimeSetter = usesTimeSetter || settersUseKind(setters, "Time")
@@ -1239,7 +1256,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 			CountField:      "Count",
 			ExistsCases:     existsCases(dtoAlias, requestParamType(normalizedParams), plan.Resource.ExistsFields),
 			NilReturn:       nilReturn(firstResult(normalizedResults)),
-			ZeroReturn:      zeroReturn(firstResult(normalizedResults)),
+			ZeroReturn:      zeroReturnValue,
 			UsesFilters:     usesFilters,
 		}
 		methods = append(methods, methodData)
@@ -1272,6 +1289,19 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 			break
 		}
 	}
+	usesJSONDecoder := false
+	for _, method := range methods {
+		if settersUsePre(method.Setters) {
+			usesJSONDecoder = true
+			break
+		}
+	}
+	if usesJSONDecoder {
+		imports = append(imports, importSpec{Path: "encoding/json"})
+		if !usesFilters {
+			imports = append(imports, importSpec{Path: "strings"})
+		}
+	}
 
 	data := repoTemplateData{
 		templateBase:             r.templateBase(),
@@ -1292,8 +1322,10 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		UsesEnumSetter:           usesEnumSetter,
 		UsesTimeSetter:           usesTimeSetter,
 		UsesFieldMaskHelper:      usesFieldMaskHelper,
+		UsesJSONDecoder:          usesJSONDecoder,
 		EnumHelperName:           lowerFirst(entityName) + "EnumPtrFromProto",
 		TimeHelperName:           lowerFirst(entityName) + "TimePtrFromProto",
+		JSONHelperName:           lowerFirst(entityName) + "DecodeJSONString",
 		FilterTimeHelperName:     lowerFirst(entityName) + "ParseFilterTime",
 		FieldMaskHelperName:      lowerFirst(entityName) + "FieldMaskContains",
 		Filters:                  filters,
@@ -1339,7 +1371,9 @@ func (r *Runner) aggregateConfigs(plan resourcePlan) []aggregateConfigData {
 		repoInterface := strings.TrimSpace(item.RepoInterface)
 		if repoInterface == "" && strings.TrimSpace(item.Resource) != "" {
 			if resource, ok := byName[item.Resource]; ok {
-				repoInterface = strings.TrimSpace(resource.RepoInterface)
+				if resource.Generate.EffectiveRepoCRUD() {
+					repoInterface = strings.TrimSpace(resource.RepoInterface)
+				}
 			}
 		}
 		if repoInterface == "" {
@@ -1846,6 +1880,14 @@ func addTypeAlias(typeText, alias string) string {
 
 func (r *Runner) dtoFieldNames(importPath, typeName string) map[string]struct{} {
 	out := make(map[string]struct{})
+	for name := range r.dtoFieldTypes(importPath, typeName) {
+		out[name] = struct{}{}
+	}
+	return out
+}
+
+func (r *Runner) dtoFieldTypes(importPath, typeName string) map[string]string {
+	out := make(map[string]string)
 	if strings.TrimSpace(importPath) == "" || strings.TrimSpace(typeName) == "" {
 		return out
 	}
@@ -1884,14 +1926,91 @@ func (r *Runner) dtoFieldNames(importPath, typeName string) map[string]struct{} 
 					continue
 				}
 				for _, field := range structType.Fields.List {
+					fieldType := exprString(field.Type)
+					if fieldType == "" {
+						continue
+					}
 					for _, name := range field.Names {
-						out[name.Name] = struct{}{}
+						out[name.Name] = fieldType
 					}
 				}
 			}
 		}
 	}
 	return out
+}
+
+func (r *Runner) resolveGeneratedTypeName(importPath, desiredName string) string {
+	desiredName = strings.TrimSpace(desiredName)
+	if desiredName == "" {
+		return ""
+	}
+	names := r.generatedTypeNames(importPath)
+	if len(names) == 0 {
+		return desiredName
+	}
+	for _, name := range names {
+		if name == desiredName {
+			return name
+		}
+	}
+	for _, name := range names {
+		if strings.EqualFold(name, desiredName) {
+			return name
+		}
+	}
+	return desiredName
+}
+
+func (r *Runner) generatedTypeNames(importPath string) []string {
+	if strings.TrimSpace(importPath) == "" {
+		return nil
+	}
+	prefix := strings.TrimSuffix(r.project.Module, "/") + "/"
+	if !strings.HasPrefix(importPath, prefix) {
+		return nil
+	}
+	rel := strings.TrimPrefix(importPath, prefix)
+	dir := filepath.Join(r.project.Root, filepath.FromSlash(rel))
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	fileSet := token.NewFileSet()
+	var names []string
+	seen := make(map[string]struct{})
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		file, err := parser.ParseFile(fileSet, path, nil, parser.SkipObjectResolution)
+		if err != nil {
+			continue
+		}
+		for _, decl := range file.Decls {
+			genericDecl, ok := decl.(*ast.GenDecl)
+			if !ok || genericDecl.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range genericDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok || typeSpec.Name == nil {
+					continue
+				}
+				name := strings.TrimSpace(typeSpec.Name.Name)
+				if name == "" {
+					continue
+				}
+				if _, ok := seen[name]; ok {
+					continue
+				}
+				seen[name] = struct{}{}
+				names = append(names, name)
+			}
+		}
+	}
+	return names
 }
 
 func receiverMethodNames(dir, receiverName string, skipFiles map[string]struct{}) map[string]struct{} {
@@ -1942,7 +2061,18 @@ func receiverMatches(recv *ast.FieldList, receiverName string) bool {
 	return false
 }
 
-func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, methodName, entPackage, enumHelperName, timeHelperName, fieldMaskHelperName string) []setterData {
+func exprString(expr ast.Expr) string {
+	if expr == nil {
+		return ""
+	}
+	var builder strings.Builder
+	if err := format.Node(&builder, token.NewFileSet(), expr); err != nil {
+		return ""
+	}
+	return builder.String()
+}
+
+func repoSetters(fields []entschema.Field, dtoFields map[string]string, methodName, entPackage, enumHelperName, timeHelperName, fieldMaskHelperName, zeroReturn string) []setterData {
 	setters := make([]setterData, 0, len(fields))
 	for _, field := range fields {
 		if field.Name == "id" {
@@ -1959,13 +2089,20 @@ func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, method
 		}
 		entName := toGoName(field.Name)
 		dtoName := toPascal(field.Name)
+		dtoType := strings.TrimSpace(dtoFields[dtoName])
 		if len(dtoFields) > 0 {
-			if _, ok := dtoFields[dtoName]; !ok {
+			if dtoType == "" {
 				continue
 			}
 		}
 		directMethod := "Set" + entName
-		directExpr := directSetterExpr(field.Kind, entPackage, entName, dtoName, enumHelperName, timeHelperName)
+		directExpr := directSetterExpr(field.Kind, entPackage, entName, dtoName, dtoType, enumHelperName, timeHelperName)
+		pre := ""
+		if field.Kind == "JSON" && dtoType == "*string" {
+			pre = jsonStringSetterPre(entName, dtoName, zeroReturn)
+			directExpr = jsonStringSetterValueExpr(dtoName, entName)
+		}
+		preferNillable := prefersNillableSetter(field.Kind, dtoType)
 		if !field.Optional {
 			setters = append(setters, setterData{
 				Method: directMethod,
@@ -1975,11 +2112,12 @@ func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, method
 			continue
 		}
 		if methodName == "Create" {
-			if field.Nillable {
+			if field.Nillable || preferNillable {
 				setters = append(setters, setterData{
 					Method: "SetNillable" + entName,
-					Expr:   nillableSetterExpr(field.Kind, dtoName, entPackage, entName, enumHelperName, timeHelperName),
+					Expr:   nillableSetterExpr(field.Kind, dtoName, dtoType, entPackage, entName, enumHelperName, timeHelperName),
 					Kind:   field.Kind,
+					Pre:    pre,
 				})
 				continue
 			}
@@ -1988,14 +2126,15 @@ func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, method
 				Expr:      directExpr,
 				Kind:      field.Kind,
 				Condition: "req.Data." + dtoName + " != nil",
+				Pre:       pre,
 			})
 			continue
 		}
 		updateMethod := directMethod
 		updateExpr := directExpr
-		if field.Nillable {
+		if field.Nillable || preferNillable {
 			updateMethod = "SetNillable" + entName
-			updateExpr = nillableSetterExpr(field.Kind, dtoName, entPackage, entName, enumHelperName, timeHelperName)
+			updateExpr = nillableSetterExpr(field.Kind, dtoName, dtoType, entPackage, entName, enumHelperName, timeHelperName)
 		}
 		setters = append(setters, setterData{
 			Method:         updateMethod,
@@ -2004,12 +2143,13 @@ func repoSetters(fields []entschema.Field, dtoFields map[string]struct{}, method
 			Condition:      "req.Data." + dtoName + " != nil",
 			ClearMethod:    "Clear" + entName,
 			ClearCondition: optionalFieldClearCondition(fieldMaskHelperName, field.Name),
+			Pre:            pre,
 		})
 	}
 	return setters
 }
 
-func directSetterExpr(kind, entPackage, entName, dtoName, enumHelperName, timeHelperName string) string {
+func directSetterExpr(kind, entPackage, entName, dtoName, dtoType, enumHelperName, timeHelperName string) string {
 	switch kind {
 	case "Enum":
 		return fmt.Sprintf("%s.%s(req.Data.Get%s().String())", entPackage, entName, dtoName)
@@ -2020,15 +2160,57 @@ func directSetterExpr(kind, entPackage, entName, dtoName, enumHelperName, timeHe
 	}
 }
 
-func nillableSetterExpr(kind, dtoName, entPackage, entName, enumHelperName, timeHelperName string) string {
+func nillableSetterExpr(kind, dtoName, dtoType, entPackage, entName, enumHelperName, timeHelperName string) string {
 	switch kind {
 	case "Enum":
 		return fmt.Sprintf("%s[%s.%s](req.Data.%s)", enumHelperName, entPackage, entName, dtoName)
 	case "Time":
 		return timeHelperName + "(req.Data." + dtoName + ")"
+	case "JSON":
+		if dtoType == "*string" {
+			return jsonStringSetterValueExpr(dtoName, entName)
+		}
+		return "req.Data." + dtoName
 	default:
 		return "req.Data." + dtoName
 	}
+}
+
+func prefersNillableSetter(kind, dtoType string) bool {
+	if !strings.HasPrefix(strings.TrimSpace(dtoType), "*") {
+		return false
+	}
+	switch kind {
+	case "Bool", "Uint", "Uint8", "Uint16", "Uint32", "Uint64", "Int", "Int8", "Int16", "Int32", "Int64", "Float", "Float32", "String", "Enum", "Time":
+		return true
+	default:
+		return false
+	}
+}
+
+func jsonStringSetterPre(entName, dtoName, zeroReturn string) string {
+	valueName := jsonStringSetterValueExpr(dtoName, entName)
+	baseName := strings.TrimSuffix(valueName, "Value")
+	jsonName := baseName + "JSON"
+	return strings.Join([]string{
+		fmt.Sprintf("%s := strings.TrimSpace(req.Data.Get%s())", jsonName, dtoName),
+		fmt.Sprintf("%s := map[string]any{}", valueName),
+		fmt.Sprintf("if %s != \"\" {", jsonName),
+		fmt.Sprintf("\tif err := json.Unmarshal([]byte(%s), &%s); err != nil {", jsonName, valueName),
+		"\t\treturn " + zeroReturn + ", err",
+		"\t}",
+		"}",
+	}, "\n")
+}
+
+func jsonStringSetterValueExpr(dtoName, entName string) string {
+	baseName := lowerFirst(dtoName)
+	baseName = strings.TrimSuffix(baseName, "Json")
+	baseName = strings.TrimSuffix(baseName, "JSON")
+	if baseName == "" {
+		baseName = lowerFirst(entName)
+	}
+	return baseName + "Value"
 }
 
 func optionalFieldClearCondition(helperName, fieldName string) string {
@@ -2231,6 +2413,15 @@ func supportsGeneratedSetterKind(kind string) bool {
 func settersNeedFieldMaskHelper(setters []setterData) bool {
 	for _, setter := range setters {
 		if setter.ClearCondition != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func settersUsePre(setters []setterData) bool {
+	for _, setter := range setters {
+		if strings.TrimSpace(setter.Pre) != "" {
 			return true
 		}
 	}

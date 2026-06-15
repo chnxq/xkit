@@ -209,6 +209,9 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 {{- range .Setters}}
 {{- if .Condition}}
 	if {{ .Condition }} {
+{{- if .Pre}}
+{{ .Pre }}
+{{- end}}
 {{- if and (eq $.TenantScope "tenant_scoped") (eq .Method "SetNillableTenantID")}}
 		tenantID, err := resolveCreateTenantID(ctx, {{ .Expr }})
 		if err != nil {
@@ -222,6 +225,9 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		builder.{{ .ClearMethod }}()
 	}{{end}}
 {{- else}}
+{{- if .Pre}}
+{{ .Pre }}
+{{- end}}
 {{- if and (eq $.TenantScope "tenant_scoped") (eq .Method "SetNillableTenantID")}}
 	tenantID, err := resolveCreateTenantID(ctx, {{ .Expr }})
 	if err != nil {
@@ -280,11 +286,17 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 {{- range .Setters}}
 {{- if .Condition}}
 	if {{ .Condition }} {
+{{- if .Pre}}
+{{ .Pre }}
+{{- end}}
 	builder.{{ .Method }}({{ .Expr }})
 	}{{if .ClearCondition}} else if {{ .ClearCondition }} {
 		builder.{{ .ClearMethod }}()
 	}{{end}}
 {{- else}}
+{{- if .Pre}}
+{{ .Pre }}
+{{- end}}
 	builder.{{ .Method }}({{ .Expr }})
 {{- end}}
 {{- end}}

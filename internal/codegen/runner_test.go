@@ -64,6 +64,37 @@ var UserService_ServiceDesc = struct{
 
 type UserServiceHTTPServer interface{}
 `)
+	writeFile(t, filepath.Join(root, "api", "protos", "admin", "v1", "i_dict_label.proto"), `syntax = "proto3";
+
+package admin.service.v1;
+
+service DictLabelService {
+  rpc Create (CreateDictLabelRequest) returns (DictLabel) {}
+  rpc Update (UpdateDictLabelRequest) returns (DictLabel) {}
+}`)
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_dict_label_grpc.pb.go"), `package admin
+
+import (
+	context "context"
+	v1 "example.com/xadmin-web/api/gen/dict/v1"
+)
+
+type DictLabelServiceServer interface {
+	Create(context.Context, *v1.CreateDictLabelRequest) (*v1.DictLabel, error)
+	Update(context.Context, *v1.UpdateDictLabelRequest) (*v1.DictLabel, error)
+	mustEmbedUnimplementedDictLabelServiceServer()
+}
+
+var DictLabelService_ServiceDesc = struct{
+	ServiceName string
+}{
+	ServiceName: "admin.service.v1.DictLabelService",
+}
+`)
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_dict_label_http.pb.go"), `package admin
+
+type DictLabelServiceHTTPServer interface{}
+`)
 	writeFile(t, filepath.Join(root, "api", "protos", "authentication", "v1", "user_credential.proto"), `syntax = "proto3";
 
 package authentication.service.v1;
@@ -89,7 +120,7 @@ type ResetCredentialRequest struct{}
 type UserCredential struct{}
 type Empty struct{}
 `)
-	writeFile(t, filepath.Join(root, "api", "gen", "identity", "v1", "user.pb.go"), `package identityv1
+writeFile(t, filepath.Join(root, "api", "gen", "identity", "v1", "user.pb.go"), `package identityv1
 
 type User struct {
 	Username    *string
@@ -161,6 +192,101 @@ func (*Timestamp) AsTime() Time { return Time{} }
 
 type Time struct{}
 `)
+	writeFile(t, filepath.Join(root, "api", "gen", "dict", "v1", "dict_label.pb.go"), `package dictv1
+
+type DictLabel struct {
+	LabelCode   *string
+	PayloadJson *string
+	IsBuiltin   *bool
+	Status      *DictLabel_Status
+}
+
+type DictLabel_Status string
+
+func (x *DictLabel) GetLabelCode() string {
+	if x != nil && x.LabelCode != nil {
+		return *x.LabelCode
+	}
+	return ""
+}
+
+func (x *DictLabel) GetPayloadJson() string {
+	if x != nil && x.PayloadJson != nil {
+		return *x.PayloadJson
+	}
+	return ""
+}
+
+func (x *DictLabel) GetIsBuiltin() bool {
+	if x != nil && x.IsBuiltin != nil {
+		return *x.IsBuiltin
+	}
+	return false
+}
+
+func (x *DictLabel) GetStatus() DictLabel_Status {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *DictLabel_Status) String() string {
+	if x == nil {
+		return ""
+	}
+	return string(*x)
+}
+
+type CreateDictLabelRequest struct {
+	Data *DictLabel
+}
+
+type UpdateDictLabelRequest struct {
+	Id         uint32
+	Data       *DictLabel
+	UpdateMask *FieldMask
+}
+
+func (x *CreateDictLabelRequest) GetData() *DictLabel {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *UpdateDictLabelRequest) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdateDictLabelRequest) GetData() *DictLabel {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *UpdateDictLabelRequest) GetUpdateMask() *FieldMask {
+	if x != nil {
+		return x.UpdateMask
+	}
+	return nil
+}
+
+type FieldMask struct {
+	Paths []string
+}
+
+func (x *FieldMask) GetPaths() []string {
+	if x != nil {
+		return x.Paths
+	}
+	return nil
+}
+`)
 	writeFile(t, filepath.Join(root, "internal", "data", "ent", "schema", "user_credential.go"), `package schema
 
 import (
@@ -210,6 +336,24 @@ func (User) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		mixin.Tree[User]{},
 		mixin.TreePath{},
+	}
+}
+`)
+	writeFile(t, filepath.Join(root, "internal", "data", "ent", "schema", "dict_label.go"), `package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/field"
+)
+
+type DictLabel struct { ent.Schema }
+
+func (DictLabel) Fields() []ent.Field {
+	return []ent.Field{
+		field.String("label_code").Optional().Nillable(),
+		field.JSON("payload_json", map[string]any{}).Optional(),
+		field.Bool("is_builtin").Default(false).Optional(),
+		field.Enum("status").Values("ON", "OFF").Default("ON").Optional(),
 	}
 }
 `)
@@ -295,6 +439,21 @@ return {{successReturn}}, nil`,
 					Wire:     true,
 				},
 			},
+			{
+				Name:          "dict_label",
+				ProtoService:  "admin.service.v1.DictLabelService",
+				Entity:        "DictLabel",
+				DTOImport:     "example.com/xadmin-web/api/gen/dict/v1",
+				DTOType:       "DictLabel",
+				RepoInterface: "DictLabelRepo",
+				Operations: config.OperationFlags{
+					"create": true,
+					"update": true,
+				},
+				Generate: config.GenerateFlags{
+					RepoCRUD: true,
+				},
+			},
 		},
 	}
 
@@ -311,16 +470,19 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 13 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 13)
+	if len(result.Written) != 16 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 16)
 	}
 
 	expectedPaths := []string{
 		filepath.Join(root, "internal", "service", "user_service.gen.go"),
 		filepath.Join(root, "internal", "service", "user_service_ext.go"),
 		filepath.Join(root, "internal", "data", "repo", "user_repo.gen.go"),
+		filepath.Join(root, "internal", "data", "repo", "list_sorting_ext.go"),
 		filepath.Join(root, "internal", "data", "repo", "user_repo_ext.go"),
 		filepath.Join(root, "internal", "data", "repo", "user_credential_repo_ext.go"),
+		filepath.Join(root, "internal", "data", "repo", "dict_label_repo.gen.go"),
+		filepath.Join(root, "internal", "data", "repo", "dict_label_repo_ext.go"),
 		filepath.Join(root, "internal", "server", "rest_register.gen.go"),
 		filepath.Join(root, "internal", "server", "grpc_register.gen.go"),
 		filepath.Join(root, "internal", "bootstrap", "generated_servers.gen.go"),
@@ -382,6 +544,10 @@ return {{successReturn}}, nil`,
 	}
 	if !strings.Contains(repoFile, `listReq.Sorting = withDefaultSorting(`) || !strings.Contains(repoFile, `"id"`) || !strings.Contains(repoFile, `paginationv1.Sorting_ASC`) {
 		t.Fatalf("repo file is missing shared default id ascending sorting")
+	}
+	repoSharedFile := readFile(t, filepath.Join(root, "internal", "data", "repo", "list_sorting_ext.go"))
+	if !strings.Contains(repoSharedFile, "func withDefaultSorting(") || !strings.Contains(repoSharedFile, "paginationv1.Sorting_Direction") {
+		t.Fatalf("repo shared helper file is missing withDefaultSorting helper")
 	}
 	if !strings.Contains(repoFile, "if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
 		t.Fatalf("repo file is missing generated List body")
@@ -474,6 +640,29 @@ return {{successReturn}}, nil`,
 	}
 	if strings.Contains(credentialRepoFile, "IDentity") || strings.Contains(credentialRepoFile, "IDentifier") {
 		t.Fatalf("credential repo file has broken initialism conversion")
+	}
+
+	dictLabelRepoFile := readFile(t, filepath.Join(root, "internal", "data", "repo", "dict_label_repo.gen.go"))
+	if !strings.Contains(dictLabelRepoFile, "payloadJSON := strings.TrimSpace(req.Data.GetPayloadJson())") {
+		t.Fatalf("dict label repo file is missing JSON payload trim: %s", dictLabelRepoFile)
+	}
+	if !strings.Contains(dictLabelRepoFile, "payloadValue := map[string]any{}") {
+		t.Fatalf("dict label repo file is missing JSON payload map init: %s", dictLabelRepoFile)
+	}
+	if !strings.Contains(dictLabelRepoFile, "if err := json.Unmarshal([]byte(payloadJSON), &payloadValue); err != nil {") {
+		t.Fatalf("dict label repo file is missing JSON payload decode: %s", dictLabelRepoFile)
+	}
+	if !strings.Contains(dictLabelRepoFile, "builder.SetPayloadJSON(payloadValue)") || !strings.Contains(dictLabelRepoFile, "builder.ClearPayloadJSON()") {
+		t.Fatalf("dict label repo file is missing JSON payload setter or clear: %s", dictLabelRepoFile)
+	}
+	if !strings.Contains(dictLabelRepoFile, "builder.SetNillableIsBuiltin(req.Data.IsBuiltin)") {
+		t.Fatalf("dict label repo file is missing bool nillable setter: %s", dictLabelRepoFile)
+	}
+	if !strings.Contains(dictLabelRepoFile, "builder.SetNillableStatus(dictLabelEnumPtrFromProto[dictlabel.Status](req.Data.Status))") {
+		t.Fatalf("dict label repo file is missing enum nillable setter: %s", dictLabelRepoFile)
+	}
+	if !strings.Contains(dictLabelRepoFile, `"encoding/json"`) {
+		t.Fatalf("dict label repo file is missing JSON import: %s", dictLabelRepoFile)
 	}
 
 	if _, err := os.Stat(filepath.Join(root, "internal", "service", "providers", "wire_set.gen.go")); !os.IsNotExist(err) {
@@ -1037,11 +1226,8 @@ func TestBootstrapResourcesCollectServiceReposWithoutRepoCRUD(t *testing.T) {
 			break
 		}
 	}
-	if !userPortal.HasRepo {
-		t.Fatalf("service-only resource with repo_interface should still inject its main repo")
-	}
-	if userPortal.RepoVar != "userRepo" {
-		t.Fatalf("user portal repo var mismatch: got %q want userRepo", userPortal.RepoVar)
+	if userPortal.HasRepo {
+		t.Fatalf("service-only resource without repo CRUD should not inject its main repo")
 	}
 	if len(userPortal.ServiceRepoVars) != 1 || userPortal.ServiceRepoVars[0] != "userCredentialRepo" {
 		t.Fatalf("user portal extra repos mismatch: got %#v", userPortal.ServiceRepoVars)
@@ -1051,11 +1237,15 @@ func TestBootstrapResourcesCollectServiceReposWithoutRepoCRUD(t *testing.T) {
 	if len(repoResources) != 2 {
 		t.Fatalf("bootstrapRepoResources count mismatch: got %d want 2", len(repoResources))
 	}
-	if repoResources[0].RepoVar != "userRepo" && repoResources[1].RepoVar != "userRepo" {
-		t.Fatalf("bootstrapRepoResources should include shared userRepo once")
+	seenRepoVars := make(map[string]struct{}, len(repoResources))
+	for _, item := range repoResources {
+		seenRepoVars[item.RepoVar] = struct{}{}
 	}
-	if repoResources[0].RepoVar != "userCredentialRepo" && repoResources[1].RepoVar != "userCredentialRepo" {
-		t.Fatalf("bootstrapRepoResources should include userCredentialRepo")
+	if _, ok := seenRepoVars["userRepo"]; !ok {
+		t.Fatalf("bootstrapRepoResources should include userRepo, got %#v", repoResources)
+	}
+	if _, ok := seenRepoVars["userCredentialRepo"]; !ok {
+		t.Fatalf("bootstrapRepoResources should include userCredentialRepo, got %#v", repoResources)
 	}
 }
 
@@ -1409,6 +1599,209 @@ func TestRenderRepoFileIncludesConfiguredRepoMethods(t *testing.T) {
 	}
 	if !strings.Contains(got, "return &permissionv1.Role{}, nil") {
 		t.Fatalf("rendered repo file missing configured Get body: %s", got)
+	}
+}
+
+func TestRenderRepoFileNormalizesDTOTypeInitialisms(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/xadmin-web\n\ngo 1.26.0\n")
+	writeFile(t, filepath.Join(root, "api", "gen", "dict", "v1", "dict_label_i18n.pb.go"), `package dictv1
+
+type DictLabelI18N struct {
+	Id *uint32
+}
+
+type GetDictLabelI18NRequest struct {
+	Id *uint32
+}
+`)
+
+	runner := &Runner{
+		project: project.Info{
+			Root:   root,
+			Module: "example.com/xadmin-web",
+		},
+		options: Options{Version: "test"},
+	}
+
+	plan := resourcePlan{
+		Resource: config.Resource{
+			Name:          "dict_label_i18n",
+			ProtoService:  "admin.service.v1.DictLabelI18nService",
+			Entity:        "DictLabelI18n",
+			DTOImport:     "example.com/xadmin-web/api/gen/dict/v1",
+			DTOType:       "DictLabelI18n",
+			RepoInterface: "DictLabelI18nRepo",
+			Generate:      config.GenerateFlags{RepoCRUD: true},
+		},
+		Binding: binding.ServiceBinding{
+			ServiceName: "DictLabelI18nService",
+			ImportPath:  "example.com/xadmin-web/api/gen/admin/v1",
+			Imports: map[string]string{
+				"v1": "example.com/xadmin-web/api/gen/dict/v1",
+			},
+			Methods: []binding.Method{
+				{
+					Name:    "Get",
+					Params:  []string{"context.Context", "*v1.GetDictLabelI18NRequest"},
+					Results: []string{"*v1.DictLabelI18N"},
+				},
+			},
+		},
+		APIPackageAlias: "adminv1",
+		Schema: entschema.Schema{
+			Name: "DictLabelI18n",
+			Fields: []entschema.Field{
+				{Name: "id", Kind: "Uint32"},
+			},
+		},
+	}
+
+	content, err := runner.renderRepoFile(plan)
+	if err != nil {
+		t.Fatalf("render repo file: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "mapper *mapper.CopierMapper[dictv1.DictLabelI18N, ent.DictLabelI18n]") {
+		t.Fatalf("rendered repo file missing normalized DTO type: %s", got)
+	}
+	if strings.Contains(got, "dictv1.DictLabelI18n") {
+		t.Fatalf("rendered repo file still contains non-normalized DTO type: %s", got)
+	}
+}
+
+func TestRenderServiceFileSkipsRepoInjectionWhenRepoCRUDDisabled(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/xadmin-web\n\ngo 1.26.0\n")
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_internal_message_grpc.pb.go"), `package admin
+
+import (
+	context "context"
+	v1 "example.com/xadmin-web/api/gen/internal_message/v1"
+)
+
+type InternalMessageServiceServer interface {
+	ListMessage(context.Context, *v1.ListInternalMessageRequest) (*v1.ListInternalMessageResponse, error)
+	mustEmbedUnimplementedInternalMessageServiceServer()
+}
+`)
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_internal_message_http.pb.go"), `package admin
+
+type InternalMessageServiceHTTPServer interface{}
+`)
+	writeFile(t, filepath.Join(root, "api", "gen", "internal_message", "v1", "internal_message.pb.go"), `package internalmessagev1
+
+type ListInternalMessageRequest struct{}
+type ListInternalMessageResponse struct{}
+`)
+
+	runner := &Runner{
+		project: project.Info{
+			Root:   root,
+			Module: "example.com/xadmin-web",
+		},
+		options: Options{Version: "test"},
+	}
+
+	plan := resourcePlan{
+		Resource: config.Resource{
+			Name:          "internal_message",
+			ProtoService:  "admin.service.v1.InternalMessageService",
+			Entity:        "InternalMessage",
+			DTOImport:     "example.com/xadmin-web/api/gen/internal_message/v1",
+			DTOType:       "InternalMessage",
+			RepoInterface: "InternalMessageRepo",
+			Generate: config.GenerateFlags{
+				ServiceStub:  true,
+				RestRegister: true,
+				GRPCRegister: true,
+			},
+		},
+		Binding: binding.ServiceBinding{
+			ServiceName: "InternalMessageService",
+			ImportPath:  "example.com/xadmin-web/api/gen/admin/v1",
+			Imports: map[string]string{
+				"v1": "example.com/xadmin-web/api/gen/internal_message/v1",
+			},
+			Methods: []binding.Method{
+				{
+					Name:    "ListMessage",
+					Params:  []string{"context.Context", "*v1.ListInternalMessageRequest"},
+					Results: []string{"*v1.ListInternalMessageResponse"},
+				},
+			},
+		},
+		APIPackageAlias: "adminv1",
+	}
+
+	content, err := runner.renderServiceFile(plan)
+	if err != nil {
+		t.Fatalf("render service file: %v", err)
+	}
+	got := string(content)
+	if strings.Contains(got, "repo.InternalMessageRepo") {
+		t.Fatalf("service file should not inject repo when repo CRUD is disabled: %s", got)
+	}
+	if strings.Contains(got, "ctx *app.AppCtx") {
+		t.Fatalf("service constructor should not require app context when repo CRUD is disabled: %s", got)
+	}
+	if !strings.Contains(got, "func (s *InternalMessageService) ListMessage") {
+		t.Fatalf("service file missing method: %s", got)
+	}
+}
+
+func TestBootstrapSkipsRepoWhenRepoCRUDDisabled(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{
+		config: config.Config{
+			Resources: []config.Resource{
+				{
+					Name:          "internal_message",
+					RepoInterface: "InternalMessageRepo",
+					Generate: config.GenerateFlags{
+						ServiceStub:  true,
+						RestRegister: true,
+						GRPCRegister: true,
+					},
+				},
+			},
+		},
+	}
+
+	plans := []resourcePlan{
+		{
+			Resource: config.Resource{
+				Name:          "internal_message",
+				RepoInterface: "InternalMessageRepo",
+				Generate: config.GenerateFlags{
+					ServiceStub:  true,
+					RestRegister: true,
+					GRPCRegister: true,
+				},
+			},
+			ResourceField: "InternalMessage",
+			Binding: binding.ServiceBinding{
+				ServiceName: "InternalMessageService",
+			},
+		},
+	}
+
+	serverResources := runner.bootstrapResources(plans)
+	if len(serverResources) != 1 {
+		t.Fatalf("expected one bootstrap resource, got %d", len(serverResources))
+	}
+	if serverResources[0].HasRepo {
+		t.Fatalf("bootstrap resource should not mark repo present when repo CRUD is disabled: %+v", serverResources[0])
+	}
+
+	repoResources := runner.bootstrapRepoResources(plans)
+	if len(repoResources) != 0 {
+		t.Fatalf("bootstrap repo resources should be empty when repo CRUD is disabled: %+v", repoResources)
 	}
 }
 

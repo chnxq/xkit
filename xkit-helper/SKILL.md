@@ -1,6 +1,6 @@
 ---
 name: xkit-helper
-description: Bootstrap a new Go backend project from `xkit/examples/admin`, align the generated project with a reference backend repository's hand-written business details, and then review the remaining differences from a feature-first perspective. Use when creating repos like `qadmin`, when `generateAll.ps1` needs parameter substitution for `ProjectName`, `Module`, `AppName`, or `TypeScriptRoot`, when canonical config must be verified after generation, or when a fresh generated project still differs from the chosen reference project in preserved extension files and real runtime behavior. The reference project may be provided as a local path or as a git repository URL.
+description: Bootstrap a new Go backend project from `xkit/examples/admin`, align the generated project with a reference backend repository's hand-written business details, and then review the remaining differences from a feature-first perspective. Use when creating repos like `qadmin`, when `generateAll.ps1` needs parameter substitution for `ProjectName`, `Module`, `AppName`, `TypeScriptRoot`, or config file paths, when canonical config must be verified after generation, or when a fresh generated project still differs from the chosen reference project in preserved extension files and real runtime behavior. The reference project may be provided as a local path or as a git repository URL.
 ---
 
 # Xkit Helper
@@ -25,6 +25,8 @@ Before running Phase 1, collect and substitute these values explicitly:
 - `Module`
 - `AppName`
 - `TypeScriptRoot`
+- `ConfigPath`
+- `CanonicalConfigPath`
 - `ReferenceSource`
 
 Use these input prompts:
@@ -33,6 +35,8 @@ Use these input prompts:
 - `Module`: Go module name, usually the same as `ProjectName` unless the user wants a different module path
 - `AppName`: human-facing app name used by template/bootstrap metadata, for example `QAdmin`
 - `TypeScriptRoot`: where generated TypeScript API output should land; prefer a target-local path such as `<target>\.generated-ui`
+- `ConfigPath`: generation config file path passed to `xkit init source` and `xkit gen all`
+- `CanonicalConfigPath`: canonical config source copied over `ConfigPath` after `init source`
 - `ReferenceSource`: the backend project used for Phase 2 comparison; allow either:
   - a local path, for example `D:\GoProjects\XAdmin\admin`
   - a git repository URL, for example `https://...` or `git@...`
@@ -40,6 +44,18 @@ Use these input prompts:
 If the user does not specify `TypeScriptRoot`, default it to:
 
 - `D:\GoProjects\XAdmin\<ProjectName>\.generated-ui`
+
+If the user does not specify `ConfigPath`, default it to:
+
+- `D:\GoProjects\XAdmin\xkit\examples\admin\<ProjectName>-config\admin.yaml`
+
+If `ProjectName` is `admin`, use:
+
+- `D:\GoProjects\XAdmin\xkit\examples\admin\admin-target-config\admin.yaml`
+
+If the user does not specify `CanonicalConfigPath`, default it to:
+
+- `D:\GoProjects\XAdmin\xkit\examples\admin\admin-config\admin.yaml`
 
 Handle `ReferenceSource` like this:
 
@@ -71,19 +87,21 @@ This phase is responsible for:
 - generating Go API, OpenAPI, TypeScript, Ent, and xkit dynamic code
 - running `go test ./...`
 
-### 3. Verify canonical config replacement happened
+### 3. Verify config replacement happened
 
-The critical canonical config is:
+The default canonical config is:
 
 - `xkit/examples/admin/admin-config/admin.yaml`
 
-The target-specific generated config is:
+The default target-specific generated config is:
 
 - `xkit/examples/admin/<ProjectName>-config/admin.yaml`
 
 If `ProjectName` is `admin`, the generated config uses this collision-free path instead:
 
 - `xkit/examples/admin/admin-target-config/admin.yaml`
+
+If Phase 1 used custom `ConfigPath` or `CanonicalConfigPath`, verify those exact paths instead of the defaults.
 
 After `init source`, verify that the target config was overwritten from the canonical config and that these replacements occurred:
 

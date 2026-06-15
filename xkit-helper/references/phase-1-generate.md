@@ -10,16 +10,24 @@ Ask for or confirm these values before generation:
 - `Module`
 - `AppName`
 - `TypeScriptRoot`
+- `ConfigPath`
+- `CanonicalConfigPath`
 
 Recommended defaults:
 
 - `Module = ProjectName`
 - `TypeScriptRoot = D:\GoProjects\XAdmin\<ProjectName>\.generated-ui`
+- `ConfigPath = D:\GoProjects\XAdmin\xkit\examples\admin\<ProjectName>-config\admin.yaml`
+- `CanonicalConfigPath = D:\GoProjects\XAdmin\xkit\examples\admin\admin-config\admin.yaml`
+
+When `ProjectName = admin`, use this collision-free default for `ConfigPath`:
+
+- `D:\GoProjects\XAdmin\xkit\examples\admin\admin-target-config\admin.yaml`
 
 `generateAll.ps1` now supports two modes:
 
 - pass the values explicitly as parameters
-- omit one or more of `ProjectName`, `Module`, `AppName`, `TypeScriptRoot` and let the script prompt for them interactively
+- omit one or more of `ProjectName`, `Module`, `AppName`, `TypeScriptRoot`, `ConfigPath`, `CanonicalConfigPath` and let the script prompt for them interactively
 
 ## Canonical command template
 
@@ -31,6 +39,8 @@ Recommended defaults:
   -AppName '<AppName>' `
   -ServiceName 'admin' `
   -TypeScriptRoot '<TypeScriptRoot>' `
+  -ConfigPath '<ConfigPath>' `
+  -CanonicalConfigPath '<CanonicalConfigPath>' `
   -SkipGoGetUpdateAll
 ```
 
@@ -51,6 +61,8 @@ The script will then prompt for:
 - `Module`
 - `AppName`
 - `TypeScriptRoot`
+- `ConfigPath`
+- `CanonicalConfigPath`
 
 ## Validated example from qadmin
 
@@ -62,6 +74,8 @@ The script will then prompt for:
   -AppName 'QAdmin' `
   -ServiceName 'admin' `
   -TypeScriptRoot 'D:\GoProjects\XAdmin\qadmin\.generated-ui' `
+  -ConfigPath 'D:\GoProjects\XAdmin\xkit\examples\admin\qadmin-config\admin.yaml' `
+  -CanonicalConfigPath 'D:\GoProjects\XAdmin\xkit\examples\admin\admin-config\admin.yaml' `
   -SkipGoGetUpdateAll
 ```
 
@@ -71,7 +85,7 @@ The script is expected to do this sequence:
 
 1. `go run ./cmd/xkit init template ...`
 2. `go run ./cmd/xkit init source ...`
-3. overwrite `examples/admin/<ProjectName>-config/admin.yaml` from `examples/admin/admin-config/admin.yaml`
+3. overwrite `ConfigPath` from `CanonicalConfigPath`
 4. `buf generate --template buf.gen.yaml`
 5. `buf generate --template buf.admin.openapi.gen.yaml`
 6. `buf generate --template buf.vue.admin.typescript.gen.yaml`
@@ -86,10 +100,15 @@ The script is expected to do this sequence:
 
 After `init source`, verify the target config:
 
+- source: `CanonicalConfigPath`
+- target: `ConfigPath`
+
+Default paths are:
+
 - source: `xkit/examples/admin/admin-config/admin.yaml`
 - target: `xkit/examples/admin/<ProjectName>-config/admin.yaml`
 
-When `ProjectName` is `admin`, use the collision-free target path:
+When `ProjectName` is `admin`, the default collision-free target path is:
 
 - target: `xkit/examples/admin/admin-target-config/admin.yaml`
 
@@ -104,11 +123,5 @@ If not, repair the target config and rerun:
 Set-Location D:\GoProjects\XAdmin\xkit
 go run ./cmd/xkit gen all admin `
   --project D:\GoProjects\XAdmin\<ProjectName> `
-  --config D:\GoProjects\XAdmin\xkit\examples\admin\<ProjectName>-config\admin.yaml
-```
-
-For `ProjectName=admin`, replace the config path with:
-
-```powershell
-D:\GoProjects\XAdmin\xkit\examples\admin\admin-target-config\admin.yaml
+  --config <ConfigPath>
 ```

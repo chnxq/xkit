@@ -14,6 +14,9 @@ var RepoFile string
 //go:embed repo_ext.tmpl
 var RepoExt string
 
+//go:embed repo_shared_ext.tmpl
+var RepoSharedExt string
+
 //go:embed register_file.tmpl
 var RegisterFile string
 

@@ -1,0 +1,1065 @@
+service: admin
+module: admin
+resources:
+    - name: admin_portal
+      proto_service: admin.service.v1.AdminPortalService
+      generate:
+        service_stub: true
+        rest_register: true
+        grpc_register: true
+    - name: api
+      proto_service: admin.service.v1.ApiService
+      entity: Api
+      dto_import: admin/api/gen/resource/v1
+      dto_type: Api
+      repo_interface: ApiRepo
+      filters:
+        allow:
+            - id
+            - description
+            - module
+            - module_description
+            - operation
+            - path
+            - method
+            - scope
+            - created_by
+            - updated_by
+            - deleted_by
+            - status
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: api_audit_log
+      proto_service: admin.service.v1.ApiAuditLogService
+      entity: ApiAuditLog
+      dto_import: admin/api/gen/audit/v1
+      dto_type: ApiAuditLog
+      repo_interface: ApiAuditLogRepo
+      filters:
+        allow:
+            - id
+            - user_id
+            - username
+            - ip_address
+            - referer
+            - app_version
+            - http_method
+            - path
+            - request_uri
+            - api_module
+            - api_operation
+            - api_description
+            - request_id
+            - trace_id
+            - span_id
+            - latency_ms
+            - status_code
+            - reason
+            - request_header
+            - request_body
+            - response
+            - log_hash
+            - tenant_id
+            - created_at
+      operations:
+        get: true
+        list: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: auth_flow
+      proto_service: admin.service.v1.AuthFlowService
+      generate:
+        service_stub: true
+        rest_register: true
+        grpc_register: true
+    - name: authentication
+      proto_service: admin.service.v1.AuthenticationService
+      generate:
+        service_stub: true
+        rest_register: true
+        grpc_register: true
+    - name: data_access_audit_log
+      proto_service: admin.service.v1.DataAccessAuditLogService
+      entity: DataAccessAuditLog
+      dto_import: admin/api/gen/audit/v1
+      dto_type: DataAccessAuditLog
+      repo_interface: DataAccessAuditLogRepo
+      filters:
+        allow:
+            - id
+            - user_id
+            - username
+            - ip_address
+            - request_id
+            - trace_id
+            - data_source
+            - table_name
+            - data_id
+            - access_type
+            - sql_digest
+            - sql_text
+            - affected_rows
+            - latency_ms
+            - sensitive_level
+            - masking_rules
+            - business_purpose
+            - data_category
+            - db_user
+            - log_hash
+            - tenant_id
+            - created_at
+      operations:
+        get: true
+        list: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: dict_category
+      proto_service: admin.service.v1.DictCategoryService
+      entity: DictCategory
+      dto_import: admin/api/gen/dict/v1
+      dto_type: DictCategory
+      repo_interface: DictCategoryRepo
+      tree:
+        parent_field: parent_id
+        path_field: path
+        children_field: children
+        list_method: ListTree
+      filters:
+        allow:
+            - id
+            - parent_id
+            - path
+            - category_key
+            - category_name
+            - category_level
+            - scene
+            - created_by
+            - updated_by
+            - deleted_by
+            - sort_order
+            - tenant_id
+            - remark
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: dict_label
+      proto_service: admin.service.v1.DictLabelService
+      entity: DictLabel
+      dto_import: admin/api/gen/dict/v1
+      dto_type: DictLabel
+      repo_interface: DictLabelRepo
+      aggregates:
+        - name: labelI18n
+          resource: dict_label_i18n
+          foreign_key: label_id
+          parent_field: id
+          collection_field: items_i18n
+          current_field: current_i18n
+          primary: true
+      filters:
+        allow:
+            - id
+            - category_id
+            - category_key
+            - label_key
+            - label_code
+            - label_kind
+            - default_text
+            - status
+            - sort_order
+            - tenant_id
+            - created_by
+            - updated_by
+            - deleted_by
+            - remark
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: dict_label_i18n
+      proto_service: admin.service.v1.DictLabelI18nService
+      entity: DictLabelI18n
+      dto_import: admin/api/gen/dict/v1
+      dto_type: DictLabelI18N
+      repo_interface: DictLabelI18nRepo
+      filters:
+        allow:
+            - id
+            - label_id
+            - label_key
+            - language_code
+            - language_name
+            - text_value
+            - short_text
+            - tenant_id
+            - created_by
+            - updated_by
+            - deleted_by
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: file
+      proto_service: admin.service.v1.FileService
+      entity: File
+      dto_import: admin/api/gen/storage/v1
+      dto_type: File
+      tenant_scope: tenant_scoped
+      repo_interface: FileRepo
+      filters:
+        allow:
+            - id
+            - provider
+            - bucket_name
+            - file_directory
+            - file_guid
+            - save_file_name
+            - file_name
+            - extension
+            - size
+            - size_format
+            - link_url
+            - content_hash
+            - created_by
+            - updated_by
+            - deleted_by
+            - remark
+            - tenant_id
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: file_transfer
+      proto_service: admin.service.v1.FileTransferService
+      repo_interface: FileRepo
+      generate:
+        service_stub: true
+        rest_register: true
+        grpc_register: true
+    - name: internal_message
+      proto_service: admin.service.v1.InternalMessageService
+      entity: InternalMessage
+      dto_import: admin/api/gen/internal_message/v1
+      dto_type: InternalMessage
+      repo_interface: InternalMessageRepo
+      filters:
+        allow:
+            - id
+            - title
+            - content
+            - sender_id
+            - category_id
+            - status
+            - type
+            - created_by
+            - updated_by
+            - deleted_by
+            - tenant_id
+      generate:
+        service_stub: true
+        rest_register: true
+        grpc_register: true
+    - name: internal_message_category
+      proto_service: admin.service.v1.InternalMessageCategoryService
+      entity: InternalMessageCategory
+      dto_import: admin/api/gen/internal_message/v1
+      dto_type: InternalMessageCategory
+      repo_interface: InternalMessageCategoryRepo
+      filters:
+        allow:
+            - id
+            - name
+            - code
+            - icon_url
+            - created_by
+            - updated_by
+            - deleted_by
+            - sort_order
+            - remark
+            - tenant_id
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: internal_message_recipient
+      proto_service: admin.service.v1.InternalMessageRecipientService
+      entity: InternalMessageRecipient
+      dto_import: admin/api/gen/admin/v1
+      dto_type: InternalMessageRecipient
+      repo_interface: InternalMessageRecipientRepo
+      service_methods:
+        ListUserInbox:
+          body: |
+            return s.listUserInboxImpl({{ctx}}, {{param.req}})
+        DeleteNotificationFromInbox:
+          body: |
+            return s.deleteNotificationFromInboxImpl({{ctx}}, {{param.req}})
+        MarkNotificationAsRead:
+          body: |
+            return s.markNotificationAsReadImpl({{ctx}}, {{param.req}})
+      filters:
+        allow:
+            - id
+            - message_id
+            - recipient_user_id
+            - status
+            - tenant_id
+      generate:
+        service_stub: true
+        rest_register: true
+        grpc_register: true
+    - name: language
+      proto_service: admin.service.v1.LanguageService
+      entity: Language
+      dto_import: admin/api/gen/dict/v1
+      dto_type: Language
+      repo_interface: LanguageRepo
+      filters:
+        allow:
+            - id
+            - language_code
+            - language_name
+            - native_name
+            - created_by
+            - updated_by
+            - deleted_by
+            - sort_order
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: login_audit_log
+      proto_service: admin.service.v1.LoginAuditLogService
+      entity: LoginAuditLog
+      dto_import: admin/api/gen/audit/v1
+      dto_type: LoginAuditLog
+      repo_interface: LoginAuditLogRepo
+      filters:
+        allow:
+            - id
+            - user_id
+            - username
+            - ip_address
+            - session_id
+            - request_id
+            - trace_id
+            - action_type
+            - status
+            - login_method
+            - failure_reason
+            - mfa_status
+            - risk_score
+            - risk_level
+            - log_hash
+            - tenant_id
+            - created_at
+      operations:
+        get: true
+        list: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: login_policy
+      proto_service: admin.service.v1.LoginPolicyService
+      entity: LoginPolicy
+      dto_import: admin/api/gen/authentication/v1
+      dto_type: LoginPolicy
+      tenant_scope: tenant_scoped
+      repo_interface: LoginPolicyRepo
+      filters:
+        allow:
+            - id
+            - target_id
+            - value
+            - reason
+            - type
+            - method
+            - created_by
+            - updated_by
+            - deleted_by
+            - tenant_id
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: menu
+      proto_service: admin.service.v1.MenuService
+      entity: Menu
+      dto_import: admin/api/gen/resource/v1
+      dto_type: Menu
+      repo_interface: MenuRepo
+      tree:
+        parent_field: parent_id
+        path_field: path
+        children_field: children
+        list_method: ListTree
+      filters:
+        allow:
+            - id
+            - type
+            - path
+            - redirect
+            - alias
+            - name
+            - component
+            - created_by
+            - updated_by
+            - deleted_by
+            - parent_id
+            - path
+            - remark
+            - status
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: oauth
+      proto_service: admin.service.v1.OAuthService
+      repo_interface: UserCredentialRepo
+      generate:
+        service_stub: true
+        rest_register: true
+        grpc_register: true
+    - name: operation_audit_log
+      proto_service: admin.service.v1.OperationAuditLogService
+      entity: OperationAuditLog
+      dto_import: admin/api/gen/audit/v1
+      dto_type: OperationAuditLog
+      repo_interface: OperationAuditLogRepo
+      filters:
+        allow:
+            - id
+            - user_id
+            - username
+            - resource_type
+            - resource_id
+            - action
+            - before_data
+            - after_data
+            - sensitive_level
+            - request_id
+            - trace_id
+            - failure_reason
+            - ip_address
+            - log_hash
+            - tenant_id
+            - created_at
+      operations:
+        get: true
+        list: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: org_unit
+      proto_service: admin.service.v1.OrgUnitService
+      entity: OrgUnit
+      dto_import: admin/api/gen/identity/v1
+      dto_type: OrgUnit
+      tenant_scope: tenant_scoped
+      repo_interface: OrgUnitRepo
+      tree:
+        parent_field: parent_id
+        path_field: path
+        children_field: children
+        list_method: ListTree
+      filters:
+        allow:
+            - id
+            - name
+            - code
+            - leader_id
+            - type
+            - external_id
+            - registration_number
+            - tax_id
+            - legal_entity_org_id
+            - address
+            - phone
+            - email
+            - timezone
+            - country
+            - contact_user_id
+            - created_by
+            - updated_by
+            - deleted_by
+            - status
+            - sort_order
+            - tenant_id
+            - remark
+            - parent_id
+            - path
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: permission
+      proto_service: admin.service.v1.PermissionService
+      entity: Permission
+      dto_import: admin/api/gen/permission/v1
+      dto_type: Permission
+      repo_interface: PermissionRepo
+      filters:
+        allow:
+            - id
+            - name
+            - code
+            - group_id
+            - created_by
+            - updated_by
+            - deleted_by
+            - status
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: permission_audit_log
+      proto_service: admin.service.v1.PermissionAuditLogService
+      entity: PermissionAuditLog
+      dto_import: admin/api/gen/audit/v1
+      dto_type: PermissionAuditLog
+      repo_interface: PermissionAuditLogRepo
+      filters:
+        allow:
+            - id
+            - operator_id
+            - target_type
+            - target_id
+            - action
+            - old_value
+            - new_value
+            - ip_address
+            - request_id
+            - reason
+            - log_hash
+            - tenant_id
+            - created_at
+      operations:
+        get: true
+        list: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: permission_group
+      proto_service: admin.service.v1.PermissionGroupService
+      entity: PermissionGroup
+      dto_import: admin/api/gen/permission/v1
+      dto_type: PermissionGroup
+      repo_interface: PermissionGroupRepo
+      tree:
+        parent_field: parent_id
+        path_field: path
+        children_field: children
+        list_method: ListTree
+      filters:
+        allow:
+            - id
+            - name
+            - module
+            - created_by
+            - updated_by
+            - deleted_by
+            - status
+            - sort_order
+            - parent_id
+            - path
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: policy_evaluation_log
+      proto_service: admin.service.v1.PolicyEvaluationLogService
+      entity: PolicyEvaluationLog
+      dto_import: admin/api/gen/permission/v1
+      dto_type: PolicyEvaluationLog
+      repo_interface: PolicyEvaluationLogRepo
+      filters:
+        allow:
+            - id
+            - user_id
+            - membership_id
+            - permission_id
+            - policy_id
+            - request_path
+            - request_method
+            - effect_details
+            - scope_sql
+            - ip_address
+            - trace_id
+            - evaluation_context
+            - log_hash
+            - tenant_id
+      operations:
+        get: true
+        list: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: position
+      proto_service: admin.service.v1.PositionService
+      entity: Position
+      dto_import: admin/api/gen/identity/v1
+      dto_type: Position
+      tenant_scope: tenant_scoped
+      repo_interface: PositionRepo
+      filters:
+        allow:
+            - id
+            - name
+            - code
+            - org_unit_id
+            - reports_to_position_id
+            - description
+            - job_family
+            - job_grade
+            - level
+            - headcount
+            - type
+            - created_by
+            - updated_by
+            - deleted_by
+            - sort_order
+            - remark
+            - tenant_id
+            - status
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: role
+      proto_service: admin.service.v1.RoleService
+      entity: Role
+      dto_import: admin/api/gen/permission/v1
+      dto_type: Role
+      repo_interface: RoleRepo
+      filters:
+        allow:
+            - id
+            - name
+            - code
+            - type
+            - created_by
+            - updated_by
+            - deleted_by
+            - remark
+            - sort_order
+            - tenant_id
+            - status
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: social_auth
+      proto_service: admin.service.v1.SocialAuthService
+      repo_interface: UserCredentialRepo
+      generate:
+        service_stub: true
+        rest_register: true
+        grpc_register: true
+    - name: task
+      proto_service: admin.service.v1.TaskService
+      entity: Task
+      dto_import: admin/api/gen/task/v1
+      dto_type: Task
+      repo_interface: TaskRepo
+      service_imports:
+        - alias: taskruntime
+          path: '{{module}}/internal/task/runtime'
+      service_fields:
+        - field: taskGroupRepo
+          type: repo.TaskGroupRepo
+        - field: scheduler
+          type: '*taskruntime.Scheduler'
+        - field: runtimeRunner
+          type: '*taskruntime.Runner'
+      service_methods:
+        Create:
+          body: |
+            return s.create({{ctx}}, {{param.req}})
+        Update:
+          body: |
+            return s.update({{ctx}}, {{param.req}})
+        Delete:
+          body: |
+            return s.delete({{ctx}}, {{param.req}})
+        Start:
+          body: |
+            return s.start({{ctx}}, {{param.req}})
+        Stop:
+          body: |
+            return s.stop({{ctx}}, {{param.req}})
+        RunOnce:
+          body: |
+            return s.runOnce({{ctx}}, {{param.req}})
+      filters:
+        allow:
+            - id
+            - task_name
+            - group_id
+            - task_type
+            - cron_expression
+            - invoke_target
+            - args
+            - retry
+            - concurrent
+            - entry_id
+            - status
+            - created_by
+            - updated_by
+            - deleted_by
+            - remark
+            - tenant_id
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: task_group
+      proto_service: admin.service.v1.TaskGroupService
+      entity: TaskGroup
+      dto_import: admin/api/gen/task/v1
+      dto_type: TaskGroup
+      repo_interface: TaskGroupRepo
+      service_imports:
+        - alias: taskruntime
+          path: '{{module}}/internal/task/runtime'
+      service_fields:
+        - field: taskRepo
+          type: repo.TaskRepo
+        - field: scheduler
+          type: '*taskruntime.Scheduler'
+        - field: runtimeRunner
+          type: '*taskruntime.Runner'
+      service_methods:
+        Create:
+          body: |
+            return s.create({{ctx}}, {{param.req}})
+        Update:
+          body: |
+            return s.update({{ctx}}, {{param.req}})
+        Delete:
+          body: |
+            return s.delete({{ctx}}, {{param.req}})
+        Start:
+          body: |
+            return s.start({{ctx}}, {{param.req}})
+        Stop:
+          body: |
+            return s.stop({{ctx}}, {{param.req}})
+        RunOnce:
+          body: |
+            return s.runOnce({{ctx}}, {{param.req}})
+      filters:
+        allow:
+            - id
+            - group_name
+            - created_by
+            - updated_by
+            - deleted_by
+            - remark
+            - tenant_id
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: task_log
+      proto_service: admin.service.v1.TaskLogService
+      entity: TaskLog
+      dto_import: admin/api/gen/task/v1
+      dto_type: TaskLog
+      repo_interface: TaskLogRepo
+      filters:
+        allow:
+            - id
+            - task_id
+            - input
+            - output
+            - error
+            - status
+            - process_time
+            - execute_time
+            - tenant_id
+            - created_at
+      operations:
+        delete: true
+        get: true
+        list: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: tenant
+      proto_service: admin.service.v1.TenantService
+      entity: Tenant
+      dto_import: admin/api/gen/identity/v1
+      dto_type: Tenant
+      repo_interface: TenantRepo
+      filters:
+        allow:
+            - id
+            - name
+            - code
+            - logo_url
+            - domain
+            - industry
+            - admin_user_id
+            - status
+            - type
+            - audit_status
+            - subscription_plan
+            - created_by
+            - updated_by
+            - deleted_by
+            - remark
+      operations:
+        create: true
+        delete: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: user
+      proto_service: admin.service.v1.UserService
+      entity: User
+      dto_import: admin/api/gen/identity/v1
+      dto_type: User
+      tenant_scope: tenant_scoped
+      repo_interface: UserRepo
+      exists_fields:
+        - id
+        - username
+      filters:
+        allow:
+            - id
+            - username
+            - nickname
+            - realname
+            - email
+            - mobile
+            - telephone
+            - avatar
+            - address
+            - region
+            - description
+            - gender
+            - last_login_ip
+            - status
+            - created_by
+            - updated_by
+            - deleted_by
+            - remark
+            - tenant_id
+      service_methods:
+        EditUserPassword:
+            imports:
+                - alias: authenticationv1
+                  path: '{{module}}/api/gen/authentication/v1'
+            repos:
+                - field: userCredentialRepo
+                  interface: UserCredentialRepo
+            body: |-
+                user, err := s.{{repoField}}.Get({{ctx}}, &v11.GetUserRequest{
+                  QueryBy: &v11.GetUserRequest_Id{
+                    Id: {{param.req}}.GetUserId(),
+                  },
+                })
+                if err != nil {
+                  return nil, err
+                }
+
+                if _, err = s.userCredentialRepo.ResetCredential({{ctx}}, &authenticationv1.ResetCredentialRequest{
+                  IdentityType:  authenticationv1.UserCredential_USERNAME,
+                  Identifier:    user.GetUsername(),
+                  NewCredential: {{param.req}}.GetNewPassword(),
+                  NeedDecrypt:   false,
+                }); err != nil {
+                  s.log.Errorf("reset user password err: %v", err)
+                  return nil, err
+                }
+
+                return {{successReturn}}, nil
+      operations:
+        create: true
+        delete: true
+        exists: true
+        get: true
+        list: true
+        update: true
+      generate:
+        service_stub: true
+        repo_crud: true
+        rest_register: true
+        grpc_register: true
+    - name: user_credential
+      proto_service: authentication.service.v1.UserCredentialService
+      entity: UserCredential
+      dto_import: admin/api/gen/authentication/v1
+      dto_type: UserCredential
+      repo_interface: UserCredentialRepo
+      filters:
+        allow:
+            - id
+            - user_id
+            - identity_type
+            - identifier
+            - credential_type
+            - credential
+            - status
+            - extra_info
+            - provider
+            - provider_account_id
+            - activate_token_hash
+            - reset_token_hash
+            - tenant_id
+      operations:
+        count: true
+        create: true
+        delete: true
+        get: true
+        list: true
+        resetcredential: true
+        update: true
+      generate:
+        repo_crud: true
+    - name: user_profile
+      proto_service: admin.service.v1.UserProfileService
+      repo_interface: UserRepo
+      service_repos:
+        - field: userCredentialRepo
+          interface: UserCredentialRepo
+      generate:
+        service_stub: true
+        rest_register: true
+        grpc_register: true

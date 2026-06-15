@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package admin.service.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "pagination/v1/pagination.proto";
+import "task/v1/task.proto";
+
+// 任务管理服务
+service TaskService {
+  // 查询任务列表
+  rpc List(pagination.PagingRequest) returns (task.service.v1.ListTaskResponse) {
+    option (google.api.http) = { get: "/admin/v1/tasks" };
+  }
+
+  // 查询任务详情
+  rpc Get(task.service.v1.GetTaskRequest) returns (task.service.v1.Task) {
+    option (google.api.http) = {
+      get: "/admin/v1/tasks/{id}"
+      additional_bindings { get: "/admin/v1/tasks/name/{task_name}" }
+    };
+  }
+
+  // 创建任务
+  rpc Create(task.service.v1.CreateTaskRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/admin/v1/tasks"
+      body: "*"
+    };
+  }
+
+  // 更新任务
+  rpc Update(task.service.v1.UpdateTaskRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/admin/v1/tasks/{id}"
+      body: "*"
+    };
+  }
+
+  // 删除任务
+  rpc Delete(task.service.v1.DeleteTaskRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = { delete: "/admin/v1/tasks" };
+  }
+
+  // 启动任务
+  rpc Start(task.service.v1.StartTaskRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/admin/v1/tasks/{id}:start"
+      body: "*"
+    };
+  }
+
+  // 停止任务
+  rpc Stop(task.service.v1.StopTaskRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/admin/v1/tasks/{id}:stop"
+      body: "*"
+    };
+  }
+
+  // 立即执行一次任务
+  rpc RunOnce(task.service.v1.RunTaskOnceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/admin/v1/tasks/{id}:run-once"
+      body: "*"
+    };
+  }
+}

@@ -151,6 +151,26 @@ go run ./cmd/server server -config_path ./configs
 
 如果目标环境的数据库、Redis、注册中心、trace exporter 等外部依赖还没有准备好，启动失败不一定代表生成失败；先以 `go test ./...` 和编译错误为准。
 
+如果你希望复用 `examples/generateAll.ps1` 走一键流程，但默认的 `examples/admin/<project>-config/<service>.yaml` 约定不适合当前项目，可以显式传入：
+
+- `-ConfigPath <生成配置文件路径>`
+- `-CanonicalConfigPath <用于覆盖的基线配置路径>`
+
+例如使用 `admin-v2-config` 作为基线：
+
+```powershell
+& 'D:\GoProjects\XAdmin\xkit\examples\generateAll.ps1' `
+  -WorkspaceRoot 'D:\GoProjects\XAdmin' `
+  -ProjectName 'qadmin' `
+  -Module 'qadmin' `
+  -AppName 'QAdmin' `
+  -ServiceName 'admin' `
+  -TypeScriptRoot 'D:\GoProjects\XAdmin\qadmin\.generated-ui' `
+  -ConfigPath 'D:\GoProjects\XAdmin\xkit\examples\admin\qadmin-config\admin.yaml' `
+  -CanonicalConfigPath 'D:\GoProjects\XAdmin\xkit\examples\admin\admin-v2-config\admin.yaml' `
+  -SkipGoGetUpdateAll
+```
+
 ## 文件归属
 
 | 类型 | 典型文件 | 维护方式 |

@@ -5,6 +5,8 @@ param(
     [string]$AppName = "",
     [string]$ServiceName = "admin",
     [string]$TypeScriptRoot = "",
+    [string]$CanonicalConfigPath = "",
+    [string]$ConfigPath = "",
     [switch]$SkipDryRun,
     [switch]$SkipGoGetUpdateAll,
     [switch]$SmokeTest
@@ -156,7 +158,6 @@ $XkitRoot = Join-Path $WorkspaceRoot "xkit"
 $TemplateRoot = Join-Path $WorkspaceRoot "xkit-template"
 $ExamplesRoot = Join-Path $XkitRoot "examples"
 $SourceRoot = Join-Path $ExamplesRoot "admin"
-$CanonicalConfigPath = Join-Path $SourceRoot "admin-config\$ServiceName.yaml"
 $ProjectRoot = Join-Path $WorkspaceRoot $ProjectName
 $TypeScriptRoot = Resolve-InputValue `
     -Name "TypeScriptRoot" `
@@ -167,7 +168,18 @@ $ConfigDirName = "$ProjectName-config"
 if ((Join-Path $SourceRoot $ConfigDirName) -eq (Join-Path $SourceRoot "admin-config")) {
     $ConfigDirName = "$ProjectName-target-config"
 }
-$ConfigPath = Join-Path $SourceRoot "$ConfigDirName\$ServiceName.yaml"
+$DefaultConfigPath = Join-Path $SourceRoot "$ConfigDirName\$ServiceName.yaml"
+$CanonicalConfigPath = Resolve-InputValue `
+    -Name "CanonicalConfigPath" `
+    -Value $CanonicalConfigPath `
+    -DefaultValue $DefaultCanonicalConfigPath `
+    -Hint "canonical config source copied onto ConfigPath after init source"
+$DefaultCanonicalConfigPath = Join-Path $SourceRoot "admin-config\$ServiceName.yaml"
+$ConfigPath = Resolve-InputValue `
+    -Name "ConfigPath" `
+    -Value $ConfigPath `
+    -DefaultValue $DefaultConfigPath `
+    -Hint "generation config file path used by init source and xkit gen all"
 
 Show-ExecutionSummary `
     -WorkspaceRoot $WorkspaceRoot `
@@ -177,8 +189,8 @@ Show-ExecutionSummary `
     -ServiceName $ServiceName `
     -ProjectRoot $ProjectRoot `
     -TypeScriptRoot $TypeScriptRoot `
-    -ConfigPath $ConfigPath `
     -CanonicalConfigPath $CanonicalConfigPath `
+    -ConfigPath $ConfigPath `
     -InteractiveMode $InteractiveMode `
     -SkipDryRun ([bool]$SkipDryRun) `
     -SkipGoGetUpdateAll ([bool]$SkipGoGetUpdateAll) `
