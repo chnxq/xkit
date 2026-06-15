@@ -40,3 +40,7 @@
 1. 先补这批资源的 proto service 与 admin wrapper。
 2. 再把它们增量回填到 `admin-v2-config/admin.yaml`。
 3. 最后再评估是否需要同步更新 `examples/generateAll.ps1` 和 `xkit-helper` 对 `admin-v2-config` 的支持说明。
+
+生成命令：
+
+D:\GoProjects\XAdmin\xkit\examples\generateAll.ps1 -WorkspaceRoot D:\GoProjects\XAdmin -ProjectName admin-v2 -Module admin -AppName Admin -TypeScriptRoot D:\GoProjects\XAdmin\admin-v2-ui -CanonicalConfigPath D:\GoProjects\XAdmin\xkit\examples\admin-v2\admin-config\admin.yaml -ConfigPath D:\GoProjects\XAdmin\xkit\examples\admin-v2\admin-target-config\admin.yaml

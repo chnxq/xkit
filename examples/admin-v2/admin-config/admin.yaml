@@ -1,12 +1,6 @@
 service: admin
 module: admin
 resources:
-    - name: admin_portal
-      proto_service: admin.service.v1.AdminPortalService
-      generate:
-        service_stub: true
-        rest_register: true
-        grpc_register: true
     - name: api
       proto_service: admin.service.v1.ApiService
       entity: Api
@@ -69,25 +63,12 @@ resources:
             - response
             - log_hash
             - tenant_id
-            - created_at
       operations:
         get: true
         list: true
       generate:
         service_stub: true
         repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: auth_flow
-      proto_service: admin.service.v1.AuthFlowService
-      generate:
-        service_stub: true
-        rest_register: true
-        grpc_register: true
-    - name: authentication
-      proto_service: admin.service.v1.AuthenticationService
-      generate:
-        service_stub: true
         rest_register: true
         grpc_register: true
     - name: data_access_audit_log
@@ -119,7 +100,6 @@ resources:
             - db_user
             - log_hash
             - tenant_id
-            - created_at
       operations:
         get: true
         list: true
@@ -134,16 +114,9 @@ resources:
       dto_import: admin/api/gen/dict/v1
       dto_type: DictCategory
       repo_interface: DictCategoryRepo
-      tree:
-        parent_field: parent_id
-        path_field: path
-        children_field: children
-        list_method: ListTree
       filters:
         allow:
             - id
-            - parent_id
-            - path
             - category_key
             - category_name
             - category_level
@@ -154,6 +127,8 @@ resources:
             - sort_order
             - tenant_id
             - remark
+            - parent_id
+            - path
       operations:
         create: true
         delete: true
@@ -171,29 +146,20 @@ resources:
       dto_import: admin/api/gen/dict/v1
       dto_type: DictLabel
       repo_interface: DictLabelRepo
-      aggregates:
-        - name: labelI18n
-          resource: dict_label_i18n
-          foreign_key: label_id
-          parent_field: id
-          collection_field: items_i18n
-          current_field: current_i18n
-          primary: true
       filters:
         allow:
             - id
             - category_id
-            - category_key
             - label_key
             - label_code
             - label_kind
             - default_text
             - status
-            - sort_order
-            - tenant_id
             - created_by
             - updated_by
             - deleted_by
+            - sort_order
+            - tenant_id
             - remark
       operations:
         create: true
@@ -210,21 +176,19 @@ resources:
       proto_service: admin.service.v1.DictLabelI18nService
       entity: DictLabelI18n
       dto_import: admin/api/gen/dict/v1
-      dto_type: DictLabelI18N
+      dto_type: DictLabelI18n
       repo_interface: DictLabelI18nRepo
       filters:
         allow:
             - id
             - label_id
-            - label_key
             - language_code
-            - language_name
             - text_value
             - short_text
-            - tenant_id
             - created_by
             - updated_by
             - deleted_by
+            - tenant_id
       operations:
         create: true
         delete: true
@@ -241,7 +205,6 @@ resources:
       entity: File
       dto_import: admin/api/gen/storage/v1
       dto_type: File
-      tenant_scope: tenant_scoped
       repo_interface: FileRepo
       filters:
         allow:
@@ -271,13 +234,6 @@ resources:
       generate:
         service_stub: true
         repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: file_transfer
-      proto_service: admin.service.v1.FileTransferService
-      repo_interface: FileRepo
-      generate:
-        service_stub: true
         rest_register: true
         grpc_register: true
     - name: internal_message
@@ -338,16 +294,6 @@ resources:
       dto_import: admin/api/gen/admin/v1
       dto_type: InternalMessageRecipient
       repo_interface: InternalMessageRecipientRepo
-      service_methods:
-        ListUserInbox:
-          body: |
-            return s.listUserInboxImpl({{ctx}}, {{param.req}})
-        DeleteNotificationFromInbox:
-          body: |
-            return s.deleteNotificationFromInboxImpl({{ctx}}, {{param.req}})
-        MarkNotificationAsRead:
-          body: |
-            return s.markNotificationAsReadImpl({{ctx}}, {{param.req}})
       filters:
         allow:
             - id
@@ -410,7 +356,6 @@ resources:
             - risk_level
             - log_hash
             - tenant_id
-            - created_at
       operations:
         get: true
         list: true
@@ -424,7 +369,6 @@ resources:
       entity: LoginPolicy
       dto_import: admin/api/gen/authentication/v1
       dto_type: LoginPolicy
-      tenant_scope: tenant_scoped
       repo_interface: LoginPolicyRepo
       filters:
         allow:
@@ -455,11 +399,6 @@ resources:
       dto_import: admin/api/gen/resource/v1
       dto_type: Menu
       repo_interface: MenuRepo
-      tree:
-        parent_field: parent_id
-        path_field: path
-        children_field: children
-        list_method: ListTree
       filters:
         allow:
             - id
@@ -473,7 +412,6 @@ resources:
             - updated_by
             - deleted_by
             - parent_id
-            - path
             - remark
             - status
       operations:
@@ -485,13 +423,6 @@ resources:
       generate:
         service_stub: true
         repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: oauth
-      proto_service: admin.service.v1.OAuthService
-      repo_interface: UserCredentialRepo
-      generate:
-        service_stub: true
         rest_register: true
         grpc_register: true
     - name: operation_audit_log
@@ -517,7 +448,6 @@ resources:
             - ip_address
             - log_hash
             - tenant_id
-            - created_at
       operations:
         get: true
         list: true
@@ -531,13 +461,7 @@ resources:
       entity: OrgUnit
       dto_import: admin/api/gen/identity/v1
       dto_type: OrgUnit
-      tenant_scope: tenant_scoped
       repo_interface: OrgUnitRepo
-      tree:
-        parent_field: parent_id
-        path_field: path
-        children_field: children
-        list_method: ListTree
       filters:
         allow:
             - id
@@ -622,7 +546,6 @@ resources:
             - reason
             - log_hash
             - tenant_id
-            - created_at
       operations:
         get: true
         list: true
@@ -637,11 +560,6 @@ resources:
       dto_import: admin/api/gen/permission/v1
       dto_type: PermissionGroup
       repo_interface: PermissionGroupRepo
-      tree:
-        parent_field: parent_id
-        path_field: path
-        children_field: children
-        list_method: ListTree
       filters:
         allow:
             - id
@@ -700,7 +618,6 @@ resources:
       entity: Position
       dto_import: admin/api/gen/identity/v1
       dto_type: Position
-      tenant_scope: tenant_scoped
       repo_interface: PositionRepo
       filters:
         allow:
@@ -763,48 +680,12 @@ resources:
         repo_crud: true
         rest_register: true
         grpc_register: true
-    - name: social_auth
-      proto_service: admin.service.v1.SocialAuthService
-      repo_interface: UserCredentialRepo
-      generate:
-        service_stub: true
-        rest_register: true
-        grpc_register: true
     - name: task
       proto_service: admin.service.v1.TaskService
       entity: Task
       dto_import: admin/api/gen/task/v1
       dto_type: Task
       repo_interface: TaskRepo
-      service_imports:
-        - alias: taskruntime
-          path: '{{module}}/internal/task/runtime'
-      service_fields:
-        - field: taskGroupRepo
-          type: repo.TaskGroupRepo
-        - field: scheduler
-          type: '*taskruntime.Scheduler'
-        - field: runtimeRunner
-          type: '*taskruntime.Runner'
-      service_methods:
-        Create:
-          body: |
-            return s.create({{ctx}}, {{param.req}})
-        Update:
-          body: |
-            return s.update({{ctx}}, {{param.req}})
-        Delete:
-          body: |
-            return s.delete({{ctx}}, {{param.req}})
-        Start:
-          body: |
-            return s.start({{ctx}}, {{param.req}})
-        Stop:
-          body: |
-            return s.stop({{ctx}}, {{param.req}})
-        RunOnce:
-          body: |
-            return s.runOnce({{ctx}}, {{param.req}})
       filters:
         allow:
             - id
@@ -815,7 +696,6 @@ resources:
             - invoke_target
             - args
             - retry
-            - concurrent
             - entry_id
             - status
             - created_by
@@ -840,35 +720,6 @@ resources:
       dto_import: admin/api/gen/task/v1
       dto_type: TaskGroup
       repo_interface: TaskGroupRepo
-      service_imports:
-        - alias: taskruntime
-          path: '{{module}}/internal/task/runtime'
-      service_fields:
-        - field: taskRepo
-          type: repo.TaskRepo
-        - field: scheduler
-          type: '*taskruntime.Scheduler'
-        - field: runtimeRunner
-          type: '*taskruntime.Runner'
-      service_methods:
-        Create:
-          body: |
-            return s.create({{ctx}}, {{param.req}})
-        Update:
-          body: |
-            return s.update({{ctx}}, {{param.req}})
-        Delete:
-          body: |
-            return s.delete({{ctx}}, {{param.req}})
-        Start:
-          body: |
-            return s.start({{ctx}}, {{param.req}})
-        Stop:
-          body: |
-            return s.stop({{ctx}}, {{param.req}})
-        RunOnce:
-          body: |
-            return s.runOnce({{ctx}}, {{param.req}})
       filters:
         allow:
             - id
@@ -904,9 +755,7 @@ resources:
             - error
             - status
             - process_time
-            - execute_time
             - tenant_id
-            - created_at
       operations:
         delete: true
         get: true
@@ -955,7 +804,6 @@ resources:
       entity: User
       dto_import: admin/api/gen/identity/v1
       dto_type: User
-      tenant_scope: tenant_scoped
       repo_interface: UserRepo
       exists_fields:
         - id
@@ -1053,13 +901,3 @@ resources:
         update: true
       generate:
         repo_crud: true
-    - name: user_profile
-      proto_service: admin.service.v1.UserProfileService
-      repo_interface: UserRepo
-      service_repos:
-        - field: userCredentialRepo
-          interface: UserCredentialRepo
-      generate:
-        service_stub: true
-        rest_register: true
-        grpc_register: true
