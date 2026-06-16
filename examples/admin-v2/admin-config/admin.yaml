@@ -100,6 +100,7 @@ resources:
             - response
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
@@ -137,6 +138,7 @@ resources:
             - db_user
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
@@ -282,6 +284,9 @@ resources:
             - category_name
             - category_level
             - scene
+            - description
+            - is_enabled
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -440,6 +445,9 @@ resources:
             - label_code
             - label_kind
             - default_text
+            - description
+            - is_enabled
+            - created_at
             - status
             - created_by
             - updated_by
@@ -471,6 +479,8 @@ resources:
             - language_code
             - text_value
             - short_text
+            - description
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -507,6 +517,7 @@ resources:
             - size_format
             - link_url
             - content_hash
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -557,6 +568,7 @@ resources:
             - name
             - code
             - icon_url
+            - is_enabled
             - created_at
             - create_by
             - sort_order
@@ -585,6 +597,9 @@ resources:
             - message_id
             - recipient_user_id
             - status
+            - received_at
+            - read_at
+            - created_at
             - tenant_id
       generate:
         service_stub: true
@@ -602,6 +617,8 @@ resources:
             - language_code
             - language_name
             - native_name
+            - is_enabled
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -641,6 +658,7 @@ resources:
             - risk_level
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
@@ -664,6 +682,7 @@ resources:
             - reason
             - type
             - method
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -722,6 +741,7 @@ resources:
             - alias
             - name
             - component
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -762,6 +782,7 @@ resources:
             - ip_address
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
@@ -788,12 +809,16 @@ resources:
             - registration_number
             - tax_id
             - legal_entity_org_id
+            - description
             - address
             - phone
             - email
             - timezone
             - country
+            - start_at
+            - end_at
             - contact_user_id
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -843,6 +868,7 @@ resources:
             - name
             - code
             - group_id
+            - description
             - created_at
             - status
       operations:
@@ -876,6 +902,7 @@ resources:
             - reason
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
@@ -923,6 +950,7 @@ resources:
             - id
             - name
             - module
+            - description
             - created_at
             - status
             - sort_order
@@ -961,6 +989,7 @@ resources:
             - evaluation_context
             - log_hash
             - tenant_id
+            - created_at
       operations:
         get: true
         list: true
@@ -989,6 +1018,9 @@ resources:
             - level
             - headcount
             - type
+            - start_at
+            - end_at
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -1021,6 +1053,8 @@ resources:
             - name
             - code
             - type
+            - description
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -1056,6 +1090,7 @@ resources:
             - args
             - retry
             - entry_id
+            - created_at
             - status
             - created_by
             - updated_by
@@ -1083,6 +1118,7 @@ resources:
         allow:
             - id
             - group_name
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -1170,7 +1206,11 @@ resources:
             - status
             - type
             - audit_status
+            - subscription_at
+            - unsubscribe_at
             - subscription_plan
+            - expired_at
+            - created_at
             - created_by
             - updated_by
             - deleted_by
@@ -1252,7 +1292,9 @@ resources:
             - region
             - description
             - gender
+            - last_login_at
             - last_login_ip
+            - created_at
             - status
             - created_by
             - updated_by
@@ -1319,7 +1361,12 @@ resources:
             - provider
             - provider_account_id
             - activate_token_hash
+            - activate_token_expires_at
+            - activate_token_used_at
             - reset_token_hash
+            - reset_token_expires_at
+            - reset_token_used_at
+            - created_at
             - tenant_id
       operations:
         count: true
