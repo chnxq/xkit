@@ -1,0 +1,5 @@
+{
+{{- range $index, $entry := .Entries }}
+  "{{ $entry.Key }}": "{{ $entry.Value }}"{{ if lt $index $.LastIndex }},{{ end }}
+{{- end }}
+}

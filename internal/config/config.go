@@ -9,9 +9,14 @@ import (
 )
 
 type Config struct {
-	Service   string     `yaml:"service"`
-	Module    string     `yaml:"module"`
-	Resources []Resource `yaml:"resources"`
+	Service   string          `yaml:"service"`
+	Module    string          `yaml:"module"`
+	Frontend  *FrontendConfig `yaml:"frontend,omitempty"`
+	Resources []Resource      `yaml:"resources"`
+}
+
+type FrontendConfig struct {
+	OutputRoot string `yaml:"output_root,omitempty"`
 }
 
 type Resource struct {
@@ -22,6 +27,7 @@ type Resource struct {
 	DTOType        string                         `yaml:"dto_type,omitempty"`
 	TenantScope    string                         `yaml:"tenant_scope,omitempty"`
 	RepoInterface  string                         `yaml:"repo_interface,omitempty"`
+	Frontend       *FrontendResourceConfig        `yaml:"frontend,omitempty"`
 	Tree           *TreeConfig                    `yaml:"tree,omitempty"`
 	Aggregates     []AggregateConfig              `yaml:"aggregates,omitempty"`
 	ServiceImports []ImportConfig                 `yaml:"service_imports,omitempty"`
@@ -49,6 +55,53 @@ type ServiceFieldConfig struct {
 type RepoMethodConfig struct {
 	Imports []ImportConfig `yaml:"imports,omitempty"`
 	Body    string         `yaml:"body,omitempty"`
+}
+
+type FrontendResourceConfig struct {
+	ViewPath   string                `yaml:"view_path,omitempty"`
+	I18nPrefix string                `yaml:"i18n_prefix,omitempty"`
+	List       *FrontendListConfig   `yaml:"list,omitempty"`
+	Form       *FrontendDialogConfig `yaml:"form,omitempty"`
+}
+
+type FrontendListConfig struct {
+	Columns []FrontendColumn  `yaml:"columns,omitempty"`
+	Filters map[string]string `yaml:"filters,omitempty"`
+}
+
+type FrontendDialogConfig struct {
+	Enabled *bool            `yaml:"enabled,omitempty"`
+	Fields  []FrontendColumn `yaml:"fields,omitempty"`
+}
+
+type FrontendColumn struct {
+	Field string
+	EN    string
+	CN    string
+}
+
+func (c *FrontendColumn) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		c.Field = strings.TrimSpace(value.Value)
+		return nil
+	case yaml.SequenceNode:
+		if len(value.Content) == 0 {
+			return nil
+		}
+		if len(value.Content) > 0 {
+			c.Field = strings.TrimSpace(value.Content[0].Value)
+		}
+		if len(value.Content) > 1 {
+			c.EN = strings.TrimSpace(value.Content[1].Value)
+		}
+		if len(value.Content) > 2 {
+			c.CN = strings.TrimSpace(value.Content[2].Value)
+		}
+		return nil
+	default:
+		return fmt.Errorf("frontend column must be a string or sequence")
+	}
 }
 
 type TreeConfig struct {

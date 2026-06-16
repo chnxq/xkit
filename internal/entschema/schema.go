@@ -18,6 +18,7 @@ type Schema struct {
 type Field struct {
 	Name      string
 	Kind      string
+	Comment   string
 	Optional  bool
 	Nillable  bool
 	Immutable bool
@@ -30,6 +31,7 @@ var (
 	optionalCallPattern  = regexp.MustCompile(`\.\s*Optional\s*\(\s*\)`)
 	nillableCallPattern  = regexp.MustCompile(`\.\s*Nillable\s*\(\s*\)`)
 	immutableCallPattern = regexp.MustCompile(`\.\s*Immutable\s*\(\s*\)`)
+	commentCallPattern   = regexp.MustCompile(`\.\s*Comment\s*\(\s*"((?:[^"\\]|\\.)*)"\s*\)`)
 )
 
 func Load(projectRoot string) (map[string]Schema, error) {
@@ -88,6 +90,7 @@ func parseFile(path string) (Schema, error) {
 		schema.Fields = append(schema.Fields, Field{
 			Name:      name,
 			Kind:      kind,
+			Comment:   extractFieldComment(chain),
 			Optional:  optionalCallPattern.MatchString(chain),
 			Nillable:  nillableCallPattern.MatchString(chain),
 			Immutable: immutableCallPattern.MatchString(chain),
@@ -96,6 +99,14 @@ func parseFile(path string) (Schema, error) {
 	schema.Fields = appendMissingFields(schema.Fields, fieldsFromMixins(content)...)
 
 	return schema, nil
+}
+
+func extractFieldComment(chain string) string {
+	matches := commentCallPattern.FindStringSubmatch(chain)
+	if len(matches) != 2 {
+		return ""
+	}
+	return matches[1]
 }
 
 func fieldsFromMixins(content string) []Field {

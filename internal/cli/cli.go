@@ -26,6 +26,7 @@ const usageText = `Usage:
   xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen wire <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen bootstrap <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
+  xkit gen frontend-meta <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen all <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 
 Default template source:

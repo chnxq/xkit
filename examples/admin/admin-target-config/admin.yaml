@@ -1,5 +1,7 @@
 service: admin
 module: admin
+frontend:
+  output_root: ../admin-ui/apps/web-antd/src
 resources:
     - name: api
       proto_service: admin.service.v1.ApiService
@@ -92,6 +94,29 @@ resources:
       dto_import: admin/api/gen/audit/v1
       dto_type: ApiAuditLog
       repo_interface: ApiAuditLogRepo
+      frontend:
+        view_path: app/log/api-audit-log
+        i18n_prefix: page.apiAuditLog
+        list:
+          columns:
+            - [createdAt, Created At, 创建时间]
+            - [successSummary, Status Code, 状态码]
+            - [username, Username, 用户名]
+            - [httpMethod, HTTP Method, 请求方法]
+            - [path, Path, 路径]
+            - [latencyMs, Latency Ms, 延迟毫秒]
+            - [platformSummary, Platform, 平台]
+            - [geoLocationSummary, Geo Location, 地理位置]
+            - [ipAddress, IP Address, IP地址]
+            - [apiOperation, Api Operation, 接口操作]
+          filters:
+            username: Input
+            path: Input
+            httpMethod: Select
+            apiModule: Input
+            statusCode: InputNumber
+            reason: Input
+            createdAtRange: RangePicker
       filters:
         allow:
             - id
@@ -883,6 +908,28 @@ resources:
       dto_import: admin/api/gen/audit/v1
       dto_type: LoginAuditLog
       repo_interface: LoginAuditLogRepo
+      frontend:
+        view_path: app/log/login-audit-log
+        i18n_prefix: page.loginAuditLog
+        list:
+          columns:
+            - [createdAt, Created At, 创建时间]
+            - [status, Status, 状态]
+            - [username, Username, 用户名]
+            - [actionType, Action Type, 动作类型]
+            - [riskLevel, Risk Level, 风险等级]
+            - [platformSummary, Platform, 平台]
+            - [geoLocationSummary, Geo Location, 地理位置]
+            - [ipAddress, IP Address, IP地址]
+            - [loginMethod, Login Method, 登录方式]
+            - [deviceInfo.userAgent, User-Agent, User-Agent]
+          filters:
+            username: Input
+            ipAddress: Input
+            actionType: Select
+            riskLevel: Select
+            status: Select
+            createdAtRange: RangePicker
       filters:
         allow:
             - id
@@ -1530,6 +1577,33 @@ resources:
       dto_import: admin/api/gen/identity/v1
       dto_type: Tenant
       repo_interface: TenantRepo
+      frontend:
+        view_path: system/tenant
+        i18n_prefix: page.tenant
+        list:
+          columns:
+            - [name, Tenant, 租户]
+            - [domain, Domain, 域名]
+            - [type, Type, 类型]
+            - [status, Status, 状态]
+            - [auditStatus, Audit Status, 审核状态]
+            - [memberCount, Member Count, 成员数量]
+            - [createdAt, Created At, 创建时间]
+          filters:
+            name: Input
+            code: Input
+        form:
+          fields:
+            - [name, Tenant, 租户]
+            - [code, Code, 租户编号]
+            - [domain, Domain, 租户专属域名]
+            - [logoUrl, Logo Url, 租户Logo地址]
+            - [industry, Industry, 所属行业]
+            - [type, Type, 租户类型]
+            - [status, Status, 租户状态]
+            - [auditStatus, Audit Status, 审核状态]
+            - [subscriptionPlan, Subscription Plan, 订阅套餐]
+            - [remark, Remark, 备注]
       service_methods:
         Create:
           imports:

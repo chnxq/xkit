@@ -1824,6 +1824,101 @@ func writeFile(t *testing.T, path, content string) {
 	}
 }
 
+func TestRunnerGenerateFrontendMetaFiles(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/admin\n\ngo 1.26.0\n")
+	writeFile(t, filepath.Join(root, "api", "protos", "admin", "v1", "i_login_audit_log.proto"), `syntax = "proto3";
+
+package admin.service.v1;
+
+service LoginAuditLogService {
+  rpc List (ListLoginAuditLogRequest) returns (ListLoginAuditLogResponse) {}
+}`)
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_login_audit_log_grpc.pb.go"), `package admin
+
+type LoginAuditLogServiceServer interface {
+	mustEmbedUnimplementedLoginAuditLogServiceServer()
+}
+
+var LoginAuditLogService_ServiceDesc = struct{
+	ServiceName string
+}{
+	ServiceName: "admin.service.v1.LoginAuditLogService",
+}
+`)
+	writeFile(t, filepath.Join(root, "api", "gen", "admin", "v1", "i_login_audit_log_http.pb.go"), "package admin\ntype LoginAuditLogServiceHTTPServer interface{}\n")
+	writeFile(t, filepath.Join(root, "internal", "data", "ent", "schema", "login_audit_log.go"), `package schema
+
+import "entgo.io/ent"
+
+type LoginAuditLog struct {
+	ent.Schema
+}
+`)
+
+	cfg := config.Config{
+		Service: "admin",
+		Module:  "example.com/admin",
+		Frontend: &config.FrontendConfig{
+			OutputRoot: "web/admin",
+		},
+		Resources: []config.Resource{
+			{
+				Name:          "login_audit_log",
+				ProtoService:  "admin.service.v1.LoginAuditLogService",
+				Entity:        "LoginAuditLog",
+				RepoInterface: "LoginAuditLogRepo",
+				Frontend: &config.FrontendResourceConfig{
+					ViewPath:   "app/log/login-audit-log",
+					I18nPrefix: "page.loginAuditLog",
+					List: &config.FrontendListConfig{
+						Columns: []config.FrontendColumn{
+							{Field: "createdAt", EN: "Created At", CN: "创建时间"},
+							{Field: "status", EN: "Status", CN: "状态"},
+							{Field: "username", EN: "Username", CN: "用户名"},
+						},
+						Filters: map[string]string{
+							"username":  "Input",
+							"createdAt": "RangePicker",
+						},
+					},
+					Form: &config.FrontendDialogConfig{
+						Fields: []config.FrontendColumn{
+							{Field: "username", EN: "Username", CN: "用户名"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	runner, err := New(project.Info{Root: root, Module: "example.com/admin"}, cfg, Options{Version: "test"})
+	if err != nil {
+		t.Fatalf("new runner: %v", err)
+	}
+
+	result, err := runner.Generate("frontend-meta")
+	if err != nil {
+		t.Fatalf("generate frontend-meta: %v", err)
+	}
+	if len(result.Written) == 0 {
+		t.Fatalf("expected generated frontend-meta files")
+	}
+
+	metaPath := filepath.Join(root, "web", "admin", "views", "generated", "admin", "app", "log", "login-audit-log.meta.ts")
+	metaContent := readFile(t, metaPath)
+	if !strings.Contains(metaContent, "buildSearchFormOptions") || !strings.Contains(metaContent, "buildListGridColumns") {
+		t.Fatalf("frontend meta file missing expected exports:\n%s", metaContent)
+	}
+	i18nPath := filepath.Join(root, "web", "admin", "views", "generated", "admin", "page_i18n.zh-CN.json")
+	i18nContent := readFile(t, i18nPath)
+	if !strings.Contains(i18nContent, `"page.loginAuditLog.createdAt"`) {
+		t.Fatalf("frontend i18n file missing expected key:\n%s", i18nContent)
+	}
+}
+
 func TestWriteGeneratedFileSkipsTimestampOnlyChanges(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "internal", "service", "user_service.gen.go")

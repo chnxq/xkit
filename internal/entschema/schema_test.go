@@ -68,6 +68,48 @@ func (User) Mixin() []ent.Mixin {
 	assertField(t, user.Fields, Field{Name: "remark", Kind: "String", Optional: true, Nillable: true})
 }
 
+func TestLoad_ParsesFieldComments(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "internal", "data", "ent", "schema", "tenant.go")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir schema dir: %v", err)
+	}
+
+	content := `package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/field"
+)
+
+type Tenant struct { ent.Schema }
+
+func (Tenant) Fields() []ent.Field {
+	return []ent.Field{
+		field.String("name").Comment("租户名称").Optional().Nillable(),
+	}
+}
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write schema: %v", err)
+	}
+
+	items, err := Load(root)
+	if err != nil {
+		t.Fatalf("load schema: %v", err)
+	}
+
+	tenant, ok := items["Tenant"]
+	if !ok {
+		t.Fatalf("missing Tenant schema")
+	}
+	if got := tenant.Fields[0].Comment; got != "租户名称" {
+		t.Fatalf("field comment mismatch: got %q", got)
+	}
+}
+
 func TestLoad_ParsesJSONFieldWithTypeArgument(t *testing.T) {
 	t.Parallel()
 

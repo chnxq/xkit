@@ -40,3 +40,15 @@ var BootstrapEntClient string
 
 //go:embed bootstrap_ent_client_ext.tmpl
 var BootstrapEntClientExt string
+
+//go:embed frontend_view_meta.tmpl
+var FrontendViewMeta string
+
+//go:embed frontend_view_config.tmpl
+var FrontendViewConfig string
+
+//go:embed frontend_page_i18n_zh.tmpl
+var FrontendPageI18nZH string
+
+//go:embed frontend_page_i18n_en.tmpl
+var FrontendPageI18nEN string
