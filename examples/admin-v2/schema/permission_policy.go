@@ -75,8 +75,6 @@ func (PermissionPolicy) Fields() []ent.Field {
 func (PermissionPolicy) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		mixin.AutoIncrementId{},
-		mixin.TimeAt{},
-		mixin.OperatorID{},
 		mixin.SwitchStatus{},
 	}
 }

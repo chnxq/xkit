@@ -80,8 +80,8 @@ func (InternalMessage) Fields() []ent.Field {
 func (InternalMessage) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		mixin.AutoIncrementId{},
-		mixin.TimeAt{},
-		mixin.OperatorID{},
+		mixin.CreatedAt{},
+		mixin.CreateBy{},
 		mixin.TenantID[uint32]{},
 	}
 }

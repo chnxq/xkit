@@ -53,8 +53,8 @@ func (InternalMessageCategory) Fields() []ent.Field {
 func (InternalMessageCategory) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		mixin.AutoIncrementId{},
-		mixin.TimeAt{},
-		mixin.OperatorID{},
+		mixin.CreatedAt{},
+		mixin.CreateBy{},
 		mixin.IsEnabled{},
 		mixin.SortOrder{},
 		mixin.Remark{},

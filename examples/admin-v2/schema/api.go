@@ -76,7 +76,6 @@ func (Api) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		mixin.AutoIncrementId{},
 		mixin.TimeAt{},
-		mixin.OperatorID{},
 		mixin.SwitchStatus{},
 	}
 }
@@ -100,10 +99,6 @@ func (Api) Indexes() []ent.Index {
 		// 按路径 + 方法 快速定位接口
 		index.Fields("path", "method").
 			StorageKey("idx_sys_api_res_path_method"),
-
-		// 操作者 + 创建时间，用于审计回溯（时间列放末尾以利于范围扫描）
-		index.Fields("created_by", "created_at").
-			StorageKey("idx_sys_api_res_created_by_created_at"),
 
 		// 创建时间索引用于列表分页与时间区间查询
 		index.Fields("created_at").

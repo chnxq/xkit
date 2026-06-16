@@ -185,8 +185,8 @@ func (UserCredential) Fields() []ent.Field {
 // Mixin of the UserCredential.
 func (UserCredential) Mixin() []ent.Mixin {
 	return []ent.Mixin{
-		mixin.TimeAt{},
 		mixin.AutoIncrementId{},
+		mixin.CreatedAt{},
 		mixin.TenantID[uint32]{},
 	}
 }
