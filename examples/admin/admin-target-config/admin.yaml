@@ -1122,6 +1122,20 @@ resources:
         filters:
           - [name, Input, Name, 菜单名称]
           - [path, Input, Path, 路径]
+      form:
+        fields:
+          - [parentId, Parent, 上级菜单]
+          - [title, Title, 菜单标题]
+          - [name, Name, 菜单名称]
+          - [path, Path, 路径]
+          - [component, Component, 组件]
+          - [redirect, Redirect, 重定向]
+          - [icon, Icon, 图标]
+          - [authority, Authority, 权限标识]
+          - [type, Type, 类型]
+          - [ignoreAccess, Ignore Access, 忽略权限]
+          - [menuVisibleWithForbidden, Visible With Forbidden, 无权限时显示]
+          - [status, Status, 状态]
     service_methods:
       Create:
         imports:
@@ -1736,7 +1750,7 @@ resources:
     dto_type: Task
     repo_interface: TaskRepo
     frontend:
-      view_path: task
+      view_path: task/task
       i18n_prefix: page.task
       list:
         columns:
@@ -1768,6 +1782,18 @@ resources:
           - [name, Input, Task Name, 任务名称]
           - [status, Select, Status, 状态]
           - [taskType, Select, Task Type, 任务类型]
+      form:
+        fields:
+          - [taskName, Task Name, 任务名称]
+          - [groupId, Group, 任务组]
+          - [taskType, Task Type, 任务类型]
+          - [status, Status, 状态]
+          - [cronExpression, Cron Expression, Cron表达式]
+          - [invokeTarget, Invoke Target, 调用目标]
+          - [retry, Retry, 重试次数]
+          - [concurrent, Concurrent, 并发]
+          - [args, Args, 参数]
+          - [remark, Remark, 备注]
     service_imports:
       - alias: taskruntime
         path: '{{module}}/internal/task/runtime'
