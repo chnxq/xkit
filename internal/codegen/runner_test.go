@@ -1921,6 +1921,9 @@ type LoginAuditLog struct {
 	if !strings.Contains(i18nContent, `"page.loginAuditLog.filterSessionTenant"`) {
 		t.Fatalf("frontend i18n file missing expected explicit filter key:\n%s", i18nContent)
 	}
+	if strings.Contains(i18nContent, `Search `) || strings.Contains(i18nContent, `Select `) || strings.Contains(i18nContent, ` Range"`) {
+		t.Fatalf("frontend i18n placeholders should not contain generated english verbs in zh locale:\n%s", i18nContent)
+	}
 }
 
 func TestWriteGeneratedFileSkipsTimestampOnlyChanges(t *testing.T) {

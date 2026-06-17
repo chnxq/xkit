@@ -1147,18 +1147,22 @@ func frontendI18nPlaceholderValue(lang, field, component, enTitle, cnTitle strin
 	case "Select":
 		if lang == "en" {
 			return "Select " + label
+		} else if lang == "zh" {
+			return "选择 " + label
 		}
-		return "Select " + label
+		return label
 	case "RangePicker":
 		if lang == "en" {
-			return label + " Range"
+			return "SE"
+		} else if lang == "zh" {
+			return "起至"
 		}
-		return label + " Range"
+		return label
 	default:
 		if lang == "en" {
 			return "Search " + label
 		}
-		return "Search " + label
+		return label
 	}
 }
 
