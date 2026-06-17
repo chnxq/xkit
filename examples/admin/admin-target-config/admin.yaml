@@ -3,1806 +3,2157 @@ module: admin
 frontend:
   output_root: ../admin-ui/apps/web-antd/src
 resources:
-    - name: api
-      proto_service: admin.service.v1.ApiService
-      entity: Api
-      dto_import: admin/api/gen/resource/v1
-      dto_type: Api
-      repo_interface: ApiRepo
-      service_methods:
-        Create:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "api create"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Create({{ctx}}, {{param.req}})
-        Update:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "api update"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Update({{ctx}}, {{param.req}})
-        Delete:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "api delete"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
-        SyncApis:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "api sync"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            if custom, ok := any(s.{{repoField}}).(interface {
-            	SyncApisFromOpenAPI(context.Context) error
-            }); ok {
-            	if err := custom.SyncApisFromOpenAPI({{ctx}}); err != nil {
-            		return nil, err
-            	}
-            	return {{successReturn}}, nil
-            }
-            return {{successReturn}}, nil
-        GetWalkRouteData:
-          imports:
-            - path: fmt
-          body: |
-            _ = {{param.req}}
-            if reader, ok := s.{{repoField}}.(repo.ApiOpenAPISyncer); ok {
-            	return reader.GetOpenAPIRouteData({{ctx}})
-            }
-            return nil, fmt.Errorf("api repo does not support OpenAPI route data")
-      filters:
-        allow:
-            - id
-            - description
-            - module
-            - module_description
-            - operation
-            - path
-            - method
-            - scope
-            - created_by
-            - updated_by
-            - deleted_by
-            - status
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: api_audit_log
-      proto_service: admin.service.v1.ApiAuditLogService
-      entity: ApiAuditLog
-      dto_import: admin/api/gen/audit/v1
-      dto_type: ApiAuditLog
-      repo_interface: ApiAuditLogRepo
-      frontend:
-        view_path: app/log/api-audit-log
-        i18n_prefix: page.apiAuditLog
-        list:
-          columns:
-            - [createdAt, Created At, 创建时间]
-            - [successSummary, Status Code, 状态码]
-            - [username, Username, 用户名]
-            - [httpMethod, HTTP Method, 请求方法]
-            - [path, Path, 路径]
-            - [latencyMs, Latency Ms, 延迟毫秒]
-            - [platformSummary, Platform, 平台]
-            - [geoLocationSummary, Geo Location, 地理位置]
-            - [ipAddress, IP Address, IP地址]
-            - [apiOperation, Api Operation, 接口操作]
-          filters:
-            - [username, Input, Username, 用户]
-            - [path, Input, Path, 路径]
-            - [httpMethod, Select, HTTP Method, 请求方法]
-            - [apiModule, Input, API Module, 业务模块]
-            - [statusCode, InputNumber, Status Code, HTTP状态]
-            - [reason, Input, Reason, 操作失败原因]
-            - [createdAtRange, RangePicker, Created At, 创建时间]
-      filters:
-        allow:
-            - id
-            - user_id
-            - username
-            - ip_address
-            - referer
-            - app_version
-            - http_method
-            - path
-            - request_uri
-            - api_module
-            - api_operation
-            - api_description
-            - request_id
-            - trace_id
-            - span_id
-            - latency_ms
-            - status_code
-            - reason
-            - request_header
-            - request_body
-            - response
-            - log_hash
-            - tenant_id
-            - created_at
-      operations:
-        get: true
-        list: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: data_access_audit_log
-      proto_service: admin.service.v1.DataAccessAuditLogService
-      entity: DataAccessAuditLog
-      dto_import: admin/api/gen/audit/v1
-      dto_type: DataAccessAuditLog
-      repo_interface: DataAccessAuditLogRepo
-      filters:
-        allow:
-            - id
-            - user_id
-            - username
-            - ip_address
-            - request_id
-            - trace_id
-            - data_source
-            - table_name
-            - data_id
-            - access_type
-            - sql_digest
-            - sql_text
-            - affected_rows
-            - latency_ms
-            - sensitive_level
-            - masking_rules
-            - business_purpose
-            - data_category
-            - db_user
-            - log_hash
-            - tenant_id
-            - created_at
-      operations:
-        get: true
-        list: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: dict_category
-      proto_service: admin.service.v1.DictCategoryService
-      entity: DictCategory
-      dto_import: admin/api/gen/dict/v1
-      dto_type: DictCategory
-      repo_interface: DictCategoryRepo
-      repo_methods:
-        List:
-          body: |
-            if req == nil {
-            	return nil, fmt.Errorf("invalid parameter")
-            }
-
-            builder := r.entClient.Client().DictCategory.Query()
-            countBuilder := r.entClient.Client().DictCategory.Query()
-            if tenantID := viewerTenantID(ctx); tenantID != nil {
-            	builder.Where(dictcategory.Or(
-            		dictcategory.TenantIDIsNil(),
-            		dictcategory.TenantIDEQ(platformTenantID),
-            		dictcategory.TenantIDEQ(*tenantID),
-            	))
-            	countBuilder.Where(dictcategory.Or(
-            		dictcategory.TenantIDIsNil(),
-            		dictcategory.TenantIDEQ(platformTenantID),
-            		dictcategory.TenantIDEQ(*tenantID),
-            	))
-            }
-
-            if err := r.applyGeneratedFilters(builder, req); err != nil {
-            	return nil, err
-            }
-            if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
-            	return nil, err
-            }
-
-            listReq := &v1.PagingRequest{
-            	Page: req.Page,
-            	PageSize: req.PageSize,
-            	Offset: req.Offset,
-            	Limit: req.Limit,
-            	Token: req.Token,
-            	NoPaging: req.NoPaging,
-            	OrderBy: req.OrderBy,
-            	Sorting: req.Sorting,
-            	FieldMask: req.FieldMask,
-            }
-            listReq.Sorting = withDefaultSorting(listReq.Sorting, "sort_order", paginationv1.Sorting_ASC)
-            if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
-            	limit := uint32(20)
-            	offset := req.GetOffset()
-            	listReq.Limit = &limit
-            	listReq.Offset = &offset
-            }
-            if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
-            	return nil, err
-            }
-
-            total, err := countBuilder.Count(ctx)
-            if err != nil {
-            	r.log.Errorf("count dict_category failed: %s", err.Error())
-            	return nil, err
-            }
-            entities, err := builder.All(ctx)
-            if err != nil {
-            	r.log.Errorf("list dict_category failed: %s", err.Error())
-            	return nil, err
-            }
-
-            items := make([]*dictv1.DictCategory, 0, len(entities))
-            if custom, ok := any(r).(interface {
-            	dictCategoryEnrichListDTOs(context.Context, []*ent.DictCategory) ([]*dictv1.DictCategory, error)
-            }); ok {
-            	items, err = custom.dictCategoryEnrichListDTOs(ctx, entities)
-            	if err != nil {
-            		return nil, err
-            	}
-            } else {
-            	for _, entity := range entities {
-            		items = append(items, r.mapper.ToDTO(entity))
-            	}
-            }
-
-            return &dictv1.ListDictCategoryResponse{Total: uint64(total), Items: items}, nil
-        Get:
-          body: |
-            if req == nil {
-            	return nil, fmt.Errorf("invalid parameter")
-            }
-
-            builder := r.entClient.Client().DictCategory.Query()
-            switch req.GetQueryBy().(type) {
-            case *dictv1.GetDictCategoryRequest_Id:
-            	builder.Where(dictcategory.IDEQ(req.GetId()))
-            case *dictv1.GetDictCategoryRequest_CategoryKey:
-            	builder.Where(dictcategory.CategoryKeyEQ(req.GetCategoryKey()))
-            default:
-            	return nil, fmt.Errorf("invalid query by type")
-            }
-
-            entity, err := builder.Only(ctx)
-            if err != nil {
-            	r.log.Errorf("get dict_category failed: %s", err.Error())
-            	return nil, err
-            }
-            if err := ensureHybridTenantAccessible(ctx, entity.TenantID); err != nil {
-            	return nil, err
-            }
-
-            dto := r.mapper.ToDTO(entity)
-            if custom, ok := any(r).(interface {
-            	dictCategoryEnrichGetDTO(context.Context, []*ent.DictCategory) ([]*dictv1.DictCategory, error)
-            }); ok {
-            	items, err := custom.dictCategoryEnrichGetDTO(ctx, []*ent.DictCategory{entity})
-            	if err != nil {
-            		return nil, err
-            	}
-            	if len(items) == 0 {
-            		return nil, fmt.Errorf("dict_category relation hydration returned no result")
-            	}
-            	dto = items[0]
-            }
-
-            return dto, nil
-      tree:
-        parent_field: parent_id
-        path_field: path
-        children_field: children
-        list_method: ListTree
-      filters:
-        allow:
-            - id
-            - parent_id
-            - path
-            - category_key
-            - category_name
-            - category_level
-            - scene
-            - is_builtin
-            - is_enabled
-            - created_by
-            - updated_by
-            - deleted_by
-            - sort_order
-            - tenant_id
-            - remark
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: dict_label
-      proto_service: admin.service.v1.DictLabelService
-      entity: DictLabel
-      dto_import: admin/api/gen/dict/v1
-      dto_type: DictLabel
-      repo_interface: DictLabelRepo
-      repo_methods:
-        List:
-          body: |
-            if req == nil {
-            	return nil, fmt.Errorf("invalid parameter")
-            }
-
-            builder := r.entClient.Client().DictLabel.Query()
-            countBuilder := r.entClient.Client().DictLabel.Query()
-            if tenantID := viewerTenantID(ctx); tenantID != nil {
-            	builder.Where(dictlabel.Or(
-            		dictlabel.TenantIDIsNil(),
-            		dictlabel.TenantIDEQ(platformTenantID),
-            		dictlabel.TenantIDEQ(*tenantID),
-            	))
-            	countBuilder.Where(dictlabel.Or(
-            		dictlabel.TenantIDIsNil(),
-            		dictlabel.TenantIDEQ(platformTenantID),
-            		dictlabel.TenantIDEQ(*tenantID),
-            	))
-            }
-
-            if err := r.applyGeneratedFilters(builder, req); err != nil {
-            	return nil, err
-            }
-            if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
-            	return nil, err
-            }
-
-            listReq := &v1.PagingRequest{
-            	Page: req.Page,
-            	PageSize: req.PageSize,
-            	Offset: req.Offset,
-            	Limit: req.Limit,
-            	Token: req.Token,
-            	NoPaging: req.NoPaging,
-            	OrderBy: req.OrderBy,
-            	Sorting: req.Sorting,
-            	FieldMask: req.FieldMask,
-            }
-            listReq.Sorting = withDefaultSorting(listReq.Sorting, "sort_order", paginationv1.Sorting_ASC)
-            if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
-            	limit := uint32(20)
-            	offset := req.GetOffset()
-            	listReq.Limit = &limit
-            	listReq.Offset = &offset
-            }
-            if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
-            	return nil, err
-            }
-
-            total, err := countBuilder.Count(ctx)
-            if err != nil {
-            	r.log.Errorf("count dict_label failed: %s", err.Error())
-            	return nil, err
-            }
-            entities, err := builder.All(ctx)
-            if err != nil {
-            	r.log.Errorf("list dict_label failed: %s", err.Error())
-            	return nil, err
-            }
-
-            items := make([]*dictv1.DictLabel, 0, len(entities))
-            if custom, ok := any(r).(interface {
-            	dictLabelEnrichListDTOs(context.Context, []*ent.DictLabel) ([]*dictv1.DictLabel, error)
-            }); ok {
-            	items, err = custom.dictLabelEnrichListDTOs(ctx, entities)
-            	if err != nil {
-            		return nil, err
-            	}
-            } else {
-            	for _, entity := range entities {
-            		items = append(items, r.mapper.ToDTO(entity))
-            	}
-            }
-
-            return &dictv1.ListDictLabelResponse{Total: uint64(total), Items: items}, nil
-        Get:
-          body: |
-            if req == nil {
-            	return nil, fmt.Errorf("invalid parameter")
-            }
-
-            builder := r.entClient.Client().DictLabel.Query()
-            switch req.GetQueryBy().(type) {
-            case *dictv1.GetDictLabelRequest_Id:
-            	builder.Where(dictlabel.IDEQ(req.GetId()))
-            case *dictv1.GetDictLabelRequest_LabelKey:
-            	builder.Where(dictlabel.LabelKeyEQ(req.GetLabelKey()))
-            default:
-            	return nil, fmt.Errorf("invalid query by type")
-            }
-
-            entity, err := builder.Only(ctx)
-            if err != nil {
-            	r.log.Errorf("get dict_label failed: %s", err.Error())
-            	return nil, err
-            }
-            if err := ensureHybridTenantAccessible(ctx, entity.TenantID); err != nil {
-            	return nil, err
-            }
-
-            dto := r.mapper.ToDTO(entity)
-            if custom, ok := any(r).(interface {
-            	dictLabelEnrichGetDTO(context.Context, []*ent.DictLabel) ([]*dictv1.DictLabel, error)
-            }); ok {
-            	items, err := custom.dictLabelEnrichGetDTO(ctx, []*ent.DictLabel{entity})
-            	if err != nil {
-            		return nil, err
-            	}
-            	if len(items) == 0 {
-            		return nil, fmt.Errorf("dict_label relation hydration returned no result")
-            	}
-            	dto = items[0]
-            }
-
-            return dto, nil
-        Create:
-          imports:
-            - path: encoding/json
-            - path: strings
-          body: |
-            if req == nil || req.Data == nil {
-            	return nil, fmt.Errorf("invalid parameter")
-            }
-            if custom, ok := any(r).(interface {
-            	dictLabelCustomCreate(ctx context.Context, req *dictv1.CreateDictLabelRequest) (*emptypb.Empty, error)
-            }); ok {
-            	return custom.dictLabelCustomCreate(ctx, req)
-            }
-
-            builder := r.entClient.Client().DictLabel.Create()
-            now, viewer := r.generatedAuditContext(ctx)
-            builder.SetCategoryID(req.Data.GetCategoryId())
-            builder.SetLabelKey(req.Data.GetLabelKey())
-            builder.SetNillableLabelCode(req.Data.LabelCode)
-            builder.SetLabelKind(dictlabel.LabelKind(req.Data.GetLabelKind().String()))
-            builder.SetNillableDefaultText(req.Data.DefaultText)
-            if req.Data.PayloadJson != nil {
-            	payloadJSON := strings.TrimSpace(req.Data.GetPayloadJson())
-            	payloadValue := map[string]any{}
-            	if payloadJSON != "" {
-            		if err := json.Unmarshal([]byte(payloadJSON), &payloadValue); err != nil {
-            			return nil, fmt.Errorf("invalid payload_json: %w", err)
-            		}
-            	}
-            	builder.SetPayloadJSON(payloadValue)
-            }
-            builder.SetIsBuiltin(req.Data.GetIsBuiltin())
-            builder.SetStatus(dictlabel.Status(req.Data.GetStatus().String()))
-            builder.SetNillableSortOrder(req.Data.SortOrder)
-            builder.SetNillableTenantID(req.Data.TenantId)
-            builder.SetNillableRemark(req.Data.Remark)
-            builder.SetCreatedAt(now)
-            builder.SetCreatedBy(uint32(viewer.UserID()))
-
-            entity, err := builder.Save(ctx)
-            if err != nil {
-            	r.log.Errorf("insert dict_label failed: %s", err.Error())
-            	return nil, err
-            }
-
-            _ = entity
-            return nil, nil
-        Update:
-          imports:
-            - path: encoding/json
-            - path: strings
-          body: |
-            if req == nil || req.Data == nil {
-            	return nil, fmt.Errorf("invalid parameter")
-            }
-            if custom, ok := any(r).(interface {
-            	dictLabelCustomUpdate(ctx context.Context, req *dictv1.UpdateDictLabelRequest) (*emptypb.Empty, error)
-            }); ok {
-            	return custom.dictLabelCustomUpdate(ctx, req)
-            }
-            builder := r.entClient.Client().DictLabel.UpdateOneID(req.GetId())
-            now, viewer := r.generatedAuditContext(ctx)
-            builder.SetCategoryID(req.Data.GetCategoryId())
-            if req.Data.LabelCode != nil {
-            	builder.SetNillableLabelCode(req.Data.LabelCode)
-            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "label_code", "labelCode") {
-            	builder.ClearLabelCode()
-            }
-            builder.SetLabelKind(dictlabel.LabelKind(req.Data.GetLabelKind().String()))
-            if req.Data.DefaultText != nil {
-            	builder.SetNillableDefaultText(req.Data.DefaultText)
-            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "default_text", "defaultText") {
-            	builder.ClearDefaultText()
-            }
-            if req.Data.PayloadJson != nil {
-            	payloadJSON := strings.TrimSpace(req.Data.GetPayloadJson())
-            	payloadValue := map[string]any{}
-            	if payloadJSON != "" {
-            		if err := json.Unmarshal([]byte(payloadJSON), &payloadValue); err != nil {
-            			return nil, fmt.Errorf("invalid payload_json: %w", err)
-            		}
-            	}
-            	builder.SetPayloadJSON(payloadValue)
-            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "payload_json", "payloadJson") {
-            	builder.ClearPayloadJSON()
-            }
-            builder.SetIsBuiltin(req.Data.GetIsBuiltin())
-            builder.SetStatus(dictlabel.Status(req.Data.GetStatus().String()))
-            if req.Data.SortOrder != nil {
-            	builder.SetNillableSortOrder(req.Data.SortOrder)
-            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "sort_order", "sortOrder") {
-            	builder.ClearSortOrder()
-            }
-            if req.Data.Remark != nil {
-            	builder.SetNillableRemark(req.Data.Remark)
-            } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "remark") {
-            	builder.ClearRemark()
-            }
-            builder.SetUpdatedAt(now)
-            builder.SetUpdatedBy(uint32(viewer.UserID()))
-
-            if err := builder.Exec(ctx); err != nil {
-            	r.log.Errorf("update dict_label failed: %s", err.Error())
-            	return nil, err
-            }
-
-            return nil, nil
-      aggregates:
-        - name: labelI18n
-          resource: dict_label_i18n
-          foreign_key: label_id
-          parent_field: id
-          collection_field: items_i18n
-          current_field: current_i18n
-          primary: true
-      filters:
-        allow:
-            - id
-            - category_id
-            - category_key
-            - label_key
-            - label_code
-            - label_kind
-            - default_text
-            - is_builtin
-            - is_enabled
-            - status
-            - sort_order
-            - tenant_id
-            - created_by
-            - updated_by
-            - deleted_by
-            - remark
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: dict_label_i18n
-      proto_service: admin.service.v1.DictLabelI18nService
-      entity: DictLabelI18n
-      dto_import: admin/api/gen/dict/v1
-      dto_type: DictLabelI18N
-      repo_interface: DictLabelI18nRepo
-      filters:
-        allow:
-            - id
-            - label_id
-            - label_key
-            - language_code
-            - language_name
-            - text_value
-            - short_text
-            - tenant_id
-            - created_by
-            - updated_by
-            - deleted_by
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: file
-      proto_service: admin.service.v1.FileService
-      entity: File
-      dto_import: admin/api/gen/storage/v1
-      dto_type: File
-      tenant_scope: tenant_scoped
-      repo_interface: FileRepo
-      filters:
-        allow:
-            - id
-            - provider
-            - bucket_name
-            - file_directory
-            - file_guid
-            - save_file_name
-            - file_name
-            - extension
-            - size
-            - size_format
-            - link_url
-            - content_hash
-            - created_by
-            - updated_by
-            - deleted_by
-            - remark
-            - tenant_id
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: internal_message
-      proto_service: admin.service.v1.InternalMessageService
-      entity: InternalMessage
-      dto_import: admin/api/gen/internal_message/v1
-      dto_type: InternalMessage
-      repo_interface: InternalMessageRepo
-      service_repos:
-        - field: internalMessageRecipientRepo
-          interface: InternalMessageRecipientRepo
-      service_methods:
-        ListMessage:
-          body: |
-            if {{param.req}} == nil {
-            	return nil, v11.ErrorBadRequest("paging request is required")
-            }
-            listReq := repo.PagingRequest{
-            	Limit: int({{param.req}}.GetLimit()),
-            	Offset: int({{param.req}}.GetOffset()),
-            	Sorting: {{param.req}}.GetSorting(),
-            }
-            return s.{{repoField}}.ListByPaging({{ctx}}, listReq)
-        GetMessage:
-          body: |
-            if {{param.req}} == nil {
-            	return nil, v11.ErrorBadRequest("request is required")
-            }
-            return s.{{repoField}}.GetByID({{ctx}}, {{param.req}}.GetId())
-        UpdateMessage:
-          imports:
-            - alias: crudviewer
-              path: github.com/chnxq/x-crud/viewer
-          body: |
-            if {{param.req}} == nil || {{param.req}}.Data == nil {
-            	return nil, v11.ErrorBadRequest("message payload is required")
-            }
-            viewer := crudviewer.MustFromContext({{ctx}})
-            updatedBy := uint32(viewer.UserID())
-            {{param.req}}.Data.UpdatedBy = &updatedBy
-            if err := s.{{repoField}}.UpdateByID({{ctx}}, {{param.req}}.GetId(), {{param.req}}.Data); err != nil {
-            	return nil, err
-            }
-            return {{successReturn}}, nil
-        DeleteMessage:
-          body: |
-            if {{param.req}} == nil {
-            	return nil, v11.ErrorBadRequest("request is required")
-            }
-            if err := s.{{repoField}}.DeleteByID({{ctx}}, {{param.req}}.GetId()); err != nil {
-            	return nil, err
-            }
-            return {{successReturn}}, nil
-        SendMessage:
-          imports:
-            - alias: crudviewer
-              path: github.com/chnxq/x-crud/viewer
-          body: |
-            if {{param.req}} == nil {
-            	return nil, v11.ErrorBadRequest("request is required")
-            }
-
-            title := normalizeRequiredText({{param.req}}.GetTitle())
-            content := normalizeRequiredText({{param.req}}.GetContent())
-            if title == "" || content == "" {
-            	return nil, v11.ErrorBadRequest("title and content are required")
-            }
-
-            viewer := crudviewer.MustFromContext({{ctx}})
-            senderID := uint32(viewer.UserID())
-            tenantID := uint32(viewer.TenantID())
-
-            recipientIDs := {{param.req}}.GetTargetUserIds()
-            if {{param.req}}.GetTargetAll() {
-            	var err error
-            	recipientIDs, err = s.listAllUserIDs({{ctx}})
-            	if err != nil {
-            		return nil, err
-            	}
-            }
-            if {{param.req}}.GetRecipientUserId() > 0 {
-            	recipientIDs = append(recipientIDs, {{param.req}}.GetRecipientUserId())
-            }
-            recipientIDs = dedupeUint32(recipientIDs)
-            if len(recipientIDs) == 0 {
-            	return nil, v11.ErrorBadRequest("recipient ids are required")
-            }
-
-            var categoryID *uint32
-            if {{param.req}}.GetCategoryId() > 0 {
-            	value := {{param.req}}.GetCategoryId()
-            	categoryID = &value
-            }
-
-            messageID, err := s.{{repoField}}.CreateAndSend({{ctx}}, repo.SendMessageArgs{
-            	Title: title,
-            	Content: content,
-            	Type: {{param.req}}.GetType(),
-            	CategoryID: categoryID,
-            	SenderID: senderID,
-            	TenantID: tenantID,
-            	RecipientIDs: recipientIDs,
-            })
-            if err != nil {
-            	return nil, err
-            }
-
-            s.publishNotificationEvents({{ctx}}, recipientIDs, messageID, title, content)
-            return &v11.SendMessageResponse{MessageId: messageID}, nil
-        RevokeMessage:
-          imports:
-            - alias: crudviewer
-              path: github.com/chnxq/x-crud/viewer
-          body: |
-            if {{param.req}} == nil || {{param.req}}.GetMessageId() == 0 {
-            	return nil, v11.ErrorBadRequest("message id is required")
-            }
-            viewer := crudviewer.MustFromContext({{ctx}})
-            if err := s.{{repoField}}.Revoke({{ctx}}, repo.RevokeMessageArgs{
-            	MessageID: {{param.req}}.GetMessageId(),
-            	SenderID: uint32(viewer.UserID()),
-            }); err != nil {
-            	return nil, err
-            }
-            return {{successReturn}}, nil
-      filters:
-        allow:
-            - id
-            - title
-            - content
-            - sender_id
-            - category_id
-            - status
-            - type
-            - created_by
-            - updated_by
-            - deleted_by
-            - tenant_id
-      generate:
-        service_stub: true
-        rest_register: true
-        grpc_register: true
-    - name: internal_message_category
-      proto_service: admin.service.v1.InternalMessageCategoryService
-      entity: InternalMessageCategory
-      dto_import: admin/api/gen/internal_message/v1
-      dto_type: InternalMessageCategory
-      repo_interface: InternalMessageCategoryRepo
-      filters:
-        allow:
-            - id
-            - name
-            - code
-            - icon_url
-            - created_by
-            - updated_by
-            - deleted_by
-            - sort_order
-            - remark
-            - tenant_id
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: internal_message_recipient
-      proto_service: admin.service.v1.InternalMessageRecipientService
-      entity: InternalMessageRecipient
-      dto_import: admin/api/gen/internal_message/v1
-      dto_type: InternalMessageRecipient
-      repo_interface: InternalMessageRecipientRepo
-      service_methods:
-        ListUserInbox:
-          body: |
-            return s.listUserInboxImpl({{ctx}}, {{param.req}})
-        DeleteNotificationFromInbox:
-          body: |
-            return s.deleteNotificationFromInboxImpl({{ctx}}, {{param.req}})
-        MarkNotificationAsRead:
-          body: |
-            return s.markNotificationAsReadImpl({{ctx}}, {{param.req}})
-      filters:
-        allow:
-            - id
-            - message_id
-            - recipient_user_id
-            - status
-            - tenant_id
-      generate:
-        service_stub: true
-        rest_register: true
-        grpc_register: true
-    - name: language
-      proto_service: admin.service.v1.LanguageService
-      entity: Language
-      dto_import: admin/api/gen/dict/v1
-      dto_type: Language
-      repo_interface: LanguageRepo
-      filters:
-        allow:
-            - id
-            - language_code
-            - language_name
-            - native_name
-            - created_by
-            - updated_by
-            - deleted_by
-            - sort_order
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: login_audit_log
-      proto_service: admin.service.v1.LoginAuditLogService
-      entity: LoginAuditLog
-      dto_import: admin/api/gen/audit/v1
-      dto_type: LoginAuditLog
-      repo_interface: LoginAuditLogRepo
-      frontend:
-        view_path: app/log/login-audit-log
-        i18n_prefix: page.loginAuditLog
-        list:
-          columns:
-            - [createdAt, Created At, 创建时间]
-            - [status, Status, 状态]
-            - [username, Username, 用户名]
-            - [actionType, Action Type, 动作类型]
-            - [riskLevel, Risk Level, 风险等级]
-            - [platformSummary, Platform, 平台]
-            - [geoLocationSummary, Geo Location, 地理位置]
-            - [ipAddress, IP Address, IP地址]
-            - [loginMethod, Login Method, 登录方式]
-            - [deviceInfo.userAgent, User-Agent, User-Agent]
-          filters:
-            - [username, Input, Username, 用户名]
-            - [ipAddress, Input, IP Address, IP地址]
-            - [actionType, Select, Action Type, 动作类型]
-            - [riskLevel, Select, Risk Level, 风险等级]
-            - [status, Select, Status, 状态]
-            - [createdAtRange, RangePicker, Created At, 创建时间]
-      filters:
-        allow:
-            - id
-            - user_id
-            - username
-            - ip_address
-            - session_id
-            - request_id
-            - trace_id
-            - action_type
-            - status
-            - login_method
-            - failure_reason
-            - mfa_status
-            - risk_score
-            - risk_level
-            - log_hash
-            - tenant_id
-            - created_at
-      operations:
-        get: true
-        list: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: login_policy
-      proto_service: admin.service.v1.LoginPolicyService
-      entity: LoginPolicy
-      dto_import: admin/api/gen/authentication/v1
-      dto_type: LoginPolicy
-      tenant_scope: tenant_scoped
-      repo_interface: LoginPolicyRepo
-      filters:
-        allow:
-            - id
-            - target_id
-            - value
-            - reason
-            - type
-            - method
-            - created_by
-            - updated_by
-            - deleted_by
-            - tenant_id
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: menu
-      proto_service: admin.service.v1.MenuService
-      entity: Menu
-      dto_import: admin/api/gen/resource/v1
-      dto_type: Menu
-      repo_interface: MenuRepo
-      service_methods:
-        Create:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "menu create"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Create({{ctx}}, {{param.req}})
-        Update:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "menu update"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Update({{ctx}}, {{param.req}})
-        Delete:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "menu delete"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
-      filters:
-        allow:
-            - id
-            - type
-            - path
-            - redirect
-            - alias
-            - name
-            - component
-            - created_by
-            - updated_by
-            - deleted_by
-            - parent_id
-            - remark
-            - status
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: operation_audit_log
-      proto_service: admin.service.v1.OperationAuditLogService
-      entity: OperationAuditLog
-      dto_import: admin/api/gen/audit/v1
-      dto_type: OperationAuditLog
-      repo_interface: OperationAuditLogRepo
-      filters:
-        allow:
-            - id
-            - user_id
-            - username
-            - resource_type
-            - resource_id
-            - action
-            - before_data
-            - after_data
-            - sensitive_level
-            - request_id
-            - trace_id
-            - failure_reason
-            - ip_address
-            - log_hash
-            - tenant_id
-            - created_at
-      operations:
-        get: true
-        list: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: org_unit
-      proto_service: admin.service.v1.OrgUnitService
-      entity: OrgUnit
-      dto_import: admin/api/gen/identity/v1
-      dto_type: OrgUnit
-      tenant_scope: tenant_scoped
-      repo_interface: OrgUnitRepo
-      filters:
-        allow:
-            - id
-            - name
-            - code
-            - leader_id
-            - type
-            - external_id
-            - registration_number
-            - tax_id
-            - legal_entity_org_id
-            - address
-            - phone
-            - email
-            - timezone
-            - country
-            - contact_user_id
-            - created_by
-            - updated_by
-            - deleted_by
-            - status
-            - sort_order
-            - tenant_id
-            - remark
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: permission
-      proto_service: admin.service.v1.PermissionService
-      entity: Permission
-      dto_import: admin/api/gen/permission/v1
-      dto_type: Permission
-      repo_interface: PermissionRepo
-      service_repos:
-        - field: roleRepo
-          interface: RoleRepo
-        - field: permissionGroupRepo
-          interface: PermissionGroupRepo
-        - field: menuRepo
-          interface: MenuRepo
-        - field: apiRepo
-          interface: ApiRepo
-      service_methods:
-        SyncPermissions:
-          body: |
-            _ = {{param.req}}
-            if err := s.syncPermissions({{ctx}}); err != nil {
-            	return nil, err
-            }
-            return {{successReturn}}, nil
-      filters:
-        allow:
-            - id
-            - name
-            - code
-            - group_id
-            - created_by
-            - updated_by
-            - deleted_by
-            - status
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: permission_audit_log
-      proto_service: admin.service.v1.PermissionAuditLogService
-      entity: PermissionAuditLog
-      dto_import: admin/api/gen/audit/v1
-      dto_type: PermissionAuditLog
-      repo_interface: PermissionAuditLogRepo
-      filters:
-        allow:
-            - id
-            - operator_id
-            - target_type
-            - target_id
-            - action
-            - old_value
-            - new_value
-            - ip_address
-            - request_id
-            - reason
-            - log_hash
-            - tenant_id
-      operations:
-        get: true
-        list: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: permission_group
-      proto_service: admin.service.v1.PermissionGroupService
-      entity: PermissionGroup
-      dto_import: admin/api/gen/permission/v1
-      dto_type: PermissionGroup
-      repo_interface: PermissionGroupRepo
-      service_methods:
-        Create:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "permission group create"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Create({{ctx}}, {{param.req}})
-        Update:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "permission group update"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Update({{ctx}}, {{param.req}})
-        Delete:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "permission group delete"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
-      filters:
-        allow:
-            - id
-            - name
-            - module
-            - created_by
-            - updated_by
-            - deleted_by
-            - status
-            - sort_order
-            - parent_id
-            - path
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: policy_evaluation_log
-      proto_service: admin.service.v1.PolicyEvaluationLogService
-      entity: PolicyEvaluationLog
-      dto_import: admin/api/gen/permission/v1
-      dto_type: PolicyEvaluationLog
-      repo_interface: PolicyEvaluationLogRepo
-      filters:
-        allow:
-            - id
-            - user_id
-            - membership_id
-            - permission_id
-            - policy_id
-            - request_path
-            - request_method
-            - effect_details
-            - scope_sql
-            - ip_address
-            - trace_id
-            - evaluation_context
-            - log_hash
-            - tenant_id
-      operations:
-        get: true
-        list: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: position
-      proto_service: admin.service.v1.PositionService
-      entity: Position
-      dto_import: admin/api/gen/identity/v1
-      dto_type: Position
-      tenant_scope: tenant_scoped
-      repo_interface: PositionRepo
-      filters:
-        allow:
-            - id
-            - name
-            - code
-            - org_unit_id
-            - reports_to_position_id
-            - description
-            - job_family
-            - job_grade
-            - level
-            - headcount
-            - type
-            - created_by
-            - updated_by
-            - deleted_by
-            - sort_order
-            - remark
-            - tenant_id
-            - status
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: role
-      proto_service: admin.service.v1.RoleService
-      entity: Role
-      dto_import: admin/api/gen/permission/v1
-      dto_type: Role
-      repo_interface: RoleRepo
-      repo_methods:
-        List:
-          body: |
-            if req == nil {
-            	return nil, fmt.Errorf("invalid parameter")
-            }
-
-            builder := r.roleQueryWithHybridTenantScope(ctx)
-            countBuilder := r.roleQueryWithHybridTenantScope(ctx)
-
-            if err := r.applyGeneratedFilters(builder, req); err != nil {
-            	return nil, err
-            }
-            if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
-            	return nil, err
-            }
-
-            listReq := &v1.PagingRequest{
-            	Page: req.Page,
-            	PageSize: req.PageSize,
-            	Offset: req.Offset,
-            	Limit: req.Limit,
-            	Token: req.Token,
-            	NoPaging: req.NoPaging,
-            	OrderBy: req.OrderBy,
-            	Sorting: req.Sorting,
-            	FieldMask: req.FieldMask,
-            }
-            listReq.Sorting = withDefaultSorting(listReq.Sorting, "sort_order", paginationv1.Sorting_ASC)
-            if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
-            	limit := uint32(20)
-            	offset := req.GetOffset()
-            	listReq.Limit = &limit
-            	listReq.Offset = &offset
-            }
-            if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
-            	return nil, err
-            }
-
-            total, err := countBuilder.Count(ctx)
-            if err != nil {
-            	r.log.Errorf("count role failed: %s", err.Error())
-            	return nil, err
-            }
-            entities, err := builder.All(ctx)
-            if err != nil {
-            	r.log.Errorf("list role failed: %s", err.Error())
-            	return nil, err
-            }
-
-            items, err := r.roleEnrichListDTOs(ctx, entities)
-            if err != nil {
-            	return nil, err
-            }
-            return &permissionv1.ListRoleResponse{Total: uint64(total), Items: items}, nil
-        Get:
-          body: |
-            if req == nil {
-            	return nil, fmt.Errorf("invalid parameter")
-            }
-
-            entity, err := r.entClient.Client().Role.Query().Where(role.IDEQ(req.GetId())).Only(ctx)
-            if err != nil {
-            	r.log.Errorf("get role failed: %s", err.Error())
-            	return nil, err
-            }
-            if err := ensureHybridTenantAccessible(ctx, entity.TenantID); err != nil {
-            	return nil, err
-            }
-
-            items, err := r.roleEnrichGetDTO(ctx, []*ent.Role{entity})
-            if err != nil {
-            	return nil, err
-            }
-            if len(items) == 0 {
-            	return nil, fmt.Errorf("role relation hydration returned no result")
-            }
-            return items[0], nil
-      filters:
-        allow:
-            - id
-            - name
-            - code
-            - type
-            - created_by
-            - updated_by
-            - deleted_by
-            - remark
-            - sort_order
-            - tenant_id
-            - status
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: task_group
-      proto_service: admin.service.v1.TaskGroupService
-      entity: TaskGroup
-      dto_import: admin/api/gen/task/v1
-      dto_type: TaskGroup
-      repo_interface: TaskGroupRepo
-      service_imports:
-        - alias: taskruntime
-          path: '{{module}}/internal/task/runtime'
-      service_fields:
-        - field: taskRepo
-          type: repo.TaskRepo
-        - field: scheduler
-          type: '*taskruntime.Scheduler'
-        - field: runtimeRunner
-          type: '*taskruntime.Runner'
-      service_methods:
-        Create:
-          body: |
-            return s.create({{ctx}}, {{param.req}})
-        Update:
-          body: |
-            return s.update({{ctx}}, {{param.req}})
-        Delete:
-          body: |
-            return s.delete({{ctx}}, {{param.req}})
-        Start:
-          body: |
-            return s.start({{ctx}}, {{param.req}})
-        Stop:
-          body: |
-            return s.stop({{ctx}}, {{param.req}})
-        RunOnce:
-          body: |
-            return s.runOnce({{ctx}}, {{param.req}})
-      filters:
-        allow:
-            - id
-            - group_name
-            - created_by
-            - updated_by
-            - deleted_by
-            - remark
-            - tenant_id
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: task
-      proto_service: admin.service.v1.TaskService
-      entity: Task
-      dto_import: admin/api/gen/task/v1
-      dto_type: Task
-      repo_interface: TaskRepo
-      service_imports:
-        - alias: taskruntime
-          path: '{{module}}/internal/task/runtime'
-      service_fields:
-        - field: taskGroupRepo
-          type: repo.TaskGroupRepo
-        - field: scheduler
-          type: '*taskruntime.Scheduler'
-        - field: runtimeRunner
-          type: '*taskruntime.Runner'
-      service_methods:
-        Create:
-          body: |
-            return s.create({{ctx}}, {{param.req}})
-        Update:
-          body: |
-            return s.update({{ctx}}, {{param.req}})
-        Delete:
-          body: |
-            return s.delete({{ctx}}, {{param.req}})
-        Start:
-          body: |
-            return s.start({{ctx}}, {{param.req}})
-        Stop:
-          body: |
-            return s.stop({{ctx}}, {{param.req}})
-        RunOnce:
-          body: |
-            return s.runOnce({{ctx}}, {{param.req}})
-      filters:
-        allow:
-            - id
-            - task_name
-            - group_id
-            - task_type
-            - cron_expression
-            - invoke_target
-            - args
-            - retry
-            - concurrent
-            - entry_id
-            - status
-            - created_by
-            - updated_by
-            - deleted_by
-            - remark
-            - tenant_id
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: task_log
-      proto_service: admin.service.v1.TaskLogService
-      entity: TaskLog
-      dto_import: admin/api/gen/task/v1
-      dto_type: TaskLog
-      repo_interface: TaskLogRepo
-      filters:
-        allow:
-            - id
-            - task_id
-            - input
-            - output
-            - error
-            - status
-            - process_time
-            - execute_time
-            - tenant_id
-      operations:
-        delete: true
-        get: true
-        list: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: tenant
-      proto_service: admin.service.v1.TenantService
-      entity: Tenant
-      dto_import: admin/api/gen/identity/v1
-      dto_type: Tenant
-      repo_interface: TenantRepo
-      frontend:
-        view_path: system/tenant
-        i18n_prefix: page.tenant
-        list:
-          columns:
-            - [name, Tenant, 租户]
-            - [domain, Domain, 域名]
-            - [type, Type, 类型]
-            - [status, Status, 状态]
-            - [auditStatus, Audit Status, 审核状态]
-            - [memberCount, Member Count, 成员数量]
-            - [createdAt, Created At, 创建时间]
-          filters:
-            - [name, Input, Tenant, 租户]
-            - [code, Input, Code, 租户编码]
-        form:
-          fields:
-            - [name, Tenant, 租户]
-            - [code, Code, 租户编号]
-            - [domain, Domain, 租户专属域名]
-            - [logoUrl, Logo Url, 租户Logo地址]
-            - [industry, Industry, 所属行业]
-            - [type, Type, 租户类型]
-            - [status, Status, 租户状态]
-            - [auditStatus, Audit Status, 审核状态]
-            - [subscriptionPlan, Subscription Plan, 订阅套餐]
-            - [remark, Remark, 备注]
-      service_methods:
-        Create:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "tenant create"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Create({{ctx}}, {{param.req}})
-        Update:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "tenant update"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Update({{ctx}}, {{param.req}})
-        Delete:
-          imports:
-            - alias: identityv1
-              path: '{{module}}/api/gen/identity/v1'
-          body: |
-            if _, err := requirePlatformContext({{ctx}}, "tenant delete"); err != nil {
-            	return nil, identityv1.ErrorForbidden("%s", err.Error())
-            }
-            return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
-      filters:
-        allow:
-            - id
-            - name
-            - code
-            - logo_url
-            - domain
-            - industry
-            - admin_user_id
-            - status
-            - type
-            - audit_status
-            - subscription_plan
-            - created_by
-            - updated_by
-            - deleted_by
-            - remark
-      operations:
-        create: true
-        delete: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: user
-      proto_service: admin.service.v1.UserService
-      entity: User
-      dto_import: admin/api/gen/identity/v1
-      dto_type: User
-      tenant_scope: tenant_scoped
-      repo_interface: UserRepo
-      exists_fields:
+  - name: api
+    proto_service: admin.service.v1.ApiService
+    entity: Api
+    dto_import: admin/api/gen/resource/v1
+    dto_type: Api
+    repo_interface: ApiRepo
+    frontend:
+      view_path: system/api
+      i18n_prefix: page.api
+      list:
+        columns:
+          - [description, Description, 描述, 220]
+          - [path, Path, 路径, 260]
+          - field: method
+            en: Method
+            cn: 请求方法
+            width: 100
+            slot: method
+          - [module, Module, 模块, 150]
+          - [moduleDescription, Module Description, 模块描述, 180]
+          - [operation, Operation, 操作, 220]
+          - field: scope
+            en: Scope
+            cn: 作用域
+            width: 120
+            slot: scope
+          - [status, Status, 状态, 100]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [method, Select, Method, 请求方法]
+          - [module, Input, Module, 模块]
+          - [path, Input, Path, 路径]
+      form:
+        fields:
+          - [path, Path, 路径]
+          - [method, Method, 请求方法]
+          - [description, Description, 描述]
+          - [module, Module, 模块]
+          - [moduleDescription, Module Description, 模块描述]
+          - [operation, Operation, 操作]
+          - [scope, Scope, 作用域]
+          - [status, Status, 状态]
+    service_methods:
+      Create:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "api create"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Create({{ctx}}, {{param.req}})
+      Update:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "api update"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Update({{ctx}}, {{param.req}})
+      Delete:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "api delete"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
+      SyncApis:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "api sync"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          if custom, ok := any(s.{{repoField}}).(interface {
+          	SyncApisFromOpenAPI(context.Context) error
+          }); ok {
+          	if err := custom.SyncApisFromOpenAPI({{ctx}}); err != nil {
+          		return nil, err
+          	}
+          	return {{successReturn}}, nil
+          }
+          return {{successReturn}}, nil
+      GetWalkRouteData:
+        imports:
+          - path: fmt
+        body: |
+          _ = {{param.req}}
+          if reader, ok := s.{{repoField}}.(repo.ApiOpenAPISyncer); ok {
+          	return reader.GetOpenAPIRouteData({{ctx}})
+          }
+          return nil, fmt.Errorf("api repo does not support OpenAPI route data")
+    filters:
+      allow:
+        - id
+        - description
+        - module
+        - module_description
+        - operation
+        - path
+        - method
+        - scope
+        - created_by
+        - updated_by
+        - deleted_by
+        - status
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: api_audit_log
+    proto_service: admin.service.v1.ApiAuditLogService
+    entity: ApiAuditLog
+    dto_import: admin/api/gen/audit/v1
+    dto_type: ApiAuditLog
+    repo_interface: ApiAuditLogRepo
+    frontend:
+      view_path: app/log/api-audit-log
+      i18n_prefix: page.apiAuditLog
+      list:
+        columns:
+          - [createdAt, Created At, 创建时间, 150]
+          - [successSummary, Status Code, 状态码, 120]
+          - [username, Username, 用户名, 140]
+          - [httpMethod, HTTP Method, 请求方法, 100]
+          - [path, Path, 路径, 260]
+          - field: latencyMs
+            en: Latency Ms
+            cn: 延迟毫秒
+            width: 120
+            slot: latencyMs
+          - [platformSummary, Platform, 平台, 170]
+          - [geoLocationSummary, Geo Location, 地理位置, 220]
+          - [ipAddress, IP Address, IP地址, 140]
+          - [apiOperation, Api Operation, 接口操作, 180]
+        filters:
+          - [username, Input, Username, 用户]
+          - [path, Input, Path, 路径]
+          - [httpMethod, Select, HTTP Method, 请求方法]
+          - [apiModule, Input, API Module, 业务模块]
+          - [statusCode, InputNumber, Status Code, HTTP状态]
+          - [reason, Input, Reason, 操作失败原因]
+          - [createdAtRange, RangePicker, Created At, 创建时间]
+    filters:
+      allow:
+        - id
+        - user_id
+        - username
+        - ip_address
+        - referer
+        - app_version
+        - http_method
+        - path
+        - request_uri
+        - api_module
+        - api_operation
+        - api_description
+        - request_id
+        - trace_id
+        - span_id
+        - latency_ms
+        - status_code
+        - reason
+        - request_header
+        - request_body
+        - response
+        - log_hash
+        - tenant_id
+        - created_at
+    operations:
+      get: true
+      list: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: data_access_audit_log
+    proto_service: admin.service.v1.DataAccessAuditLogService
+    entity: DataAccessAuditLog
+    dto_import: admin/api/gen/audit/v1
+    dto_type: DataAccessAuditLog
+    repo_interface: DataAccessAuditLogRepo
+    filters:
+      allow:
+        - id
+        - user_id
+        - username
+        - ip_address
+        - request_id
+        - trace_id
+        - data_source
+        - table_name
+        - data_id
+        - access_type
+        - sql_digest
+        - sql_text
+        - affected_rows
+        - latency_ms
+        - sensitive_level
+        - masking_rules
+        - business_purpose
+        - data_category
+        - db_user
+        - log_hash
+        - tenant_id
+        - created_at
+    operations:
+      get: true
+      list: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: dict_category
+    proto_service: admin.service.v1.DictCategoryService
+    entity: DictCategory
+    dto_import: admin/api/gen/dict/v1
+    dto_type: DictCategory
+    repo_interface: DictCategoryRepo
+    repo_methods:
+      List:
+        body: |
+          if req == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+          
+          builder := r.entClient.Client().DictCategory.Query()
+          countBuilder := r.entClient.Client().DictCategory.Query()
+          if tenantID := viewerTenantID(ctx); tenantID != nil {
+          	builder.Where(dictcategory.Or(
+          		dictcategory.TenantIDIsNil(),
+          		dictcategory.TenantIDEQ(platformTenantID),
+          		dictcategory.TenantIDEQ(*tenantID),
+          	))
+          	countBuilder.Where(dictcategory.Or(
+          		dictcategory.TenantIDIsNil(),
+          		dictcategory.TenantIDEQ(platformTenantID),
+          		dictcategory.TenantIDEQ(*tenantID),
+          	))
+          }
+          
+          if err := r.applyGeneratedFilters(builder, req); err != nil {
+          	return nil, err
+          }
+          if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
+          	return nil, err
+          }
+          
+          listReq := &v1.PagingRequest{
+          	Page: req.Page,
+          	PageSize: req.PageSize,
+          	Offset: req.Offset,
+          	Limit: req.Limit,
+          	Token: req.Token,
+          	NoPaging: req.NoPaging,
+          	OrderBy: req.OrderBy,
+          	Sorting: req.Sorting,
+          	FieldMask: req.FieldMask,
+          }
+          listReq.Sorting = withDefaultSorting(listReq.Sorting, "sort_order", paginationv1.Sorting_ASC)
+          if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
+          	limit := uint32(20)
+          	offset := req.GetOffset()
+          	listReq.Limit = &limit
+          	listReq.Offset = &offset
+          }
+          if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
+          	return nil, err
+          }
+          
+          total, err := countBuilder.Count(ctx)
+          if err != nil {
+          	r.log.Errorf("count dict_category failed: %s", err.Error())
+          	return nil, err
+          }
+          entities, err := builder.All(ctx)
+          if err != nil {
+          	r.log.Errorf("list dict_category failed: %s", err.Error())
+          	return nil, err
+          }
+          
+          items := make([]*dictv1.DictCategory, 0, len(entities))
+          if custom, ok := any(r).(interface {
+          	dictCategoryEnrichListDTOs(context.Context, []*ent.DictCategory) ([]*dictv1.DictCategory, error)
+          }); ok {
+          	items, err = custom.dictCategoryEnrichListDTOs(ctx, entities)
+          	if err != nil {
+          		return nil, err
+          	}
+          } else {
+          	for _, entity := range entities {
+          		items = append(items, r.mapper.ToDTO(entity))
+          	}
+          }
+          
+          return &dictv1.ListDictCategoryResponse{Total: uint64(total), Items: items}, nil
+      Get:
+        body: |
+          if req == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+          
+          builder := r.entClient.Client().DictCategory.Query()
+          switch req.GetQueryBy().(type) {
+          case *dictv1.GetDictCategoryRequest_Id:
+          	builder.Where(dictcategory.IDEQ(req.GetId()))
+          case *dictv1.GetDictCategoryRequest_CategoryKey:
+          	builder.Where(dictcategory.CategoryKeyEQ(req.GetCategoryKey()))
+          default:
+          	return nil, fmt.Errorf("invalid query by type")
+          }
+          
+          entity, err := builder.Only(ctx)
+          if err != nil {
+          	r.log.Errorf("get dict_category failed: %s", err.Error())
+          	return nil, err
+          }
+          if err := ensureHybridTenantAccessible(ctx, entity.TenantID); err != nil {
+          	return nil, err
+          }
+          
+          dto := r.mapper.ToDTO(entity)
+          if custom, ok := any(r).(interface {
+          	dictCategoryEnrichGetDTO(context.Context, []*ent.DictCategory) ([]*dictv1.DictCategory, error)
+          }); ok {
+          	items, err := custom.dictCategoryEnrichGetDTO(ctx, []*ent.DictCategory{entity})
+          	if err != nil {
+          		return nil, err
+          	}
+          	if len(items) == 0 {
+          		return nil, fmt.Errorf("dict_category relation hydration returned no result")
+          	}
+          	dto = items[0]
+          }
+          
+          return dto, nil
+    tree:
+      parent_field: parent_id
+      path_field: path
+      children_field: children
+      list_method: ListTree
+    filters:
+      allow:
+        - id
+        - parent_id
+        - path
+        - category_key
+        - category_name
+        - category_level
+        - scene
+        - is_builtin
+        - is_enabled
+        - created_by
+        - updated_by
+        - deleted_by
+        - sort_order
+        - tenant_id
+        - remark
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: dict_label
+    proto_service: admin.service.v1.DictLabelService
+    entity: DictLabel
+    dto_import: admin/api/gen/dict/v1
+    dto_type: DictLabel
+    repo_interface: DictLabelRepo
+    repo_methods:
+      List:
+        body: |
+          if req == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+          
+          builder := r.entClient.Client().DictLabel.Query()
+          countBuilder := r.entClient.Client().DictLabel.Query()
+          if tenantID := viewerTenantID(ctx); tenantID != nil {
+          	builder.Where(dictlabel.Or(
+          		dictlabel.TenantIDIsNil(),
+          		dictlabel.TenantIDEQ(platformTenantID),
+          		dictlabel.TenantIDEQ(*tenantID),
+          	))
+          	countBuilder.Where(dictlabel.Or(
+          		dictlabel.TenantIDIsNil(),
+          		dictlabel.TenantIDEQ(platformTenantID),
+          		dictlabel.TenantIDEQ(*tenantID),
+          	))
+          }
+          
+          if err := r.applyGeneratedFilters(builder, req); err != nil {
+          	return nil, err
+          }
+          if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
+          	return nil, err
+          }
+          
+          listReq := &v1.PagingRequest{
+          	Page: req.Page,
+          	PageSize: req.PageSize,
+          	Offset: req.Offset,
+          	Limit: req.Limit,
+          	Token: req.Token,
+          	NoPaging: req.NoPaging,
+          	OrderBy: req.OrderBy,
+          	Sorting: req.Sorting,
+          	FieldMask: req.FieldMask,
+          }
+          listReq.Sorting = withDefaultSorting(listReq.Sorting, "sort_order", paginationv1.Sorting_ASC)
+          if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
+          	limit := uint32(20)
+          	offset := req.GetOffset()
+          	listReq.Limit = &limit
+          	listReq.Offset = &offset
+          }
+          if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
+          	return nil, err
+          }
+          
+          total, err := countBuilder.Count(ctx)
+          if err != nil {
+          	r.log.Errorf("count dict_label failed: %s", err.Error())
+          	return nil, err
+          }
+          entities, err := builder.All(ctx)
+          if err != nil {
+          	r.log.Errorf("list dict_label failed: %s", err.Error())
+          	return nil, err
+          }
+          
+          items := make([]*dictv1.DictLabel, 0, len(entities))
+          if custom, ok := any(r).(interface {
+          	dictLabelEnrichListDTOs(context.Context, []*ent.DictLabel) ([]*dictv1.DictLabel, error)
+          }); ok {
+          	items, err = custom.dictLabelEnrichListDTOs(ctx, entities)
+          	if err != nil {
+          		return nil, err
+          	}
+          } else {
+          	for _, entity := range entities {
+          		items = append(items, r.mapper.ToDTO(entity))
+          	}
+          }
+          
+          return &dictv1.ListDictLabelResponse{Total: uint64(total), Items: items}, nil
+      Get:
+        body: |
+          if req == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+          
+          builder := r.entClient.Client().DictLabel.Query()
+          switch req.GetQueryBy().(type) {
+          case *dictv1.GetDictLabelRequest_Id:
+          	builder.Where(dictlabel.IDEQ(req.GetId()))
+          case *dictv1.GetDictLabelRequest_LabelKey:
+          	builder.Where(dictlabel.LabelKeyEQ(req.GetLabelKey()))
+          default:
+          	return nil, fmt.Errorf("invalid query by type")
+          }
+          
+          entity, err := builder.Only(ctx)
+          if err != nil {
+          	r.log.Errorf("get dict_label failed: %s", err.Error())
+          	return nil, err
+          }
+          if err := ensureHybridTenantAccessible(ctx, entity.TenantID); err != nil {
+          	return nil, err
+          }
+          
+          dto := r.mapper.ToDTO(entity)
+          if custom, ok := any(r).(interface {
+          	dictLabelEnrichGetDTO(context.Context, []*ent.DictLabel) ([]*dictv1.DictLabel, error)
+          }); ok {
+          	items, err := custom.dictLabelEnrichGetDTO(ctx, []*ent.DictLabel{entity})
+          	if err != nil {
+          		return nil, err
+          	}
+          	if len(items) == 0 {
+          		return nil, fmt.Errorf("dict_label relation hydration returned no result")
+          	}
+          	dto = items[0]
+          }
+          
+          return dto, nil
+      Create:
+        imports:
+          - path: encoding/json
+          - path: strings
+        body: |
+          if req == nil || req.Data == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+          if custom, ok := any(r).(interface {
+          	dictLabelCustomCreate(ctx context.Context, req *dictv1.CreateDictLabelRequest) (*emptypb.Empty, error)
+          }); ok {
+          	return custom.dictLabelCustomCreate(ctx, req)
+          }
+          
+          builder := r.entClient.Client().DictLabel.Create()
+          now, viewer := r.generatedAuditContext(ctx)
+          builder.SetCategoryID(req.Data.GetCategoryId())
+          builder.SetLabelKey(req.Data.GetLabelKey())
+          builder.SetNillableLabelCode(req.Data.LabelCode)
+          builder.SetLabelKind(dictlabel.LabelKind(req.Data.GetLabelKind().String()))
+          builder.SetNillableDefaultText(req.Data.DefaultText)
+          if req.Data.PayloadJson != nil {
+          	payloadJSON := strings.TrimSpace(req.Data.GetPayloadJson())
+          	payloadValue := map[string]any{}
+          	if payloadJSON != "" {
+          		if err := json.Unmarshal([]byte(payloadJSON), &payloadValue); err != nil {
+          			return nil, fmt.Errorf("invalid payload_json: %w", err)
+          		}
+          	}
+          	builder.SetPayloadJSON(payloadValue)
+          }
+          builder.SetIsBuiltin(req.Data.GetIsBuiltin())
+          builder.SetStatus(dictlabel.Status(req.Data.GetStatus().String()))
+          builder.SetNillableSortOrder(req.Data.SortOrder)
+          builder.SetNillableTenantID(req.Data.TenantId)
+          builder.SetNillableRemark(req.Data.Remark)
+          builder.SetCreatedAt(now)
+          builder.SetCreatedBy(uint32(viewer.UserID()))
+          
+          entity, err := builder.Save(ctx)
+          if err != nil {
+          	r.log.Errorf("insert dict_label failed: %s", err.Error())
+          	return nil, err
+          }
+          
+          _ = entity
+          return nil, nil
+      Update:
+        imports:
+          - path: encoding/json
+          - path: strings
+        body: |
+          if req == nil || req.Data == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+          if custom, ok := any(r).(interface {
+          	dictLabelCustomUpdate(ctx context.Context, req *dictv1.UpdateDictLabelRequest) (*emptypb.Empty, error)
+          }); ok {
+          	return custom.dictLabelCustomUpdate(ctx, req)
+          }
+          builder := r.entClient.Client().DictLabel.UpdateOneID(req.GetId())
+          now, viewer := r.generatedAuditContext(ctx)
+          builder.SetCategoryID(req.Data.GetCategoryId())
+          if req.Data.LabelCode != nil {
+          	builder.SetNillableLabelCode(req.Data.LabelCode)
+          } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "label_code", "labelCode") {
+          	builder.ClearLabelCode()
+          }
+          builder.SetLabelKind(dictlabel.LabelKind(req.Data.GetLabelKind().String()))
+          if req.Data.DefaultText != nil {
+          	builder.SetNillableDefaultText(req.Data.DefaultText)
+          } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "default_text", "defaultText") {
+          	builder.ClearDefaultText()
+          }
+          if req.Data.PayloadJson != nil {
+          	payloadJSON := strings.TrimSpace(req.Data.GetPayloadJson())
+          	payloadValue := map[string]any{}
+          	if payloadJSON != "" {
+          		if err := json.Unmarshal([]byte(payloadJSON), &payloadValue); err != nil {
+          			return nil, fmt.Errorf("invalid payload_json: %w", err)
+          		}
+          	}
+          	builder.SetPayloadJSON(payloadValue)
+          } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "payload_json", "payloadJson") {
+          	builder.ClearPayloadJSON()
+          }
+          builder.SetIsBuiltin(req.Data.GetIsBuiltin())
+          builder.SetStatus(dictlabel.Status(req.Data.GetStatus().String()))
+          if req.Data.SortOrder != nil {
+          	builder.SetNillableSortOrder(req.Data.SortOrder)
+          } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "sort_order", "sortOrder") {
+          	builder.ClearSortOrder()
+          }
+          if req.Data.Remark != nil {
+          	builder.SetNillableRemark(req.Data.Remark)
+          } else if req.GetUpdateMask() != nil && dictLabelFieldMaskContains(req.GetUpdateMask().GetPaths(), "remark") {
+          	builder.ClearRemark()
+          }
+          builder.SetUpdatedAt(now)
+          builder.SetUpdatedBy(uint32(viewer.UserID()))
+          
+          if err := builder.Exec(ctx); err != nil {
+          	r.log.Errorf("update dict_label failed: %s", err.Error())
+          	return nil, err
+          }
+          
+          return nil, nil
+    aggregates:
+      - name: labelI18n
+        resource: dict_label_i18n
+        foreign_key: label_id
+        parent_field: id
+        collection_field: items_i18n
+        current_field: current_i18n
+        primary: true
+    filters:
+      allow:
+        - id
+        - category_id
+        - category_key
+        - label_key
+        - label_code
+        - label_kind
+        - default_text
+        - is_builtin
+        - is_enabled
+        - status
+        - sort_order
+        - tenant_id
+        - created_by
+        - updated_by
+        - deleted_by
+        - remark
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: dict_label_i18n
+    proto_service: admin.service.v1.DictLabelI18nService
+    entity: DictLabelI18n
+    dto_import: admin/api/gen/dict/v1
+    dto_type: DictLabelI18N
+    repo_interface: DictLabelI18nRepo
+    filters:
+      allow:
+        - id
+        - label_id
+        - label_key
+        - language_code
+        - language_name
+        - text_value
+        - short_text
+        - tenant_id
+        - created_by
+        - updated_by
+        - deleted_by
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: file
+    proto_service: admin.service.v1.FileService
+    entity: File
+    dto_import: admin/api/gen/storage/v1
+    dto_type: File
+    tenant_scope: tenant_scoped
+    repo_interface: FileRepo
+    frontend:
+      view_path: system/file
+      i18n_prefix: page.file
+      list:
+        columns:
+          - [fileName, File Name, 文件名, 240]
+          - field: extension
+            en: Extension
+            cn: 扩展名
+            width: 100
+            slot: extension
+          - [bucketName, Bucket Name, 存储桶, 130]
+          - field: fileDirectory
+            en: Directory
+            cn: 目录
+            width: 220
+            title_key: page.file.directory
+          - field: sizeFormat
+            en: Size
+            cn: 大小
+            width: 120
+            title_key: page.file.size
+          - field: tenantName
+            en: Owner
+            cn: 归属租户
+            width: 140
+            slot: tenantName
+            title_key: page.file.owner
+          - [createdAt, Created At, 创建时间, 180]
+        filters:
+          - [fileName, Input, File Name, 文件名]
+          - [fileDirectory, Input, Directory, 目录]
+          - [bucketName, Input, Bucket Name, 存储桶]
+          - [extension, Select, Extension, 扩展名]
+    filters:
+      allow:
+        - id
+        - provider
+        - bucket_name
+        - file_directory
+        - file_guid
+        - save_file_name
+        - file_name
+        - extension
+        - size
+        - size_format
+        - link_url
+        - content_hash
+        - created_by
+        - updated_by
+        - deleted_by
+        - remark
+        - tenant_id
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: internal_message
+    proto_service: admin.service.v1.InternalMessageService
+    entity: InternalMessage
+    dto_import: admin/api/gen/internal_message/v1
+    dto_type: InternalMessage
+    repo_interface: InternalMessageRepo
+    frontend:
+      view_path: app/internal-message/message
+      i18n_prefix: page.internalMessage
+      list:
+        columns:
+          - [title, Title, 标题, 220]
+          - field: content
+            en: Content
+            cn: 内容
+            width: 360
+            slot: content
+          - [type, Type, 类型, 120]
+          - [status, Status, 状态, 120]
+          - [senderName, Sender Name, 发送人, 150]
+          - field: tenantName
+            en: Message Ownership
+            cn: 消息归属
+            width: 160
+            slot: tenant
+            title_key: page.tenant.messageOwnership
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [title, Input, Title, 标题]
+          - [type, Select, Type, 类型]
+    service_repos:
+      - field: internalMessageRecipientRepo
+        interface: InternalMessageRecipientRepo
+    service_methods:
+      ListMessage:
+        body: |
+          if {{param.req}} == nil {
+          	return nil, v11.ErrorBadRequest("paging request is required")
+          }
+          listReq := repo.PagingRequest{
+          	Limit: int({{param.req}}.GetLimit()),
+          	Offset: int({{param.req}}.GetOffset()),
+          	Sorting: {{param.req}}.GetSorting(),
+          }
+          return s.{{repoField}}.ListByPaging({{ctx}}, listReq)
+      GetMessage:
+        body: |
+          if {{param.req}} == nil {
+          	return nil, v11.ErrorBadRequest("request is required")
+          }
+          return s.{{repoField}}.GetByID({{ctx}}, {{param.req}}.GetId())
+      UpdateMessage:
+        imports:
+          - alias: crudviewer
+            path: github.com/chnxq/x-crud/viewer
+        body: |
+          if {{param.req}} == nil || {{param.req}}.Data == nil {
+          	return nil, v11.ErrorBadRequest("message payload is required")
+          }
+          viewer := crudviewer.MustFromContext({{ctx}})
+          updatedBy := uint32(viewer.UserID())
+          {{param.req}}.Data.UpdatedBy = &updatedBy
+          if err := s.{{repoField}}.UpdateByID({{ctx}}, {{param.req}}.GetId(), {{param.req}}.Data); err != nil {
+          	return nil, err
+          }
+          return {{successReturn}}, nil
+      DeleteMessage:
+        body: |
+          if {{param.req}} == nil {
+          	return nil, v11.ErrorBadRequest("request is required")
+          }
+          if err := s.{{repoField}}.DeleteByID({{ctx}}, {{param.req}}.GetId()); err != nil {
+          	return nil, err
+          }
+          return {{successReturn}}, nil
+      SendMessage:
+        imports:
+          - alias: crudviewer
+            path: github.com/chnxq/x-crud/viewer
+        body: |
+          if {{param.req}} == nil {
+          	return nil, v11.ErrorBadRequest("request is required")
+          }
+          
+          title := normalizeRequiredText({{param.req}}.GetTitle())
+          content := normalizeRequiredText({{param.req}}.GetContent())
+          if title == "" || content == "" {
+          	return nil, v11.ErrorBadRequest("title and content are required")
+          }
+          
+          viewer := crudviewer.MustFromContext({{ctx}})
+          senderID := uint32(viewer.UserID())
+          tenantID := uint32(viewer.TenantID())
+          
+          recipientIDs := {{param.req}}.GetTargetUserIds()
+          if {{param.req}}.GetTargetAll() {
+          	var err error
+          	recipientIDs, err = s.listAllUserIDs({{ctx}})
+          	if err != nil {
+          		return nil, err
+          	}
+          }
+          if {{param.req}}.GetRecipientUserId() > 0 {
+          	recipientIDs = append(recipientIDs, {{param.req}}.GetRecipientUserId())
+          }
+          recipientIDs = dedupeUint32(recipientIDs)
+          if len(recipientIDs) == 0 {
+          	return nil, v11.ErrorBadRequest("recipient ids are required")
+          }
+          
+          var categoryID *uint32
+          if {{param.req}}.GetCategoryId() > 0 {
+          	value := {{param.req}}.GetCategoryId()
+          	categoryID = &value
+          }
+          
+          messageID, err := s.{{repoField}}.CreateAndSend({{ctx}}, repo.SendMessageArgs{
+          	Title: title,
+          	Content: content,
+          	Type: {{param.req}}.GetType(),
+          	CategoryID: categoryID,
+          	SenderID: senderID,
+          	TenantID: tenantID,
+          	RecipientIDs: recipientIDs,
+          })
+          if err != nil {
+          	return nil, err
+          }
+          
+          s.publishNotificationEvents({{ctx}}, recipientIDs, messageID, title, content)
+          return &v11.SendMessageResponse{MessageId: messageID}, nil
+      RevokeMessage:
+        imports:
+          - alias: crudviewer
+            path: github.com/chnxq/x-crud/viewer
+        body: |
+          if {{param.req}} == nil || {{param.req}}.GetMessageId() == 0 {
+          	return nil, v11.ErrorBadRequest("message id is required")
+          }
+          viewer := crudviewer.MustFromContext({{ctx}})
+          if err := s.{{repoField}}.Revoke({{ctx}}, repo.RevokeMessageArgs{
+          	MessageID: {{param.req}}.GetMessageId(),
+          	SenderID: uint32(viewer.UserID()),
+          }); err != nil {
+          	return nil, err
+          }
+          return {{successReturn}}, nil
+    filters:
+      allow:
+        - id
+        - title
+        - content
+        - sender_id
+        - category_id
+        - status
+        - type
+        - created_by
+        - updated_by
+        - deleted_by
+        - tenant_id
+    generate:
+      service_stub: true
+      rest_register: true
+      grpc_register: true
+  - name: internal_message_category
+    proto_service: admin.service.v1.InternalMessageCategoryService
+    entity: InternalMessageCategory
+    dto_import: admin/api/gen/internal_message/v1
+    dto_type: InternalMessageCategory
+    repo_interface: InternalMessageCategoryRepo
+    filters:
+      allow:
+        - id
+        - name
+        - code
+        - icon_url
+        - created_by
+        - updated_by
+        - deleted_by
+        - sort_order
+        - remark
+        - tenant_id
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: internal_message_recipient
+    proto_service: admin.service.v1.InternalMessageRecipientService
+    entity: InternalMessageRecipient
+    dto_import: admin/api/gen/internal_message/v1
+    dto_type: InternalMessageRecipient
+    repo_interface: InternalMessageRecipientRepo
+    service_methods:
+      ListUserInbox:
+        body: |
+          return s.listUserInboxImpl({{ctx}}, {{param.req}})
+      DeleteNotificationFromInbox:
+        body: |
+          return s.deleteNotificationFromInboxImpl({{ctx}}, {{param.req}})
+      MarkNotificationAsRead:
+        body: |
+          return s.markNotificationAsReadImpl({{ctx}}, {{param.req}})
+    filters:
+      allow:
+        - id
+        - message_id
+        - recipient_user_id
+        - status
+        - tenant_id
+    generate:
+      service_stub: true
+      rest_register: true
+      grpc_register: true
+  - name: language
+    proto_service: admin.service.v1.LanguageService
+    entity: Language
+    dto_import: admin/api/gen/dict/v1
+    dto_type: Language
+    repo_interface: LanguageRepo
+    filters:
+      allow:
+        - id
+        - language_code
+        - language_name
+        - native_name
+        - created_by
+        - updated_by
+        - deleted_by
+        - sort_order
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: login_audit_log
+    proto_service: admin.service.v1.LoginAuditLogService
+    entity: LoginAuditLog
+    dto_import: admin/api/gen/audit/v1
+    dto_type: LoginAuditLog
+    repo_interface: LoginAuditLogRepo
+    frontend:
+      view_path: app/log/login-audit-log
+      i18n_prefix: page.loginAuditLog
+      list:
+        columns:
+          - [createdAt, Created At, 创建时间, 150]
+          - [status, Status, 状态, 110]
+          - [username, Username, 用户名, 140]
+          - [actionType, Action Type, 动作类型, 130]
+          - [riskLevel, Risk Level, 风险等级, 120]
+          - [platformSummary, Platform, 平台, 170]
+          - [geoLocationSummary, Geo Location, 地理位置, 240]
+          - [ipAddress, IP Address, IP地址, 140]
+          - [loginMethod, Login Method, 登录方式, 130]
+          - field: deviceInfo.userAgent
+            en: User-Agent
+            cn: User-Agent
+            width: 280
+            slot: userAgent
+            title_key: page.loginAuditLog.userAgent
+        filters:
+          - [username, Input, Username, 用户名]
+          - [ipAddress, Input, IP Address, IP地址]
+          - [actionType, Select, Action Type, 动作类型]
+          - [riskLevel, Select, Risk Level, 风险等级]
+          - [status, Select, Status, 状态]
+          - [createdAtRange, RangePicker, Created At, 创建时间]
+    filters:
+      allow:
+        - id
+        - user_id
+        - username
+        - ip_address
+        - session_id
+        - request_id
+        - trace_id
+        - action_type
+        - status
+        - login_method
+        - failure_reason
+        - mfa_status
+        - risk_score
+        - risk_level
+        - log_hash
+        - tenant_id
+        - created_at
+    operations:
+      get: true
+      list: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: login_policy
+    proto_service: admin.service.v1.LoginPolicyService
+    entity: LoginPolicy
+    dto_import: admin/api/gen/authentication/v1
+    dto_type: LoginPolicy
+    tenant_scope: tenant_scoped
+    repo_interface: LoginPolicyRepo
+    filters:
+      allow:
+        - id
+        - target_id
+        - value
+        - reason
+        - type
+        - method
+        - created_by
+        - updated_by
+        - deleted_by
+        - tenant_id
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: menu
+    proto_service: admin.service.v1.MenuService
+    entity: Menu
+    dto_import: admin/api/gen/resource/v1
+    dto_type: Menu
+    repo_interface: MenuRepo
+    frontend:
+      view_path: system/menu
+      i18n_prefix: page.menu
+      list:
+        columns:
+          - field: name
+            en: Menu
+            cn: 菜单
+            width: 260
+            slot: menu
+            tree_node: true
+            title_key: page.menu.menu
+          - [path, Path, 路径, 180]
+          - [component, Component, 组件, 240]
+          - [type, Type, 类型, 100]
+          - field: scope
+            en: Resource Ownership
+            cn: 资源归属
+            width: 120
+            slot: scope
+            title_key: page.tenant.resourceOwnership
+          - [status, Status, 状态, 100]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [name, Input, Name, 菜单名称]
+          - [path, Input, Path, 路径]
+    service_methods:
+      Create:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "menu create"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Create({{ctx}}, {{param.req}})
+      Update:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "menu update"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Update({{ctx}}, {{param.req}})
+      Delete:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "menu delete"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
+    filters:
+      allow:
+        - id
+        - type
+        - path
+        - redirect
+        - alias
+        - name
+        - component
+        - created_by
+        - updated_by
+        - deleted_by
+        - parent_id
+        - remark
+        - status
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: operation_audit_log
+    proto_service: admin.service.v1.OperationAuditLogService
+    entity: OperationAuditLog
+    dto_import: admin/api/gen/audit/v1
+    dto_type: OperationAuditLog
+    repo_interface: OperationAuditLogRepo
+    filters:
+      allow:
+        - id
+        - user_id
+        - username
+        - resource_type
+        - resource_id
+        - action
+        - before_data
+        - after_data
+        - sensitive_level
+        - request_id
+        - trace_id
+        - failure_reason
+        - ip_address
+        - log_hash
+        - tenant_id
+        - created_at
+    operations:
+      get: true
+      list: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: org_unit
+    proto_service: admin.service.v1.OrgUnitService
+    entity: OrgUnit
+    dto_import: admin/api/gen/identity/v1
+    dto_type: OrgUnit
+    tenant_scope: tenant_scoped
+    repo_interface: OrgUnitRepo
+    frontend:
+      view_path: system/org-unit
+      i18n_prefix: page.orgUnit
+      list:
+        columns:
+          - field: name
+            en: Org Unit
+            cn: 部门
+            width: 280
+            slot: orgUnit
+            tree_node: true
+            title_key: page.orgUnit.orgUnit
+          - [code, Code, 编码, 160]
+          - [type, Type, 类型, 120]
+          - [sortOrder, Sort Order, 排序, 90]
+          - field: tenantName
+            en: Resource Ownership
+            cn: 资源归属
+            width: 180
+            slot: tenant
+            title_key: page.tenant.resourceOwnership
+          - [status, Status, 状态, 100]
+          - [leaderName, Leader Name, 负责人, 140]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [name, Input, Name, 名称]
+          - [code, Input, Code, 编码]
+      form:
+        fields:
+          - [name, Name, 组织名称]
+          - [code, Code, 编码]
+          - [parentId, Parent Org Unit, 上级组织]
+          - [type, Type, 类型]
+          - [status, Status, 状态]
+          - [sortOrder, Sort Order, 排序]
+          - [phone, Phone, 电话]
+          - [email, Email, 邮箱]
+          - [address, Address, 地址]
+          - [description, Description, 描述]
+          - [remark, Remark, 备注]
+    filters:
+      allow:
+        - id
+        - name
+        - code
+        - leader_id
+        - type
+        - external_id
+        - registration_number
+        - tax_id
+        - legal_entity_org_id
+        - address
+        - phone
+        - email
+        - timezone
+        - country
+        - contact_user_id
+        - created_by
+        - updated_by
+        - deleted_by
+        - status
+        - sort_order
+        - tenant_id
+        - remark
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: permission
+    proto_service: admin.service.v1.PermissionService
+    entity: Permission
+    dto_import: admin/api/gen/permission/v1
+    dto_type: Permission
+    repo_interface: PermissionRepo
+    service_repos:
+      - field: roleRepo
+        interface: RoleRepo
+      - field: permissionGroupRepo
+        interface: PermissionGroupRepo
+      - field: menuRepo
+        interface: MenuRepo
+      - field: apiRepo
+        interface: ApiRepo
+    service_methods:
+      SyncPermissions:
+        body: |
+          _ = {{param.req}}
+          if err := s.syncPermissions({{ctx}}); err != nil {
+          	return nil, err
+          }
+          return {{successReturn}}, nil
+    filters:
+      allow:
+        - id
+        - name
+        - code
+        - group_id
+        - created_by
+        - updated_by
+        - deleted_by
+        - status
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: permission_audit_log
+    proto_service: admin.service.v1.PermissionAuditLogService
+    entity: PermissionAuditLog
+    dto_import: admin/api/gen/audit/v1
+    dto_type: PermissionAuditLog
+    repo_interface: PermissionAuditLogRepo
+    filters:
+      allow:
+        - id
+        - operator_id
+        - target_type
+        - target_id
+        - action
+        - old_value
+        - new_value
+        - ip_address
+        - request_id
+        - reason
+        - log_hash
+        - tenant_id
+    operations:
+      get: true
+      list: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: permission_group
+    proto_service: admin.service.v1.PermissionGroupService
+    entity: PermissionGroup
+    dto_import: admin/api/gen/permission/v1
+    dto_type: PermissionGroup
+    repo_interface: PermissionGroupRepo
+    service_methods:
+      Create:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "permission group create"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Create({{ctx}}, {{param.req}})
+      Update:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "permission group update"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Update({{ctx}}, {{param.req}})
+      Delete:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "permission group delete"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
+    filters:
+      allow:
+        - id
+        - name
+        - module
+        - created_by
+        - updated_by
+        - deleted_by
+        - status
+        - sort_order
+        - parent_id
+        - path
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: policy_evaluation_log
+    proto_service: admin.service.v1.PolicyEvaluationLogService
+    entity: PolicyEvaluationLog
+    dto_import: admin/api/gen/permission/v1
+    dto_type: PolicyEvaluationLog
+    repo_interface: PolicyEvaluationLogRepo
+    filters:
+      allow:
+        - id
+        - user_id
+        - membership_id
+        - permission_id
+        - policy_id
+        - request_path
+        - request_method
+        - effect_details
+        - scope_sql
+        - ip_address
+        - trace_id
+        - evaluation_context
+        - log_hash
+        - tenant_id
+    operations:
+      get: true
+      list: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: position
+    proto_service: admin.service.v1.PositionService
+    entity: Position
+    dto_import: admin/api/gen/identity/v1
+    dto_type: Position
+    tenant_scope: tenant_scoped
+    repo_interface: PositionRepo
+    frontend:
+      view_path: system/position
+      i18n_prefix: page.position
+      list:
+        columns:
+          - field: name
+            en: Position
+            cn: 岗位
+            width: 260
+            slot: position
+            title_key: page.position.position
+          - [orgUnitName, Org Unit Name, 所属部门, 180]
+          - field: tenantName
+            en: Resource Ownership
+            cn: 资源归属
+            width: 180
+            slot: tenant
+            title_key: page.tenant.resourceOwnership
+          - [type, Type, 类型, 120]
+          - [level, Level, 级别, 90]
+          - [headcount, Headcount, 编制, 90]
+          - [status, Status, 状态, 100]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [name, Input, Name, 名称]
+          - [code, Input, Code, 编码]
+      form:
+        fields:
+          - [name, Name, 岗位名称]
+          - [code, Code, 编码]
+          - [type, Type, 类型]
+          - [status, Status, 状态]
+          - [level, Level, 等级]
+          - [headcount, Headcount, 编制]
+          - [sortOrder, Sort Order, 排序]
+          - [orgUnitId, Org Unit, 部门]
+          - [reportsToPositionId, Reports To Position, 汇报岗位]
+          - [jobFamily, Job Family, 岗位族]
+          - [jobGrade, Job Grade, 职级]
+          - [isKeyPosition, Key Position, 关键岗位]
+          - [description, Description, 描述]
+          - [remark, Remark, 备注]
+    filters:
+      allow:
+        - id
+        - name
+        - code
+        - org_unit_id
+        - reports_to_position_id
+        - description
+        - job_family
+        - job_grade
+        - level
+        - headcount
+        - type
+        - created_by
+        - updated_by
+        - deleted_by
+        - sort_order
+        - remark
+        - tenant_id
+        - status
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: role
+    proto_service: admin.service.v1.RoleService
+    entity: Role
+    dto_import: admin/api/gen/permission/v1
+    dto_type: Role
+    repo_interface: RoleRepo
+    frontend:
+      view_path: system/role
+      i18n_prefix: page.role
+      list:
+        columns:
+          - field: name
+            en: Role
+            cn: 角色
+            width: 260
+            slot: role
+            title_key: page.role.role
+          - [type, Type, 类型, 120]
+          - field: scope
+            en: Resource Ownership
+            cn: 资源归属
+            width: 180
+            slot: scope
+            title_key: page.tenant.resourceOwnership
+          - field: sortOrder
+            en: Sort Order
+            cn: 排序
+            width: 90
+            title_key: ui.table.sortOrder
+          - [status, Status, 状态, 100]
+          - [memberCount, Member Count, 成员数量, 100]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [name, Input, Name, 名称]
+          - [code, Input, Code, 编码]
+      form:
+        fields:
+          - [name, Name, 角色名称]
+          - [code, Code, 编码]
+          - [type, Type, 类型]
+          - [status, Status, 状态]
+          - [sortOrder, Sort Order, 排序]
+          - [description, Description, 描述]
+    repo_methods:
+      List:
+        body: |
+          if req == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+          
+          builder := r.roleQueryWithHybridTenantScope(ctx)
+          countBuilder := r.roleQueryWithHybridTenantScope(ctx)
+          
+          if err := r.applyGeneratedFilters(builder, req); err != nil {
+          	return nil, err
+          }
+          if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
+          	return nil, err
+          }
+          
+          listReq := &v1.PagingRequest{
+          	Page: req.Page,
+          	PageSize: req.PageSize,
+          	Offset: req.Offset,
+          	Limit: req.Limit,
+          	Token: req.Token,
+          	NoPaging: req.NoPaging,
+          	OrderBy: req.OrderBy,
+          	Sorting: req.Sorting,
+          	FieldMask: req.FieldMask,
+          }
+          listReq.Sorting = withDefaultSorting(listReq.Sorting, "sort_order", paginationv1.Sorting_ASC)
+          if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
+          	limit := uint32(20)
+          	offset := req.GetOffset()
+          	listReq.Limit = &limit
+          	listReq.Offset = &offset
+          }
+          if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
+          	return nil, err
+          }
+          
+          total, err := countBuilder.Count(ctx)
+          if err != nil {
+          	r.log.Errorf("count role failed: %s", err.Error())
+          	return nil, err
+          }
+          entities, err := builder.All(ctx)
+          if err != nil {
+          	r.log.Errorf("list role failed: %s", err.Error())
+          	return nil, err
+          }
+          
+          items, err := r.roleEnrichListDTOs(ctx, entities)
+          if err != nil {
+          	return nil, err
+          }
+          return &permissionv1.ListRoleResponse{Total: uint64(total), Items: items}, nil
+      Get:
+        body: |
+          if req == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+          
+          entity, err := r.entClient.Client().Role.Query().Where(role.IDEQ(req.GetId())).Only(ctx)
+          if err != nil {
+          	r.log.Errorf("get role failed: %s", err.Error())
+          	return nil, err
+          }
+          if err := ensureHybridTenantAccessible(ctx, entity.TenantID); err != nil {
+          	return nil, err
+          }
+          
+          items, err := r.roleEnrichGetDTO(ctx, []*ent.Role{entity})
+          if err != nil {
+          	return nil, err
+          }
+          if len(items) == 0 {
+          	return nil, fmt.Errorf("role relation hydration returned no result")
+          }
+          return items[0], nil
+    filters:
+      allow:
+        - id
+        - name
+        - code
+        - type
+        - created_by
+        - updated_by
+        - deleted_by
+        - remark
+        - sort_order
+        - tenant_id
+        - status
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: task_group
+    proto_service: admin.service.v1.TaskGroupService
+    entity: TaskGroup
+    dto_import: admin/api/gen/task/v1
+    dto_type: TaskGroup
+    repo_interface: TaskGroupRepo
+    service_imports:
+      - alias: taskruntime
+        path: '{{module}}/internal/task/runtime'
+    service_fields:
+      - field: taskRepo
+        type: repo.TaskRepo
+      - field: scheduler
+        type: '*taskruntime.Scheduler'
+      - field: runtimeRunner
+        type: '*taskruntime.Runner'
+    service_methods:
+      Create:
+        body: |
+          return s.create({{ctx}}, {{param.req}})
+      Update:
+        body: |
+          return s.update({{ctx}}, {{param.req}})
+      Delete:
+        body: |
+          return s.delete({{ctx}}, {{param.req}})
+      Start:
+        body: |
+          return s.start({{ctx}}, {{param.req}})
+      Stop:
+        body: |
+          return s.stop({{ctx}}, {{param.req}})
+      RunOnce:
+        body: |
+          return s.runOnce({{ctx}}, {{param.req}})
+    filters:
+      allow:
+        - id
+        - group_name
+        - created_by
+        - updated_by
+        - deleted_by
+        - remark
+        - tenant_id
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: task
+    proto_service: admin.service.v1.TaskService
+    entity: Task
+    dto_import: admin/api/gen/task/v1
+    dto_type: Task
+    repo_interface: TaskRepo
+    frontend:
+      view_path: task
+      i18n_prefix: page.task
+      list:
+        columns:
+          - field: taskName
+            en: Task Name
+            cn: 任务名称
+            width: 180
+            slot: taskName
+          - field: taskType
+            en: Task Type
+            cn: 任务类型
+            width: 120
+            slot: taskType
+          - field: cronExpression
+            en: Cron Expression
+            cn: Cron表达式
+            width: 220
+            slot: cronExpression
+          - [invokeTarget, Invoke Target, 调用目标, 240]
+          - [retry, Retry, 重试次数, 90]
+          - field: concurrent
+            en: Concurrent
+            cn: 并发
+            width: 100
+            slot: concurrent
+          - [status, Status, 状态, 110]
+          - [updatedAt, Updated At, 更新时间, 170]
+        filters:
+          - [name, Input, Task Name, 任务名称]
+          - [status, Select, Status, 状态]
+          - [taskType, Select, Task Type, 任务类型]
+    service_imports:
+      - alias: taskruntime
+        path: '{{module}}/internal/task/runtime'
+    service_fields:
+      - field: taskGroupRepo
+        type: repo.TaskGroupRepo
+      - field: scheduler
+        type: '*taskruntime.Scheduler'
+      - field: runtimeRunner
+        type: '*taskruntime.Runner'
+    service_methods:
+      Create:
+        body: |
+          return s.create({{ctx}}, {{param.req}})
+      Update:
+        body: |
+          return s.update({{ctx}}, {{param.req}})
+      Delete:
+        body: |
+          return s.delete({{ctx}}, {{param.req}})
+      Start:
+        body: |
+          return s.start({{ctx}}, {{param.req}})
+      Stop:
+        body: |
+          return s.stop({{ctx}}, {{param.req}})
+      RunOnce:
+        body: |
+          return s.runOnce({{ctx}}, {{param.req}})
+    filters:
+      allow:
+        - id
+        - task_name
+        - group_id
+        - task_type
+        - cron_expression
+        - invoke_target
+        - args
+        - retry
+        - concurrent
+        - entry_id
+        - status
+        - created_by
+        - updated_by
+        - deleted_by
+        - remark
+        - tenant_id
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: task_log
+    proto_service: admin.service.v1.TaskLogService
+    entity: TaskLog
+    dto_import: admin/api/gen/task/v1
+    dto_type: TaskLog
+    repo_interface: TaskLogRepo
+    filters:
+      allow:
+        - id
+        - task_id
+        - input
+        - output
+        - error
+        - status
+        - process_time
+        - execute_time
+        - tenant_id
+    operations:
+      delete: true
+      get: true
+      list: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: tenant
+    proto_service: admin.service.v1.TenantService
+    entity: Tenant
+    dto_import: admin/api/gen/identity/v1
+    dto_type: Tenant
+    repo_interface: TenantRepo
+    frontend:
+      view_path: system/tenant
+      i18n_prefix: page.tenant
+      list:
+        columns:
+          - field: name
+            en: Tenant
+            cn: 租户
+            width: 220
+            slot: tenant
+            title_key: page.tenant.tenant
+          - [domain, Domain, 域名, 220]
+          - [type, Type, 类型, 120]
+          - [status, Status, 状态, 100]
+          - [auditStatus, Audit Status, 审核状态, 120]
+          - [memberCount, Member Count, 成员数量, 100]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [name, Input, Tenant, 租户]
+          - [code, Input, Code, 租户编码]
+      form:
+        fields:
+          - [name, Tenant, 租户]
+          - [code, Code, 租户编号]
+          - [domain, Domain, 租户专属域名]
+          - [logoUrl, Logo Url, 租户Logo地址]
+          - [industry, Industry, 所属行业]
+          - [type, Type, 租户类型]
+          - [status, Status, 租户状态]
+          - [auditStatus, Audit Status, 审核状态]
+          - [subscriptionPlan, Subscription Plan, 订阅套餐]
+          - [remark, Remark, 备注]
+    service_methods:
+      Create:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "tenant create"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Create({{ctx}}, {{param.req}})
+      Update:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "tenant update"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Update({{ctx}}, {{param.req}})
+      Delete:
+        imports:
+          - alias: identityv1
+            path: '{{module}}/api/gen/identity/v1'
+        body: |
+          if _, err := requirePlatformContext({{ctx}}, "tenant delete"); err != nil {
+          	return nil, identityv1.ErrorForbidden("%s", err.Error())
+          }
+          return s.{{repoField}}.Delete({{ctx}}, {{param.req}})
+    filters:
+      allow:
+        - id
+        - name
+        - code
+        - logo_url
+        - domain
+        - industry
+        - admin_user_id
+        - status
+        - type
+        - audit_status
+        - subscription_plan
+        - created_by
+        - updated_by
+        - deleted_by
+        - remark
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: user
+    proto_service: admin.service.v1.UserService
+    entity: User
+    dto_import: admin/api/gen/identity/v1
+    dto_type: User
+    tenant_scope: tenant_scoped
+    repo_interface: UserRepo
+    frontend:
+      view_path: system/user
+      i18n_prefix: page.user
+      list:
+        columns:
+          - field: username
+            en: Identity
+            cn: 用户
+            width: 220
+            slot: identity
+            title_key: page.user.identity
+          - [mobile, Mobile, 手机号, 140]
+          - [telephone, Telephone, 固话, 140]
+          - field: orgUnits
+            en: Org Units
+            cn: 部门
+            width: 220
+            slot: orgUnits
+          - field: positions
+            en: Positions
+            cn: 岗位
+            width: 220
+            slot: positions
+          - field: roles
+            en: Roles
+            cn: 角色
+            width: 220
+            slot: roles
+          - field: tenantName
+            en: Resource Ownership
+            cn: 资源归属
+            width: 180
+            slot: tenant
+            title_key: page.tenant.tenant
+          - [status, Status, 状态, 100]
+          - [lastLoginAt, Last Login At, 最后登录时间, 170]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [username, Input, Username, 用户名]
+          - [realname, Input, Realname, 姓名]
+          - [mobile, Input, Mobile, 手机号]
+          - [telephone, Input, Telephone, 固话]
+          - [orgUnitId, Select, Org Units, 部门]
+          - [positionId, Select, Positions, 岗位]
+          - [roleId, Select, Roles, 角色]
+          - [status, Select, Status, 状态]
+      form:
+        fields:
+          - [username, Username, 用户名]
+          - [nickname, Nickname, 昵称]
+          - [realname, Realname, 姓名]
+          - [status, Status, 状态]
+          - [gender, Gender, 性别]
+          - [password, Password, 密码]
+          - [orgUnitIds, Org Units, 部门]
+          - [positionIds, Positions, 岗位]
+          - [roleIds, Roles, 角色]
+          - [avatar, Avatar, 头像]
+          - [email, Email, 邮箱]
+          - [mobile, Mobile, 手机号]
+          - [telephone, Telephone, 固话]
+          - [address, Address, 地址]
+          - [region, Region, 地区]
+          - [description, Description, 描述]
+          - [remark, Remark, 备注]
+    exists_fields:
+      - id
+      - username
+    repo_methods:
+      Get:
+        body: |
+          if req == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+          
+          builder := r.entClient.Client().User.Query()
+          switch req.GetQueryBy().(type) {
+          case *identityv1.GetUserRequest_Id:
+          	builder.Where(user.IDEQ(req.GetId()))
+          case *identityv1.GetUserRequest_Username:
+          	builder.Where(user.UsernameEQ(req.GetUsername()))
+          default:
+          	return nil, fmt.Errorf("invalid query by type")
+          }
+          
+          entity, err := builder.Only(ctx)
+          if err != nil {
+          	if !ent.IsNotFound(err) {
+          		r.log.Errorf("get user failed: %s", err.Error())
+          	}
+          	return nil, err
+          }
+          if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {
+          	return nil, err
+          }
+          
+          dto := r.mapper.ToDTO(entity)
+          if custom, ok := any(r).(interface {
+          	userEnrichGetDTO(context.Context, []*ent.User) ([]*identityv1.User, error)
+          }); ok {
+          	items, err := custom.userEnrichGetDTO(ctx, []*ent.User{entity})
+          	if err != nil {
+          		return nil, err
+          	}
+          	if len(items) == 0 {
+          		return nil, fmt.Errorf("user relation hydration returned no result")
+          	}
+          	dto = items[0]
+          }
+          
+          return dto, nil
+    filters:
+      allow:
         - id
         - username
-      repo_methods:
-        Get:
-          body: |
-            if req == nil {
-            	return nil, fmt.Errorf("invalid parameter")
-            }
-
-            builder := r.entClient.Client().User.Query()
-            switch req.GetQueryBy().(type) {
-            case *identityv1.GetUserRequest_Id:
-            	builder.Where(user.IDEQ(req.GetId()))
-            case *identityv1.GetUserRequest_Username:
-            	builder.Where(user.UsernameEQ(req.GetUsername()))
-            default:
-            	return nil, fmt.Errorf("invalid query by type")
-            }
-
-            entity, err := builder.Only(ctx)
-            if err != nil {
-            	if !ent.IsNotFound(err) {
-            		r.log.Errorf("get user failed: %s", err.Error())
-            	}
-            	return nil, err
-            }
-            if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {
-            	return nil, err
-            }
-
-            dto := r.mapper.ToDTO(entity)
-            if custom, ok := any(r).(interface {
-            	userEnrichGetDTO(context.Context, []*ent.User) ([]*identityv1.User, error)
-            }); ok {
-            	items, err := custom.userEnrichGetDTO(ctx, []*ent.User{entity})
-            	if err != nil {
-            		return nil, err
-            	}
-            	if len(items) == 0 {
-            		return nil, fmt.Errorf("user relation hydration returned no result")
-            	}
-            	dto = items[0]
-            }
-
-            return dto, nil
-      filters:
-        allow:
-            - id
-            - username
-            - nickname
-            - realname
-            - email
-            - mobile
-            - telephone
-            - avatar
-            - address
-            - region
-            - description
-            - gender
-            - last_login_ip
-            - status
-            - created_by
-            - updated_by
-            - deleted_by
-            - remark
-            - tenant_id
-      service_methods:
-        EditUserPassword:
-            imports:
-                - alias: authenticationv1
-                  path: '{{module}}/api/gen/authentication/v1'
-            repos:
-                - field: userCredentialRepo
-                  interface: UserCredentialRepo
-            body: |-
-                user, err := s.{{repoField}}.Get({{ctx}}, &v11.GetUserRequest{
-                  QueryBy: &v11.GetUserRequest_Id{
-                    Id: {{param.req}}.GetUserId(),
-                  },
-                })
-                if err != nil {
-                  return nil, err
-                }
-
-                if _, err = s.userCredentialRepo.ResetCredential({{ctx}}, &authenticationv1.ResetCredentialRequest{
-                  IdentityType:  authenticationv1.UserCredential_USERNAME,
-                  Identifier:    user.GetUsername(),
-                  NewCredential: {{param.req}}.GetNewPassword(),
-                  NeedDecrypt:   false,
-                }); err != nil {
-                  s.log.Errorf("reset user password err: %v", err)
-                  return nil, err
-                }
-
-                return {{successReturn}}, nil
-      operations:
-        create: true
-        delete: true
-        exists: true
-        get: true
-        list: true
-        update: true
-      generate:
-        service_stub: true
-        repo_crud: true
-        rest_register: true
-        grpc_register: true
-    - name: user_credential
-      proto_service: authentication.service.v1.UserCredentialService
-      entity: UserCredential
-      dto_import: admin/api/gen/authentication/v1
-      dto_type: UserCredential
-      repo_interface: UserCredentialRepo
-      filters:
-        allow:
-            - id
-            - user_id
-            - identity_type
-            - identifier
-            - credential_type
-            - credential
-            - status
-            - extra_info
-            - provider
-            - provider_account_id
-            - activate_token_hash
-            - reset_token_hash
-            - tenant_id
-      operations:
-        count: true
-        create: true
-        delete: true
-        get: true
-        list: true
-        resetcredential: true
-        update: true
-      generate:
-        repo_crud: true
+        - nickname
+        - realname
+        - email
+        - mobile
+        - telephone
+        - avatar
+        - address
+        - region
+        - description
+        - gender
+        - last_login_ip
+        - status
+        - created_by
+        - updated_by
+        - deleted_by
+        - remark
+        - tenant_id
+    service_methods:
+      EditUserPassword:
+        imports:
+          - alias: authenticationv1
+            path: '{{module}}/api/gen/authentication/v1'
+        repos:
+          - field: userCredentialRepo
+            interface: UserCredentialRepo
+        body: |-
+          user, err := s.{{repoField}}.Get({{ctx}}, &v11.GetUserRequest{
+            QueryBy: &v11.GetUserRequest_Id{
+              Id: {{param.req}}.GetUserId(),
+            },
+          })
+          if err != nil {
+            return nil, err
+          }
+          
+          if _, err = s.userCredentialRepo.ResetCredential({{ctx}}, &authenticationv1.ResetCredentialRequest{
+            IdentityType:  authenticationv1.UserCredential_USERNAME,
+            Identifier:    user.GetUsername(),
+            NewCredential: {{param.req}}.GetNewPassword(),
+            NeedDecrypt:   false,
+          }); err != nil {
+            s.log.Errorf("reset user password err: %v", err)
+            return nil, err
+          }
+          
+          return {{successReturn}}, nil
+    operations:
+      create: true
+      delete: true
+      exists: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+  - name: user_credential
+    proto_service: authentication.service.v1.UserCredentialService
+    entity: UserCredential
+    dto_import: admin/api/gen/authentication/v1
+    dto_type: UserCredential
+    repo_interface: UserCredentialRepo
+    filters:
+      allow:
+        - id
+        - user_id
+        - identity_type
+        - identifier
+        - credential_type
+        - credential
+        - status
+        - extra_info
+        - provider
+        - provider_account_id
+        - activate_token_hash
+        - reset_token_hash
+        - tenant_id
+    operations:
+      count: true
+      create: true
+      delete: true
+      get: true
+      list: true
+      resetcredential: true
+      update: true
+    generate:
+      repo_crud: true

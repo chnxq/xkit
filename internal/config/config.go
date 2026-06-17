@@ -75,9 +75,13 @@ type FrontendDialogConfig struct {
 }
 
 type FrontendColumn struct {
-	Field string
-	EN    string
-	CN    string
+	Field    string `yaml:"field,omitempty"`
+	EN       string `yaml:"en,omitempty"`
+	CN       string `yaml:"cn,omitempty"`
+	Width    int    `yaml:"width,omitempty"`
+	Slot     string `yaml:"slot,omitempty"`
+	TreeNode bool   `yaml:"tree_node,omitempty"`
+	TitleKey string `yaml:"title_key,omitempty"`
 }
 
 type FrontendFilter struct {
@@ -107,9 +111,29 @@ func (c *FrontendColumn) UnmarshalYAML(value *yaml.Node) error {
 		if len(value.Content) > 2 {
 			c.CN = strings.TrimSpace(value.Content[2].Value)
 		}
+		if len(value.Content) > 3 {
+			var width int
+			if err := value.Content[3].Decode(&width); err != nil {
+				return fmt.Errorf("frontend column width must be an integer: %w", err)
+			}
+			c.Width = width
+		}
+		return nil
+	case yaml.MappingNode:
+		type frontendColumnAlias FrontendColumn
+		var alias frontendColumnAlias
+		if err := value.Decode(&alias); err != nil {
+			return err
+		}
+		*c = FrontendColumn(alias)
+		c.Field = strings.TrimSpace(c.Field)
+		c.EN = strings.TrimSpace(c.EN)
+		c.CN = strings.TrimSpace(c.CN)
+		c.Slot = strings.TrimSpace(c.Slot)
+		c.TitleKey = strings.TrimSpace(c.TitleKey)
 		return nil
 	default:
-		return fmt.Errorf("frontend column must be a string or sequence")
+		return fmt.Errorf("frontend column must be a string, sequence, or mapping")
 	}
 }
 

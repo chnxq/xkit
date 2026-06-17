@@ -292,6 +292,7 @@ type frontendColumn struct {
 	TitleExpr    string
 	Formatter    string
 	SlotsDefault string
+	TreeNode     bool
 	Sortable     bool
 	Width        int
 }
@@ -819,13 +820,26 @@ func (r *Runner) frontendColumns(plan resourcePlan) []frontendColumn {
 	columns := make([]frontendColumn, 0, len(plan.Resource.Frontend.List.Columns))
 	for _, columnCfg := range plan.Resource.Frontend.List.Columns {
 		field := columnCfg.Field
+		width := columnCfg.Width
+		if width <= 0 {
+			width = frontendWidth(field)
+		}
+		titleKey := strings.TrimSpace(columnCfg.TitleKey)
+		if titleKey == "" {
+			titleKey = plan.Resource.Frontend.I18nPrefix + "." + field
+		}
+		slotDefault := strings.TrimSpace(columnCfg.Slot)
+		if slotDefault == "" {
+			slotDefault = frontendSlot(field)
+		}
 		columns = append(columns, frontendColumn{
 			Field:        field,
-			TitleExpr:    "t('" + plan.Resource.Frontend.I18nPrefix + "." + field + "')",
+			TitleExpr:    "t('" + titleKey + "')",
 			Formatter:    frontendFormatter(field),
-			SlotsDefault: frontendSlot(field),
+			SlotsDefault: slotDefault,
+			TreeNode:     columnCfg.TreeNode,
 			Sortable:     field != "deviceInfo.userAgent",
-			Width:        frontendWidth(field),
+			Width:        width,
 		})
 	}
 	return columns
@@ -1095,6 +1109,10 @@ func frontendWidth(field string) int {
 
 func frontendDialogComponent(field string) string {
 	switch {
+	case field == "method", field == "scope", field == "status", field == "type", field == "auditStatus", field == "actionType", field == "riskLevel", field == "loginMethod", field == "taskType":
+		return "Select"
+	case field == "remark", field == "description", field == "content":
+		return "Textarea"
 	case strings.HasSuffix(field, "At"):
 		return "DatePicker"
 	case strings.HasSuffix(field, "Status"), field == "status", field == "type":

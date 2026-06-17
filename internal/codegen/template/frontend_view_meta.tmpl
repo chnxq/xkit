@@ -47,6 +47,9 @@ export function buildListGridColumns(
     {
       field: '{{ .Field }}',
       title: {{ .TitleExpr }},
+{{- if .TreeNode }}
+      treeNode: true,
+{{- end }}
 {{- if .Formatter }}
       formatter: '{{ .Formatter }}',
 {{- end }}
