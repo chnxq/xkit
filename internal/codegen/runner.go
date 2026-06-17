@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"text/template"
@@ -422,6 +423,9 @@ func (r *Runner) generateFrontendMetaFiles() (Result, error) {
 	if err := r.writeFrontendI18nFile(filepath.Join(baseDir, "page_i18n.en-US.json"), codegentemplate.FrontendPageI18nEN, enEntries, &result); err != nil {
 		return result, err
 	}
+	if err := r.copyFrontendGeneratedLangs(baseDir, &result); err != nil {
+		return result, err
+	}
 
 	return result, nil
 }
@@ -788,11 +792,12 @@ func (r *Runner) frontendFilterItems(plan resourcePlan) []frontendFilterItem {
 	if plan.Resource.Frontend == nil || plan.Resource.Frontend.List == nil {
 		return nil
 	}
-	fields := sortedMapKeys(plan.Resource.Frontend.List.Filters)
-	items := make([]frontendFilterItem, 0, len(fields))
-	for _, fieldName := range fields {
-		component := strings.TrimSpace(plan.Resource.Frontend.List.Filters[fieldName])
-		labelKey := r.frontendFilterLabelKey(plan, fieldName)
+	filters := normalizedFrontendFilters(plan.Resource.Frontend.List.Filters)
+	items := make([]frontendFilterItem, 0, len(filters))
+	for _, filter := range filters {
+		fieldName := filter.Field
+		component := strings.TrimSpace(filter.Component)
+		labelKey := r.frontendFilterLabelKey(plan, filter)
 		item := frontendFilterItem{
 			FieldName:      fieldName,
 			Component:      component,
@@ -862,15 +867,11 @@ func (r *Runner) frontendI18nEntries(plan resourcePlan, lang string) []i18nEntry
 	}
 
 	if plan.Resource.Frontend.List != nil {
-		for fieldName, component := range plan.Resource.Frontend.List.Filters {
-			labelKey := r.frontendFilterLabelKey(plan, fieldName)
+		for _, filter := range normalizedFrontendFilters(plan.Resource.Frontend.List.Filters) {
+			component := filter.Component
+			labelKey := r.frontendFilterLabelKey(plan, filter)
 			schemaField := r.frontendSchemaField(plan, labelKey)
-			columnCfg := r.frontendColumnConfig(plan, labelKey)
-			enTitle, cnTitle := "", ""
-			if columnCfg != nil {
-				enTitle = columnCfg.EN
-				cnTitle = columnCfg.CN
-			}
+			enTitle, cnTitle := r.frontendFilterTitles(plan, filter, labelKey)
 			add(labelKey, frontendI18nValue(lang, labelKey, enTitle, cnTitle, schemaField))
 			if placeholderKey := frontendPlaceholderKey(component, labelKey); placeholderKey != "" {
 				add(placeholderKey, frontendI18nPlaceholderValue(lang, labelKey, component, enTitle, cnTitle, schemaField))
@@ -890,18 +891,26 @@ func (r *Runner) frontendI18nEntries(plan resourcePlan, lang string) []i18nEntry
 	return entries
 }
 
-func (r *Runner) frontendFilterLabelKey(plan resourcePlan, field string) string {
+func (r *Runner) frontendFilterLabelKey(plan resourcePlan, filter config.FrontendFilter) string {
+	field := filter.Field
+	if strings.TrimSpace(filter.EN) != "" || strings.TrimSpace(filter.CN) != "" {
+		return "filter" + frontendKeySuffix(simpleFieldName(field))
+	}
 	if columnCfg := r.frontendColumnConfig(plan, field); columnCfg != nil {
 		return columnCfg.Field
 	}
-	if strings.HasSuffix(field, "Range") {
-		base := strings.TrimSuffix(field, "Range")
-		if columnCfg := r.frontendColumnConfig(plan, base); columnCfg != nil {
-			return columnCfg.Field
-		}
-		return base
-	}
 	return field
+}
+
+func (r *Runner) frontendFilterTitles(plan resourcePlan, filter config.FrontendFilter, labelKey string) (string, string) {
+	if strings.TrimSpace(filter.EN) != "" || strings.TrimSpace(filter.CN) != "" {
+		return filter.EN, filter.CN
+	}
+	columnCfg := r.frontendColumnConfig(plan, labelKey)
+	if columnCfg != nil {
+		return columnCfg.EN, columnCfg.CN
+	}
+	return "", ""
 }
 
 func (r *Runner) frontendColumnConfig(plan resourcePlan, field string) *config.FrontendColumn {
@@ -948,26 +957,85 @@ func (r *Runner) writeFrontendI18nFile(path, tmpl string, entries []i18nEntry, r
 	return r.writeGeneratedFile(path, append(content, '\n'), result)
 }
 
-func sortedMapKeys[M ~map[string]string](m M) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
+func (r *Runner) copyFrontendGeneratedLangs(baseDir string, result *Result) error {
+	sourceDir, err := xkitExampleLangsDir()
+	if err != nil {
+		return err
 	}
-	slices.Sort(keys)
-	return keys
+	entries, err := os.ReadDir(sourceDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		langDir := filepath.Join(sourceDir, entry.Name())
+		files, err := os.ReadDir(langDir)
+		if err != nil {
+			return err
+		}
+		for _, file := range files {
+			if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
+				continue
+			}
+			sourcePath := filepath.Join(langDir, file.Name())
+			content, err := os.ReadFile(sourcePath)
+			if err != nil {
+				return err
+			}
+			targetPath := filepath.Join(baseDir, "langs", entry.Name(), file.Name())
+			if err := r.writeGeneratedFile(targetPath, content, result); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func xkitExampleLangsDir() (string, error) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("resolve xkit source location failed")
+	}
+	return filepath.Join(filepath.Dir(file), "..", "..", "examples", "admin", "langs"), nil
+}
+
+func normalizedFrontendFilters(filters []config.FrontendFilter) []config.FrontendFilter {
+	items := make([]config.FrontendFilter, 0, len(filters))
+	for _, filter := range filters {
+		if strings.TrimSpace(filter.Field) == "" {
+			continue
+		}
+		items = append(items, filter)
+	}
+	slices.SortFunc(items, func(a, b config.FrontendFilter) int {
+		return strings.Compare(a.Field, b.Field)
+	})
+	return items
 }
 
 func frontendPlaceholderKey(component, field string) string {
 	switch component {
 	case "Input", "InputNumber":
-		return "search" + toPascal(simpleFieldName(field))
+		return "search" + frontendKeySuffix(simpleFieldName(field))
 	case "Select":
-		return "select" + toPascal(simpleFieldName(field))
+		return "select" + frontendKeySuffix(simpleFieldName(field))
 	case "RangePicker":
 		return simpleFieldName(field) + "Range"
 	default:
 		return ""
 	}
+}
+
+func frontendKeySuffix(field string) string {
+	if field == "" {
+		return ""
+	}
+	return strings.ToUpper(field[:1]) + field[1:]
 }
 
 func frontendFormatter(field string) string {

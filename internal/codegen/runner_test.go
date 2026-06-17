@@ -1879,9 +1879,10 @@ type LoginAuditLog struct {
 							{Field: "status", EN: "Status", CN: "状态"},
 							{Field: "username", EN: "Username", CN: "用户名"},
 						},
-						Filters: map[string]string{
-							"username":  "Input",
-							"createdAt": "RangePicker",
+						Filters: []config.FrontendFilter{
+							{Field: "username", Component: "Input"},
+							{Field: "createdAt", Component: "RangePicker"},
+							{Field: "sessionTenant", Component: "Input", EN: "Tenant", CN: "绉熸埛"},
 						},
 					},
 					Form: &config.FrontendDialogConfig{
@@ -1916,6 +1917,9 @@ type LoginAuditLog struct {
 	i18nContent := readFile(t, i18nPath)
 	if !strings.Contains(i18nContent, `"page.loginAuditLog.createdAt"`) {
 		t.Fatalf("frontend i18n file missing expected key:\n%s", i18nContent)
+	}
+	if !strings.Contains(i18nContent, `"page.loginAuditLog.filterSessionTenant"`) {
+		t.Fatalf("frontend i18n file missing expected explicit filter key:\n%s", i18nContent)
 	}
 }
 

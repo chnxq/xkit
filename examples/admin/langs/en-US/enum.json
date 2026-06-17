@@ -1,0 +1,98 @@
+{
+  "status": {
+    "ON": "Enabled",
+    "OFF": "Disabled"
+  },
+  "boolean": {
+    "true": "Yes",
+    "false": "No"
+  },
+  "api": {
+    "scope": {
+      "ADMIN": "Admin",
+      "APP": "App",
+      "API_SCOPE_INVALID": "Unspecified"
+    }
+  },
+  "menu": {
+    "type": {
+      "CATALOG": "Catalog",
+      "MENU": "Menu",
+      "BUTTON": "Button",
+      "EMBEDDED": "Embedded",
+      "LINK": "External Link"
+    }
+  },
+  "orgUnit": {
+    "type": {
+      "COMPANY": "Company",
+      "DIVISION": "Division",
+      "DEPARTMENT": "Department",
+      "TEAM": "Team",
+      "PROJECT": "Project",
+      "COMMITTEE": "Committee",
+      "REGION": "Region",
+      "SUBSIDIARY": "Subsidiary",
+      "BRANCH": "Branch",
+      "OTHER": "Other"
+    }
+  },
+  "position": {
+    "type": {
+      "REGULAR": "Regular",
+      "LEADER": "Leader",
+      "MANAGER": "Manager",
+      "INTERN": "Intern",
+      "CONTRACT": "Contract",
+      "OTHER": "Other"
+    }
+  },
+  "role": {
+    "status": {
+      "ON": "Enabled",
+      "OFF": "Disabled"
+    },
+    "type": {
+      "SYSTEM": "System Role",
+      "TEMPLATE": "Template Role",
+      "TENANT": "Tenant Role"
+    }
+  },
+  "tenant": {
+    "status": {
+      "ON": "Enabled",
+      "OFF": "Disabled",
+      "EXPIRED": "Expired",
+      "FREEZE": "Frozen"
+    },
+    "auditStatus": {
+      "PENDING": "Pending Review",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "TENANT_AUDIT_STATUS_UNSPECIFIED": "Unspecified"
+    },
+    "type": {
+      "TRIAL": "Trial",
+      "PAID": "Paid",
+      "INTERNAL": "Internal",
+      "PARTNER": "Partner",
+      "CUSTOM": "Custom",
+      "TENANT_TYPE_UNSPECIFIED": "Unspecified"
+    }
+  },
+  "user": {
+    "status": {
+      "NORMAL": "Normal",
+      "DISABLED": "Disabled",
+      "PENDING": "Pending Activation",
+      "LOCKED": "Locked",
+      "EXPIRED": "Expired",
+      "CLOSED": "Closed"
+    },
+    "gender": {
+      "SECRET": "Secret",
+      "MALE": "Male",
+      "FEMALE": "Female"
+    }
+  }
+}

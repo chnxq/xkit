@@ -110,13 +110,13 @@ resources:
             - [ipAddress, IP Address, IP地址]
             - [apiOperation, Api Operation, 接口操作]
           filters:
-            username: Input
-            path: Input
-            httpMethod: Select
-            apiModule: Input
-            statusCode: InputNumber
-            reason: Input
-            createdAtRange: RangePicker
+            - [username, Input, Username, 用户]
+            - [path, Input, Path, 路径]
+            - [httpMethod, Select, HTTP Method, 请求方法]
+            - [apiModule, Input, API Module, 业务模块]
+            - [statusCode, InputNumber, Status Code, HTTP状态]
+            - [reason, Input, Reason, 操作失败原因]
+            - [createdAtRange, RangePicker, Created At, 创建时间]
       filters:
         allow:
             - id
@@ -924,12 +924,12 @@ resources:
             - [loginMethod, Login Method, 登录方式]
             - [deviceInfo.userAgent, User-Agent, User-Agent]
           filters:
-            username: Input
-            ipAddress: Input
-            actionType: Select
-            riskLevel: Select
-            status: Select
-            createdAtRange: RangePicker
+            - [username, Input, Username, 用户名]
+            - [ipAddress, Input, IP Address, IP地址]
+            - [actionType, Select, Action Type, 动作类型]
+            - [riskLevel, Select, Risk Level, 风险等级]
+            - [status, Select, Status, 状态]
+            - [createdAtRange, RangePicker, Created At, 创建时间]
       filters:
         allow:
             - id
@@ -1590,8 +1590,8 @@ resources:
             - [memberCount, Member Count, 成员数量]
             - [createdAt, Created At, 创建时间]
           filters:
-            name: Input
-            code: Input
+            - [name, Input, Tenant, 租户]
+            - [code, Input, Code, 租户编码]
         form:
           fields:
             - [name, Tenant, 租户]

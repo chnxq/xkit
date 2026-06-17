@@ -65,8 +65,8 @@ type FrontendResourceConfig struct {
 }
 
 type FrontendListConfig struct {
-	Columns []FrontendColumn  `yaml:"columns,omitempty"`
-	Filters map[string]string `yaml:"filters,omitempty"`
+	Columns []FrontendColumn `yaml:"columns,omitempty"`
+	Filters FrontendFilters  `yaml:"filters,omitempty"`
 }
 
 type FrontendDialogConfig struct {
@@ -79,6 +79,15 @@ type FrontendColumn struct {
 	EN    string
 	CN    string
 }
+
+type FrontendFilter struct {
+	Field     string
+	Component string
+	EN        string
+	CN        string
+}
+
+type FrontendFilters []FrontendFilter
 
 func (c *FrontendColumn) UnmarshalYAML(value *yaml.Node) error {
 	switch value.Kind {
@@ -101,6 +110,87 @@ func (c *FrontendColumn) UnmarshalYAML(value *yaml.Node) error {
 		return nil
 	default:
 		return fmt.Errorf("frontend column must be a string or sequence")
+	}
+}
+
+func (f *FrontendFilter) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		f.Field = strings.TrimSpace(value.Value)
+		return nil
+	case yaml.SequenceNode:
+		if len(value.Content) == 0 {
+			return nil
+		}
+		if len(value.Content) > 0 {
+			f.Field = strings.TrimSpace(value.Content[0].Value)
+		}
+		if len(value.Content) > 1 {
+			f.Component = strings.TrimSpace(value.Content[1].Value)
+		}
+		if len(value.Content) > 2 {
+			f.EN = strings.TrimSpace(value.Content[2].Value)
+		}
+		if len(value.Content) > 3 {
+			f.CN = strings.TrimSpace(value.Content[3].Value)
+		}
+		return nil
+	case yaml.MappingNode:
+		if isFrontendFilterMapShorthand(value) {
+			if len(value.Content) >= 2 {
+				f.Field = strings.TrimSpace(value.Content[0].Value)
+				f.Component = strings.TrimSpace(value.Content[1].Value)
+			}
+			return nil
+		}
+		type frontendFilterAlias FrontendFilter
+		var alias frontendFilterAlias
+		if err := value.Decode(&alias); err != nil {
+			return err
+		}
+		*f = FrontendFilter(alias)
+		f.Field = strings.TrimSpace(f.Field)
+		f.Component = strings.TrimSpace(f.Component)
+		f.EN = strings.TrimSpace(f.EN)
+		f.CN = strings.TrimSpace(f.CN)
+		return nil
+	default:
+		return fmt.Errorf("frontend filter must be a string, sequence, or mapping")
+	}
+}
+
+func isFrontendFilterMapShorthand(node *yaml.Node) bool {
+	if node == nil || node.Kind != yaml.MappingNode || len(node.Content) != 2 {
+		return false
+	}
+	return node.Content[0].Kind == yaml.ScalarNode && node.Content[1].Kind == yaml.ScalarNode
+}
+
+func (f *FrontendFilters) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case 0:
+		return nil
+	case yaml.SequenceNode:
+		var filters []FrontendFilter
+		if err := value.Decode(&filters); err != nil {
+			return err
+		}
+		*f = filters
+		return nil
+	case yaml.MappingNode:
+		filters := make([]FrontendFilter, 0, len(value.Content)/2)
+		for i := 0; i+1 < len(value.Content); i += 2 {
+			field := strings.TrimSpace(value.Content[i].Value)
+			component := strings.TrimSpace(value.Content[i+1].Value)
+			filters = append(filters, FrontendFilter{
+				Field:     field,
+				Component: component,
+			})
+		}
+		*f = filters
+		return nil
+	default:
+		return fmt.Errorf("frontend filters must be a sequence or mapping")
 	}
 }
 

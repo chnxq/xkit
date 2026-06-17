@@ -1,0 +1,98 @@
+{
+  "status": {
+    "ON": "启用",
+    "OFF": "禁用"
+  },
+  "boolean": {
+    "true": "是",
+    "false": "否"
+  },
+  "api": {
+    "scope": {
+      "ADMIN": "管理后台",
+      "APP": "前台应用",
+      "API_SCOPE_INVALID": "未设置"
+    }
+  },
+  "menu": {
+    "type": {
+      "CATALOG": "目录",
+      "MENU": "菜单",
+      "BUTTON": "按钮",
+      "EMBEDDED": "内嵌页",
+      "LINK": "外链"
+    }
+  },
+  "orgUnit": {
+    "type": {
+      "COMPANY": "公司",
+      "DIVISION": "事业部",
+      "DEPARTMENT": "部门",
+      "TEAM": "团队",
+      "PROJECT": "项目组",
+      "COMMITTEE": "委员会",
+      "REGION": "区域",
+      "SUBSIDIARY": "子公司",
+      "BRANCH": "分支机构",
+      "OTHER": "其他"
+    }
+  },
+  "position": {
+    "type": {
+      "REGULAR": "普通岗位",
+      "LEADER": "领导岗位",
+      "MANAGER": "管理岗位",
+      "INTERN": "实习岗位",
+      "CONTRACT": "合同岗位",
+      "OTHER": "其他"
+    }
+  },
+  "role": {
+    "status": {
+      "ON": "启用",
+      "OFF": "停用"
+    },
+    "type": {
+      "SYSTEM": "系统角色",
+      "TEMPLATE": "模板角色",
+      "TENANT": "租户角色"
+    }
+  },
+  "tenant": {
+    "status": {
+      "ON": "启用",
+      "OFF": "禁用",
+      "EXPIRED": "过期",
+      "FREEZE": "冻结"
+    },
+    "auditStatus": {
+      "PENDING": "待审核",
+      "APPROVED": "通过",
+      "REJECTED": "拒绝",
+      "TENANT_AUDIT_STATUS_UNSPECIFIED": "未指定"
+    },
+    "type": {
+      "TRIAL": "试用",
+      "PAID": "付费",
+      "INTERNAL": "内部",
+      "PARTNER": "伙伴",
+      "CUSTOM": "自定义",
+      "TENANT_TYPE_UNSPECIFIED": "未指定"
+    }
+  },
+  "user": {
+    "status": {
+      "NORMAL": "正常",
+      "DISABLED": "禁用",
+      "PENDING": "待激活",
+      "LOCKED": "锁定",
+      "EXPIRED": "过期",
+      "CLOSED": "关闭"
+    },
+    "gender": {
+      "SECRET": "保密",
+      "MALE": "男",
+      "FEMALE": "女"
+    }
+  }
+}
