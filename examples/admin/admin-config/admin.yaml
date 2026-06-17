@@ -9,6 +9,42 @@ resources:
       dto_import: admin/api/gen/resource/v1
       dto_type: Api
       repo_interface: ApiRepo
+      frontend:
+        view_path: system/api
+        i18n_prefix: page.api
+        list:
+          columns:
+            - [description, Description, 描述, 220]
+            - [path, Path, 路径, 260]
+            - field: method
+              en: Method
+              cn: 请求方法
+              width: 100
+              slot: method
+            - [module, Module, 模块, 150]
+            - [moduleDescription, Module Description, 模块描述, 180]
+            - [operation, Operation, 操作, 220]
+            - field: scope
+              en: Scope
+              cn: 作用域
+              width: 120
+              slot: scope
+            - [status, Status, 状态, 100]
+            - [createdAt, Created At, 创建时间, 170]
+          filters:
+            - [method, Select, Method, 请求方法]
+            - [module, Input, Module, 模块]
+            - [path, Input, Path, 路径]
+        form:
+          fields:
+            - [path, Path, 路径]
+            - [method, Method, 请求方法]
+            - [description, Description, 描述]
+            - [module, Module, 模块]
+            - [moduleDescription, Module Description, 模块描述]
+            - [operation, Operation, 操作]
+            - [scope, Scope, 作用域]
+            - [status, Status, 状态]
       filters:
         allow:
             - id
@@ -45,23 +81,27 @@ resources:
         i18n_prefix: page.apiAuditLog
         list:
           columns:
-            - [createdAt, Created At, 创建时间]
-            - [successSummary, Status Code, 状态码]
-            - [username, Username, 用户名]
-            - [httpMethod, HTTP Method, 请求方法]
-            - [path, Path, 路径]
-            - [latencyMs, Latency Ms, 延迟毫秒]
-            - [platformSummary, Platform, 平台]
-            - [geoLocationSummary, Geo Location, 地理位置]
-            - [ipAddress, IP Address, IP地址]
-            - [apiOperation, Api Operation, 接口操作]
+            - [createdAt, Created At, 创建时间, 150]
+            - [successSummary, Status Code, 状态码, 120]
+            - [username, Username, 用户名, 140]
+            - [httpMethod, HTTP Method, 请求方法, 100]
+            - [path, Path, 路径, 260]
+            - field: latencyMs
+              en: Latency Ms
+              cn: 延迟毫秒
+              width: 120
+              slot: latencyMs
+            - [platformSummary, Platform, 平台, 170]
+            - [geoLocationSummary, Geo Location, 地理位置, 220]
+            - [ipAddress, IP Address, IP地址, 140]
+            - [apiOperation, Api Operation, 接口操作, 180]
           filters:
             - [username, Input, Username, 用户]
             - [path, Input, Path, 路径]
             - [httpMethod, Select, HTTP Method, 请求方法]
             - [apiModule, Input, API Module, 业务模块]
             - [statusCode, InputNumber, Status Code, HTTP状态]
-            - [reason, Input, Reason, 失败原因]
+            - [reason, Input, Reason, 操作失败原因]
             - [createdAtRange, RangePicker, Created At, 创建时间]
       filters:
         allow:
@@ -233,6 +273,40 @@ resources:
       dto_import: admin/api/gen/storage/v1
       dto_type: File
       repo_interface: FileRepo
+      frontend:
+        view_path: system/file
+        i18n_prefix: page.file
+        list:
+          columns:
+            - [fileName, File Name, 文件名, 240]
+            - field: extension
+              en: Extension
+              cn: 扩展名
+              width: 100
+              slot: extension
+            - [bucketName, Bucket Name, 存储桶, 130]
+            - field: fileDirectory
+              en: Directory
+              cn: 目录
+              width: 220
+              title_key: page.file.directory
+            - field: sizeFormat
+              en: Size
+              cn: 大小
+              width: 120
+              title_key: page.file.size
+            - field: tenantName
+              en: Owner
+              cn: 归属租户
+              width: 140
+              slot: tenantName
+              title_key: page.file.owner
+            - [createdAt, Created At, 创建时间, 180]
+          filters:
+            - [fileName, Input, File Name, 文件名]
+            - [fileDirectory, Input, Directory, 目录]
+            - [bucketName, Input, Bucket Name, 存储桶]
+            - [extension, Select, Extension, 扩展名]
       filters:
         allow:
             - id
@@ -269,6 +343,37 @@ resources:
       dto_import: admin/api/gen/internal_message/v1
       dto_type: InternalMessage
       repo_interface: InternalMessageRepo
+      frontend:
+        view_path: app/internal-message/message
+        i18n_prefix: page.internalMessage
+        list:
+          columns:
+            - [title, Title, 标题, 220]
+            - field: content
+              en: Content
+              cn: 内容
+              width: 360
+              slot: content
+            - [type, Type, 类型, 120]
+            - [status, Status, 状态, 120]
+            - [senderName, Sender Name, 发送人, 150]
+            - field: tenantName
+              en: Message Ownership
+              cn: 消息归属
+              width: 160
+              slot: tenant
+              title_key: page.tenant.messageOwnership
+            - [createdAt, Created At, 创建时间, 170]
+          filters:
+            - [title, Input, Title, 标题]
+            - [type, Select, Type, 类型]
+        form:
+          fields:
+            - [title, Title, 标题]
+            - [type, Type, 类型]
+            - [content, Content, 内容]
+            - [targetAll, Target All, 全部用户]
+            - [targetUserIds, Target Users, 指定用户]
       filters:
         allow:
             - id
@@ -380,16 +485,21 @@ resources:
         i18n_prefix: page.loginAuditLog
         list:
           columns:
-            - [createdAt, Created At, 创建时间]
-            - [status, Status, 状态]
-            - [username, Username, 用户名]
-            - [actionType, Action Type, 动作类型]
-            - [riskLevel, Risk Level, 风险等级]
-            - [platformSummary, Platform, 平台]
-            - [geoLocationSummary, Geo Location, 地理位置]
-            - [ipAddress, IP Address, IP地址]
-            - [loginMethod, Login Method, 登录方式]
-            - [deviceInfo.userAgent, User-Agent, User-Agent]
+            - [createdAt, Created At, 创建时间, 150]
+            - [status, Status, 状态, 110]
+            - [username, Username, 用户名, 140]
+            - [actionType, Action Type, 动作类型, 130]
+            - [riskLevel, Risk Level, 风险等级, 120]
+            - [platformSummary, Platform, 平台, 170]
+            - [geoLocationSummary, Geo Location, 地理位置, 240]
+            - [ipAddress, IP Address, IP地址, 140]
+            - [loginMethod, Login Method, 登录方式, 130]
+            - field: deviceInfo.userAgent
+              en: User-Agent
+              cn: User-Agent
+              width: 280
+              slot: userAgent
+              title_key: page.loginAuditLog.userAgent
           filters:
             - [username, Input, Username, 用户名]
             - [ipAddress, Input, IP Address, IP地址]
@@ -459,6 +569,46 @@ resources:
       dto_import: admin/api/gen/resource/v1
       dto_type: Menu
       repo_interface: MenuRepo
+      frontend:
+        view_path: system/menu
+        i18n_prefix: page.menu
+        list:
+          columns:
+            - field: name
+              en: Menu
+              cn: 菜单
+              width: 260
+              slot: menu
+              tree_node: true
+              title_key: page.menu.menu
+            - [path, Path, 路径, 180]
+            - [component, Component, 组件, 240]
+            - [type, Type, 类型, 100]
+            - field: scope
+              en: Resource Ownership
+              cn: 资源归属
+              width: 120
+              slot: scope
+              title_key: page.tenant.resourceOwnership
+            - [status, Status, 状态, 100]
+            - [createdAt, Created At, 创建时间, 170]
+          filters:
+            - [name, Input, Name, 菜单名称]
+            - [path, Input, Path, 路径]
+        form:
+          fields:
+            - [parentId, Parent, 上级菜单]
+            - [title, Title, 菜单标题]
+            - [name, Name, 菜单名称]
+            - [path, Path, 路径]
+            - [component, Component, 组件]
+            - [redirect, Redirect, 重定向]
+            - [icon, Icon, 图标]
+            - [authority, Authority, 权限标识]
+            - [type, Type, 类型]
+            - [ignoreAccess, Ignore Access, 忽略权限]
+            - [menuVisibleWithForbidden, Visible With Forbidden, 无权限时显示]
+            - [status, Status, 状态]
       filters:
         allow:
             - id
@@ -523,6 +673,46 @@ resources:
       dto_import: admin/api/gen/identity/v1
       dto_type: OrgUnit
       repo_interface: OrgUnitRepo
+      frontend:
+        view_path: system/org-unit
+        i18n_prefix: page.orgUnit
+        list:
+          columns:
+            - field: name
+              en: Org Unit
+              cn: 部门
+              width: 280
+              slot: orgUnit
+              tree_node: true
+              title_key: page.orgUnit.orgUnit
+            - [code, Code, 编码, 160]
+            - [type, Type, 类型, 120]
+            - [sortOrder, Sort Order, 排序, 90]
+            - field: tenantName
+              en: Resource Ownership
+              cn: 资源归属
+              width: 180
+              slot: tenant
+              title_key: page.tenant.resourceOwnership
+            - [status, Status, 状态, 100]
+            - [leaderName, Leader Name, 负责人, 140]
+            - [createdAt, Created At, 创建时间, 170]
+          filters:
+            - [name, Input, Name, 名称]
+            - [code, Input, Code, 编码]
+        form:
+          fields:
+            - [name, Name, 组织名称]
+            - [code, Code, 编码]
+            - [parentId, Parent Org Unit, 上级组织]
+            - [type, Type, 类型]
+            - [status, Status, 状态]
+            - [sortOrder, Sort Order, 排序]
+            - [phone, Phone, 电话]
+            - [email, Email, 邮箱]
+            - [address, Address, 地址]
+            - [description, Description, 描述]
+            - [remark, Remark, 备注]
       filters:
         allow:
             - id
@@ -593,6 +783,27 @@ resources:
       dto_import: admin/api/gen/audit/v1
       dto_type: PermissionAuditLog
       repo_interface: PermissionAuditLogRepo
+      frontend:
+        view_path: app/log/permission-audit-log
+        i18n_prefix: page.permissionAuditLog
+        list:
+          columns:
+            - [createdAt, Created At, 创建时间, 150]
+            - [action, Action, 操作类型, 120]
+            - [targetType, Target Type, 目标类型, 140]
+            - [targetName, Target Name, 目标名称, 180]
+            - [operatorName, Operator Name, 操作人, 140]
+            - [ipAddress, IP Address, IP地址, 140]
+            - [reason, Reason, 原因, 220]
+            - [oldValue, Old Value, 旧值, 280]
+            - [newValue, New Value, 新值, 280]
+          filters:
+            - [targetType, Input, Target Type, 目标类型]
+            - [operatorName, Input, Operator Name, 操作人]
+            - [action, Select, Action, 操作类型]
+            - [ipAddress, Input, IP Address, IP地址]
+            - [reason, Input, Reason, 原因]
+            - [createdAtRange, RangePicker, Created At, 创建时间]
       filters:
         allow:
             - id
@@ -680,6 +891,48 @@ resources:
       dto_import: admin/api/gen/identity/v1
       dto_type: Position
       repo_interface: PositionRepo
+      frontend:
+        view_path: system/position
+        i18n_prefix: page.position
+        list:
+          columns:
+            - field: name
+              en: Position
+              cn: 岗位
+              width: 260
+              slot: position
+              title_key: page.position.position
+            - [orgUnitName, Org Unit Name, 所属部门, 180]
+            - field: tenantName
+              en: Resource Ownership
+              cn: 资源归属
+              width: 180
+              slot: tenant
+              title_key: page.tenant.resourceOwnership
+            - [type, Type, 类型, 120]
+            - [level, Level, 级别, 90]
+            - [headcount, Headcount, 编制, 90]
+            - [status, Status, 状态, 100]
+            - [createdAt, Created At, 创建时间, 170]
+          filters:
+            - [name, Input, Name, 名称]
+            - [code, Input, Code, 编码]
+        form:
+          fields:
+            - [name, Name, 岗位名称]
+            - [code, Code, 编码]
+            - [type, Type, 类型]
+            - [status, Status, 状态]
+            - [level, Level, 等级]
+            - [headcount, Headcount, 编制]
+            - [sortOrder, Sort Order, 排序]
+            - [orgUnitId, Org Unit, 部门]
+            - [reportsToPositionId, Reports To Position, 汇报岗位]
+            - [jobFamily, Job Family, 岗位族]
+            - [jobGrade, Job Grade, 职级]
+            - [isKeyPosition, Key Position, 关键岗位]
+            - [description, Description, 描述]
+            - [remark, Remark, 备注]
       filters:
         allow:
             - id
@@ -717,6 +970,43 @@ resources:
       dto_import: admin/api/gen/permission/v1
       dto_type: Role
       repo_interface: RoleRepo
+      frontend:
+        view_path: system/role
+        i18n_prefix: page.role
+        list:
+          columns:
+            - field: name
+              en: Role
+              cn: 角色
+              width: 260
+              slot: role
+              title_key: page.role.role
+            - [type, Type, 类型, 120]
+            - field: scope
+              en: Resource Ownership
+              cn: 资源归属
+              width: 180
+              slot: scope
+              title_key: page.tenant.resourceOwnership
+            - field: sortOrder
+              en: Sort Order
+              cn: 排序
+              width: 90
+              title_key: ui.table.sortOrder
+            - [status, Status, 状态, 100]
+            - [memberCount, Member Count, 成员数量, 100]
+            - [createdAt, Created At, 创建时间, 170]
+          filters:
+            - [name, Input, Name, 名称]
+            - [code, Input, Code, 编码]
+        form:
+          fields:
+            - [name, Name, 角色名称]
+            - [code, Code, 编码]
+            - [type, Type, 类型]
+            - [status, Status, 状态]
+            - [sortOrder, Sort Order, 排序]
+            - [description, Description, 描述]
       filters:
         allow:
             - id
@@ -802,6 +1092,51 @@ resources:
       dto_import: admin/api/gen/task/v1
       dto_type: Task
       repo_interface: TaskRepo
+      frontend:
+        view_path: task/task
+        i18n_prefix: page.task
+        list:
+          columns:
+            - field: taskName
+              en: Task Name
+              cn: 任务名称
+              width: 180
+              slot: taskName
+            - field: taskType
+              en: Task Type
+              cn: 任务类型
+              width: 120
+              slot: taskType
+            - field: cronExpression
+              en: Cron Expression
+              cn: Cron表达式
+              width: 220
+              slot: cronExpression
+            - [invokeTarget, Invoke Target, 调用目标, 240]
+            - [retry, Retry, 重试次数, 90]
+            - field: concurrent
+              en: Concurrent
+              cn: 并发
+              width: 100
+              slot: concurrent
+            - [status, Status, 状态, 110]
+            - [updatedAt, Updated At, 更新时间, 170]
+          filters:
+            - [name, Input, Task Name, 任务名称]
+            - [status, Select, Status, 状态]
+            - [taskType, Select, Task Type, 任务类型]
+        form:
+          fields:
+            - [taskName, Task Name, 任务名称]
+            - [groupId, Group, 任务组]
+            - [taskType, Task Type, 任务类型]
+            - [status, Status, 状态]
+            - [cronExpression, Cron Expression, Cron表达式]
+            - [invokeTarget, Invoke Target, 调用目标]
+            - [retry, Retry, 重试次数]
+            - [concurrent, Concurrent, 并发]
+            - [args, Args, 参数]
+            - [remark, Remark, 备注]
       service_imports:
         - alias: taskruntime
           path: '{{module}}/internal/task/runtime'
@@ -866,6 +1201,22 @@ resources:
       dto_import: admin/api/gen/task/v1
       dto_type: TaskLog
       repo_interface: TaskLogRepo
+      frontend:
+        view_path: task/log
+        i18n_prefix: page.taskLog
+        list:
+          columns:
+            - [executeTime, Execute Time, 执行时间, 160]
+            - [status, Status, 状态, 120]
+            - [taskId, Task, 任务, 180]
+            - [processTime, Process Time, 处理耗时, 110]
+            - [input, Input, 输入, 240]
+            - [output, Output, 输出, 280]
+            - [error, Error, 错误, 220]
+          filters:
+            - [taskId, InputNumber, Task ID, 任务ID]
+            - [status, Select, Status, 状态]
+            - [executeTimeRange, RangePicker, Execute Time, 执行时间]
       filters:
         allow:
             - id
@@ -897,13 +1248,18 @@ resources:
         i18n_prefix: page.tenant
         list:
           columns:
-            - [name, Tenant, 租户]
-            - [domain, Domain, 域名]
-            - [type, Type, 类型]
-            - [status, Status, 状态]
-            - [auditStatus, Audit Status, 审核状态]
-            - [memberCount, Member Count, 成员数量]
-            - [createdAt, Created At, 创建时间]
+            - field: name
+              en: Tenant
+              cn: 租户
+              width: 220
+              slot: tenant
+              title_key: page.tenant.tenant
+            - [domain, Domain, 域名, 220]
+            - [type, Type, 类型, 120]
+            - [status, Status, 状态, 100]
+            - [auditStatus, Audit Status, 审核状态, 120]
+            - [memberCount, Member Count, 成员数量, 100]
+            - [createdAt, Created At, 创建时间, 170]
           filters:
             - [name, Input, Tenant, 租户]
             - [code, Input, Code, 租户编码]
@@ -953,6 +1309,71 @@ resources:
       dto_import: admin/api/gen/identity/v1
       dto_type: User
       repo_interface: UserRepo
+      frontend:
+        view_path: system/user
+        i18n_prefix: page.user
+        list:
+          columns:
+            - field: username
+              en: Identity
+              cn: 用户
+              width: 220
+              slot: identity
+              title_key: page.user.identity
+            - [mobile, Mobile, 手机号, 140]
+            - [telephone, Telephone, 固话, 140]
+            - field: orgUnits
+              en: Org Units
+              cn: 部门
+              width: 220
+              slot: orgUnits
+            - field: positions
+              en: Positions
+              cn: 岗位
+              width: 220
+              slot: positions
+            - field: roles
+              en: Roles
+              cn: 角色
+              width: 220
+              slot: roles
+            - field: tenantName
+              en: Resource Ownership
+              cn: 资源归属
+              width: 180
+              slot: tenant
+              title_key: page.tenant.tenant
+            - [status, Status, 状态, 100]
+            - [lastLoginAt, Last Login At, 最后登录时间, 170]
+            - [createdAt, Created At, 创建时间, 170]
+          filters:
+            - [username, Input, Username, 用户名]
+            - [realname, Input, Realname, 姓名]
+            - [mobile, Input, Mobile, 手机号]
+            - [telephone, Input, Telephone, 固话]
+            - [orgUnitId, Select, Org Units, 部门]
+            - [positionId, Select, Positions, 岗位]
+            - [roleId, Select, Roles, 角色]
+            - [status, Select, Status, 状态]
+        form:
+          fields:
+            - [username, Username, 用户名]
+            - [nickname, Nickname, 昵称]
+            - [realname, Realname, 姓名]
+            - [status, Status, 状态]
+            - [gender, Gender, 性别]
+            - [password, Password, 密码]
+            - [orgUnitIds, Org Units, 部门]
+            - [positionIds, Positions, 岗位]
+            - [roleIds, Roles, 角色]
+            - [avatar, Avatar, 头像]
+            - [email, Email, 邮箱]
+            - [mobile, Mobile, 手机号]
+            - [telephone, Telephone, 固话]
+            - [address, Address, 地址]
+            - [region, Region, 地区]
+            - [description, Description, 描述]
+            - [remark, Remark, 备注]
       exists_fields:
         - id
         - username

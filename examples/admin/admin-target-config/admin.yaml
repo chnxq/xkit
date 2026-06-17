@@ -1361,6 +1361,27 @@ resources:
     dto_import: admin/api/gen/audit/v1
     dto_type: PermissionAuditLog
     repo_interface: PermissionAuditLogRepo
+    frontend:
+      view_path: app/log/permission-audit-log
+      i18n_prefix: page.permissionAuditLog
+      list:
+        columns:
+          - [createdAt, Created At, 创建时间, 150]
+          - [action, Action, 操作类型, 120]
+          - [targetType, Target Type, 目标类型, 140]
+          - [targetName, Target Name, 目标名称, 180]
+          - [operatorName, Operator Name, 操作人, 140]
+          - [ipAddress, IP Address, IP地址, 140]
+          - [reason, Reason, 原因, 220]
+          - [oldValue, Old Value, 旧值, 280]
+          - [newValue, New Value, 新值, 280]
+        filters:
+          - [targetType, Input, Target Type, 目标类型]
+          - [operatorName, Input, Operator Name, 操作人]
+          - [action, Select, Action, 操作类型]
+          - [ipAddress, Input, IP Address, IP地址]
+          - [reason, Input, Reason, 原因]
+          - [createdAtRange, RangePicker, Created At, 创建时间]
     filters:
       allow:
         - id
@@ -1865,6 +1886,22 @@ resources:
     dto_import: admin/api/gen/task/v1
     dto_type: TaskLog
     repo_interface: TaskLogRepo
+    frontend:
+      view_path: task/log
+      i18n_prefix: page.taskLog
+      list:
+        columns:
+          - [executeTime, Execute Time, 执行时间, 160]
+          - [status, Status, 状态, 120]
+          - [taskId, Task, 任务, 180]
+          - [processTime, Process Time, 处理耗时, 110]
+          - [input, Input, 输入, 240]
+          - [output, Output, 输出, 280]
+          - [error, Error, 错误, 220]
+        filters:
+          - [taskId, InputNumber, Task ID, 任务ID]
+          - [status, Select, Status, 状态]
+          - [executeTimeRange, RangePicker, Execute Time, 执行时间]
     filters:
       allow:
         - id
