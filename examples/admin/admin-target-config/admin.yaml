@@ -783,6 +783,13 @@ resources:
         filters:
           - [title, Input, Title, 标题]
           - [type, Select, Type, 类型]
+      form:
+        fields:
+          - [title, Title, 标题]
+          - [type, Type, 类型]
+          - [content, Content, 内容]
+          - [targetAll, Target All, 全部用户]
+          - [targetUserIds, Target Users, 指定用户]
     service_repos:
       - field: internalMessageRecipientRepo
         interface: InternalMessageRecipientRepo
