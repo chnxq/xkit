@@ -120,8 +120,13 @@ go run ./cmd/xkit gen all admin --project <target-project> --config <target-conf
 ```
 
 `gen all` now includes frontend meta generation as part of the same pass. If the
-target config contains `frontend` sections, this rerun is also expected to
-refresh generated frontend resources such as:
+target config contains `frontend` sections, and `TypeScriptRoot` is set
+correctly, this rerun is also expected to refresh generated frontend resources
+under:
+
+- `<TypeScriptRoot>\apps\web-antd\src\views\generated\admin\`
+
+including files such as:
 
 - `views/generated/admin/**/*.meta.ts`
 - `page_i18n.zh-CN.json`

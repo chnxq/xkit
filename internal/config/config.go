@@ -9,14 +9,9 @@ import (
 )
 
 type Config struct {
-	Service   string          `yaml:"service"`
-	Module    string          `yaml:"module"`
-	Frontend  *FrontendConfig `yaml:"frontend,omitempty"`
-	Resources []Resource      `yaml:"resources"`
-}
-
-type FrontendConfig struct {
-	OutputRoot string `yaml:"output_root,omitempty"`
+	Service   string     `yaml:"service"`
+	Module    string     `yaml:"module"`
+	Resources []Resource `yaml:"resources"`
 }
 
 type Resource struct {

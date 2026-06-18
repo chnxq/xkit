@@ -27,8 +27,9 @@ import (
 )
 
 type Options struct {
-	DryRun  bool
-	Version string
+	DryRun         bool
+	Version        string
+	TypeScriptRoot string
 }
 
 type generatedMeta struct {
@@ -381,11 +382,11 @@ func (r *Runner) generateFrontendMetaFiles() (Result, error) {
 		return Result{}, err
 	}
 
-	outputRoot := "web/admin"
-	if r.config.Frontend != nil && strings.TrimSpace(r.config.Frontend.OutputRoot) != "" {
-		outputRoot = strings.TrimSpace(r.config.Frontend.OutputRoot)
+	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
+	if err != nil {
+		return Result{}, err
 	}
-	baseDir := filepath.Join(r.project.Root, filepath.FromSlash(outputRoot), "views", "generated", "admin")
+	baseDir := filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "views", "generated", "admin")
 
 	var result Result
 
@@ -758,6 +759,17 @@ func (r *Runner) internalDir(parts ...string) string {
 func (r *Runner) internalImport(parts ...string) string {
 	pathParts := append([]string{r.project.Module, "internal"}, parts...)
 	return filepath.ToSlash(filepath.Join(pathParts...))
+}
+
+func resolveTypeScriptRoot(projectRoot, configured string) (string, error) {
+	configured = strings.TrimSpace(configured)
+	if configured == "" {
+		return filepath.Join(filepath.Dir(projectRoot), filepath.Base(projectRoot)+"-ui"), nil
+	}
+	if filepath.IsAbs(configured) {
+		return filepath.Clean(configured), nil
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(projectRoot), configured)), nil
 }
 
 func (r *Runner) frontendMetaData(plan resourcePlan) frontendMetaTemplateData {

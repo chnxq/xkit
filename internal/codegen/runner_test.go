@@ -460,7 +460,7 @@ return {{successReturn}}, nil`,
 	runner, err := New(project.Info{
 		Root:   root,
 		Module: "example.com/xadmin-web",
-	}, cfg, Options{Version: "test-version"})
+	}, cfg, Options{Version: "test-version", TypeScriptRoot: filepath.Join(root, "frontend")})
 	if err != nil {
 		t.Fatalf("new runner: %v", err)
 	}
@@ -491,11 +491,11 @@ return {{successReturn}}, nil`,
 		filepath.Join(root, "internal", "bootstrap", "generated_hooks_ext.go"),
 		filepath.Join(root, "internal", "data", "bootstrap", "ent_client.gen.go"),
 		filepath.Join(root, "internal", "data", "bootstrap", "ent_client_ext.go"),
-		filepath.Join(root, "web", "admin", "views", "generated", "admin", "config.ts"),
-		filepath.Join(root, "web", "admin", "views", "generated", "admin", "page_i18n.zh-CN.json"),
-		filepath.Join(root, "web", "admin", "views", "generated", "admin", "page_i18n.en-US.json"),
-		filepath.Join(root, "web", "admin", "views", "generated", "admin", "langs", "zh-CN", "enum.json"),
-		filepath.Join(root, "web", "admin", "views", "generated", "admin", "langs", "en-US", "enum.json"),
+		filepath.Join(root, "frontend", "apps", "web-antd", "src", "views", "generated", "admin", "config.ts"),
+		filepath.Join(root, "frontend", "apps", "web-antd", "src", "views", "generated", "admin", "page_i18n.zh-CN.json"),
+		filepath.Join(root, "frontend", "apps", "web-antd", "src", "views", "generated", "admin", "page_i18n.en-US.json"),
+		filepath.Join(root, "frontend", "apps", "web-antd", "src", "views", "generated", "admin", "langs", "zh-CN", "enum.json"),
+		filepath.Join(root, "frontend", "apps", "web-antd", "src", "views", "generated", "admin", "langs", "en-US", "enum.json"),
 	}
 	for _, path := range expectedPaths {
 		if _, err := os.Stat(path); err != nil {
@@ -1866,9 +1866,6 @@ type LoginAuditLog struct {
 	cfg := config.Config{
 		Service: "admin",
 		Module:  "example.com/admin",
-		Frontend: &config.FrontendConfig{
-			OutputRoot: "web/admin",
-		},
 		Resources: []config.Resource{
 			{
 				Name:          "login_audit_log",
@@ -1900,7 +1897,7 @@ type LoginAuditLog struct {
 		},
 	}
 
-	runner, err := New(project.Info{Root: root, Module: "example.com/admin"}, cfg, Options{Version: "test"})
+	runner, err := New(project.Info{Root: root, Module: "example.com/admin"}, cfg, Options{Version: "test", TypeScriptRoot: filepath.Join(root, "frontend")})
 	if err != nil {
 		t.Fatalf("new runner: %v", err)
 	}
@@ -1913,12 +1910,12 @@ type LoginAuditLog struct {
 		t.Fatalf("expected generated files")
 	}
 
-	metaPath := filepath.Join(root, "web", "admin", "views", "generated", "admin", "app", "log", "login-audit-log.meta.ts")
+	metaPath := filepath.Join(root, "frontend", "apps", "web-antd", "src", "views", "generated", "admin", "app", "log", "login-audit-log.meta.ts")
 	metaContent := readFile(t, metaPath)
 	if !strings.Contains(metaContent, "buildSearchFormOptions") || !strings.Contains(metaContent, "buildListGridColumns") {
 		t.Fatalf("frontend meta file missing expected exports:\n%s", metaContent)
 	}
-	i18nPath := filepath.Join(root, "web", "admin", "views", "generated", "admin", "page_i18n.zh-CN.json")
+	i18nPath := filepath.Join(root, "frontend", "apps", "web-antd", "src", "views", "generated", "admin", "page_i18n.zh-CN.json")
 	i18nContent := readFile(t, i18nPath)
 	if !strings.Contains(i18nContent, `"page.loginAuditLog.createdAt"`) {
 		t.Fatalf("frontend i18n file missing expected key:\n%s", i18nContent)

@@ -28,8 +28,8 @@ xkit gen repo <service> [--project <path>] [--config <path>] [--domain <name>] [
 xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 xkit gen bootstrap <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 xkit gen wire <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
-xkit gen frontend-meta <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
-xkit gen all <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
+xkit gen frontend-meta <service> [--project <path>] [--config <path>] [--domain <name>] [--typescript-project <path>] [--dry-run]
+xkit gen all <service> [--project <path>] [--config <path>] [--domain <name>] [--typescript-project <path>] [--dry-run]
 ```
 
 `xkit init template` 在真实复制模板后默认执行 `go get -u all`。实际项目初始化时，如果 API/Ent 代码还没有生成完整，建议先加 `--skip-go-get-update-all`，等完整生成后再在目标工程手动执行依赖更新。
@@ -131,11 +131,13 @@ cd D:\GoProjects\XAdmin\xkit
 go run ./cmd/xkit gen all admin `
   --project D:\GoProjects\XAdmin\xadmin-web `
   --config D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml `
+  --typescript-project D:\GoProjects\XAdmin\xadmin-web-ui `
   --dry-run
 
 go run ./cmd/xkit gen all admin `
   --project D:\GoProjects\XAdmin\xadmin-web `
-  --config D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml
+  --config D:\GoProjects\XAdmin\xadmin-web\source\xadmin-web-config\admin.yaml `
+  --typescript-project D:\GoProjects\XAdmin\xadmin-web-ui
 ```
 
 `gen all` 会生成 service、repo、HTTP/gRPC register 和 bootstrap glue。它会覆盖 `*.gen.go`，但不会覆盖已有的 `*_ext.go`。
@@ -148,11 +150,13 @@ cd D:\GoProjects\XAdmin\xkit
 go run ./cmd/xkit gen frontend-meta admin `
   --project D:\GoProjects\XAdmin\admin-ui `
   --config D:\GoProjects\XAdmin\xkit\examples\admin\admin-target-config\admin.yaml `
+  --typescript-project D:\GoProjects\XAdmin\admin-ui `
   --dry-run
 
 go run ./cmd/xkit gen frontend-meta admin `
   --project D:\GoProjects\XAdmin\admin-ui `
-  --config D:\GoProjects\XAdmin\xkit\examples\admin\admin-target-config\admin.yaml
+  --config D:\GoProjects\XAdmin\xkit\examples\admin\admin-target-config\admin.yaml `
+  --typescript-project D:\GoProjects\XAdmin\admin-ui
 ```
 
 当前推荐以 `xkit/examples/admin/admin-target-config/admin.yaml` 作为真实迭代基线，等验证通过后再同步回：
@@ -160,7 +164,7 @@ go run ./cmd/xkit gen frontend-meta admin `
 - `xkit/examples/admin/admin-config/admin.yaml`
 - `xkit/examples/admin-v2/admin-config/admin.yaml`
 
-`frontend-meta` 当前输出到：
+`frontend-meta` 当前输出路径不再从 `admin.yaml` 顶层配置读取，而是和 TypeScript API 一样从 `TypeScriptRoot` 推算。对于当前 `admin-ui`，输出到：
 
 ```text
 admin-ui/apps/web-antd/src/views/generated/admin/
@@ -222,7 +226,7 @@ go run ./cmd/server server -config_path ./configs
 | 启动模板代码 | `cmd/server/*`、`configs/*`、`internal/bootstrap/app.go`、`internal/server/*`、`internal/data/bootstrap/*` | `xkit init template` 复制后归目标项目维护 |
 | 动态生成代码 | `internal/service/*_service.gen.go`、`internal/data/repo/*_repo.gen.go`、`internal/server/*_register.gen.go`、`internal/bootstrap/generated_servers.gen.go`、`internal/bootstrap/generated_data_providers.gen.go`、`internal/data/bootstrap/ent_client.gen.go` | `xkit gen ...` 可重复覆盖 |
 | 手写扩展代码 | `*_ext.go`、`internal/bootstrap/hooks.go`、`internal/server/options.go`、`internal/server/manual_http_data.go`、`internal/data/bootstrap/data.go`、`internal/data/bootstrap/resources.go` | 只在缺失时创建或由模板 preserve，后续人工维护 |
-| 前端生成资源 | `admin-ui/apps/web-antd/src/views/generated/admin/**/*` | `xkit gen frontend-meta` 可重复覆盖，页面层按需引用 |
+| 前端生成资源 | `<TypeScriptRoot>/apps/web-antd/src/views/generated/admin/**/*` | `xkit gen frontend-meta` / `xkit gen all` 可重复覆盖，页面层按需引用 |
 
 `internal/server/manual_http.go` 属于模板基线文件，不再作为 project preserve 扩展点保留；需要 `GeneratedData` 的项目手写 HTTP 逻辑应放在 `internal/server/manual_http_data.go`。
 

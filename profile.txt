@@ -32,7 +32,8 @@ Generation File Boundary
   - expected to hold handwritten project-specific logic
 - `internal/bootstrap/*_ext.go`
   - stable extension points for runtime/bootstrap assembly
-- Generated frontend meta files under `admin-ui/apps/web-antd/src/views/generated/admin/`
+- Generated frontend meta files under
+  `<TypeScriptRoot>/apps/web-antd/src/views/generated/admin/`
   are generator-owned outputs and should be treated like other generated artifacts.
 
 Template vs Generator Split
@@ -58,7 +59,7 @@ Current Frontend Meta Rules
   - `buildListGridColumns`
   - `buildFormOptions`
 - Generated frontend resources currently land under:
-  - `admin-ui/apps/web-antd/src/views/generated/admin/`
+  - `<TypeScriptRoot>/apps/web-antd/src/views/generated/admin/`
 - Generated language resources currently include:
   - `page_i18n.zh-CN.json`
   - `page_i18n.en-US.json`

@@ -26,8 +26,8 @@ const usageText = `Usage:
   xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen wire <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen bootstrap <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
-  xkit gen frontend-meta <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
-  xkit gen all <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
+  xkit gen frontend-meta <service> [--project <path>] [--config <path>] [--domain <name>] [--typescript-project <path>] [--dry-run]
+  xkit gen all <service> [--project <path>] [--config <path>] [--domain <name>] [--typescript-project <path>] [--dry-run]
 
 Default template source:
   https://github.com/chnxq/xkit-template.git
@@ -206,10 +206,11 @@ func runInitSource(args []string) error {
 }
 
 type genOptions struct {
-	projectRoot string
-	configPath  string
-	domain      string
-	dryRun      bool
+	projectRoot    string
+	configPath     string
+	domain         string
+	typeScriptRoot string
+	dryRun         bool
 }
 
 func runGen(args []string, version string) error {
@@ -229,6 +230,7 @@ func runGen(args []string, version string) error {
 	flagSet.StringVar(&options.projectRoot, "project", "", "target project root")
 	flagSet.StringVar(&options.configPath, "config", "", "path to generation config")
 	flagSet.StringVar(&options.domain, "domain", "", "domain name used to resolve the default config path")
+	flagSet.StringVar(&options.typeScriptRoot, "typescript-project", "", "target TypeScript project root; relative paths are resolved beside the Go project")
 	flagSet.BoolVar(&options.dryRun, "dry-run", false, "plan file writes without modifying the target project")
 	if err := flagSet.Parse(args[2:]); err != nil {
 		return err
@@ -261,7 +263,11 @@ func runGen(args []string, version string) error {
 		return fmt.Errorf("config service %q does not match argument %q", cfg.Service, serviceName)
 	}
 
-	runner, err := codegen.New(projectInfo, cfg, codegen.Options{DryRun: options.dryRun, Version: version})
+	runner, err := codegen.New(projectInfo, cfg, codegen.Options{
+		DryRun:         options.dryRun,
+		Version:        version,
+		TypeScriptRoot: options.typeScriptRoot,
+	})
 	if err != nil {
 		return err
 	}

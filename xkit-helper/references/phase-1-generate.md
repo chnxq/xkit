@@ -91,7 +91,7 @@ The script is expected to do this sequence:
 6. `buf generate --template buf.vue.admin.typescript.gen.yaml`
 7. `go mod tidy`
 8. `go run -mod=mod entgo.io/ent/cmd/ent generate ./internal/data/ent/schema --feature privacy,sql/upsert,sql/versioned-migration,sql/modifier`
-9. `go run ./cmd/xkit gen all admin --project <target> --config <target-config>`
+9. `go run ./cmd/xkit gen all admin --project <target> --config <target-config> --typescript-project <TypeScriptRoot>`
 10. `go get -u all`
 11. `go mod tidy`
 12. `go test ./...`
@@ -99,10 +99,10 @@ The script is expected to do this sequence:
 Step 9 now includes frontend meta generation. When the target config contains
 `frontend` metadata, the same `gen all` run should also generate or refresh:
 
-- `views/generated/admin/**/*.meta.ts`
-- `page_i18n.zh-CN.json`
-- `page_i18n.en-US.json`
-- generated/copied language resources under `views/generated/admin/langs/`
+- `<TypeScriptRoot>\apps\web-antd\src\views\generated\admin\**\*.meta.ts`
+- `<TypeScriptRoot>\apps\web-antd\src\views\generated\admin\page_i18n.zh-CN.json`
+- `<TypeScriptRoot>\apps\web-antd\src\views\generated\admin\page_i18n.en-US.json`
+- generated/copied language resources under `<TypeScriptRoot>\apps\web-antd\src\views\generated\admin\langs\`
 
 ## Mandatory config verification
 
@@ -131,7 +131,8 @@ If not, repair the target config and rerun:
 Set-Location D:\GoProjects\XAdmin\xkit
 go run ./cmd/xkit gen all admin `
   --project D:\GoProjects\XAdmin\<ProjectName> `
-  --config <ConfigPath>
+  --config <ConfigPath> `
+  --typescript-project <TypeScriptRoot>
 ```
 
 If the config has `frontend` sections, treat this rerun as both:

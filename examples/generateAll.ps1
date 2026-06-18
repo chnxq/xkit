@@ -345,6 +345,7 @@ try {
             go run ./cmd/xkit gen all $ServiceName `
                 --project $ProjectRoot `
                 --config $ConfigPath `
+                --typescript-project $TypeScriptRoot `
                 --dry-run
         }
     }
@@ -352,7 +353,8 @@ try {
     Invoke-Step "Generate xkit dynamic code and frontend meta" {
         go run ./cmd/xkit gen all $ServiceName `
             --project $ProjectRoot `
-            --config $ConfigPath
+            --config $ConfigPath `
+            --typescript-project $TypeScriptRoot
     }
 
     Invoke-Step "Final dependency update" {

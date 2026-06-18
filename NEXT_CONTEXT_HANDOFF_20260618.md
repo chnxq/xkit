@@ -124,6 +124,13 @@ The work moved in three layers:
 - generated enum resource copies under:
   - `views/generated/admin/langs/...`
 
+At that stage the docs still described the output as a fixed `admin-ui` path,
+but the intended rule is now:
+
+- frontend meta output is derived from `TypeScriptRoot`
+- it follows the same root-resolution logic as generated TypeScript API code
+- it should not depend on a top-level `admin.yaml` output-root setting
+
 This was introduced across these commits:
 
 - `351fdfb`
@@ -264,7 +271,8 @@ These are the key resources currently participating in generated meta output.
 
 ### 4.1 Generated Resource Tree Exists
 
-Generated resources now live under:
+Generated resources now live under the frontend project resolved from
+`TypeScriptRoot`, for example:
 
 - `admin-ui/apps/web-antd/src/views/generated/admin/`
 
