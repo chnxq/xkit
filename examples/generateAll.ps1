@@ -104,7 +104,7 @@ function Show-ExecutionSummary {
     Write-Host "  3. apply canonical admin config"
     Write-Host "  4. generate Go/OpenAPI/TypeScript API code"
     Write-Host "  5. generate Ent code"
-    Write-Host "  6. run xkit gen all"
+    Write-Host "  6. run xkit gen all (including frontend meta generation)"
     Write-Host "  7. tidy dependencies and run tests"
     if ($SmokeTest) {
         Write-Host "  8. run server smoke test"
@@ -349,7 +349,7 @@ try {
         }
     }
 
-    Invoke-Step "Generate xkit dynamic code" {
+    Invoke-Step "Generate xkit dynamic code and frontend meta" {
         go run ./cmd/xkit gen all $ServiceName `
             --project $ProjectRoot `
             --config $ConfigPath

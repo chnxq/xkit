@@ -7,7 +7,7 @@ import (
 	"github.com/chnxq/xkit/internal/cli"
 )
 
-const Version = "v0.2.0 2026-05-28"
+const Version = "v0.3.0 2026-06-18"
 
 func main() {
 	if err := cli.Run(os.Args[1:], Version); err != nil {

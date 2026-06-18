@@ -85,6 +85,7 @@ This phase is responsible for:
 - importing example source assets from `xkit/examples/admin`
 - generating target-specific config
 - generating Go API, OpenAPI, TypeScript, Ent, and xkit dynamic code
+- generating frontend page meta resources when the config contains `frontend` metadata
 - running `go test ./...`
 
 ### 3. Verify config replacement happened
@@ -117,6 +118,15 @@ If the config had to be corrected after the initial bootstrap, rerun:
 ```powershell
 go run ./cmd/xkit gen all admin --project <target-project> --config <target-config>
 ```
+
+`gen all` now includes frontend meta generation as part of the same pass. If the
+target config contains `frontend` sections, this rerun is also expected to
+refresh generated frontend resources such as:
+
+- `views/generated/admin/**/*.meta.ts`
+- `page_i18n.zh-CN.json`
+- `page_i18n.en-US.json`
+- generated/copied language resources under `views/generated/admin/langs/`
 
 Then re-run:
 

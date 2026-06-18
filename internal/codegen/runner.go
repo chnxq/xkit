@@ -363,7 +363,7 @@ func (r *Runner) Generate(target string) (Result, error) {
 
 func (r *Runner) generateAll() (Result, error) {
 	var result Result
-	parts := []string{"service", "repo", "register", "bootstrap"}
+	parts := []string{"service", "repo", "register", "bootstrap", "frontend-meta"}
 	for _, part := range parts {
 		partResult, err := r.Generate(part)
 		if err != nil {

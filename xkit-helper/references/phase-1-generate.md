@@ -96,6 +96,14 @@ The script is expected to do this sequence:
 11. `go mod tidy`
 12. `go test ./...`
 
+Step 9 now includes frontend meta generation. When the target config contains
+`frontend` metadata, the same `gen all` run should also generate or refresh:
+
+- `views/generated/admin/**/*.meta.ts`
+- `page_i18n.zh-CN.json`
+- `page_i18n.en-US.json`
+- generated/copied language resources under `views/generated/admin/langs/`
+
 ## Mandatory config verification
 
 After `init source`, verify the target config:
@@ -125,3 +133,8 @@ go run ./cmd/xkit gen all admin `
   --project D:\GoProjects\XAdmin\<ProjectName> `
   --config <ConfigPath>
 ```
+
+If the config has `frontend` sections, treat this rerun as both:
+
+- backend regeneration
+- frontend meta regeneration

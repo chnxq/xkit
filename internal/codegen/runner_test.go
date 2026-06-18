@@ -470,8 +470,8 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 17 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 17)
+	if len(result.Written) != 22 {
+		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 22)
 	}
 
 	expectedPaths := []string{
@@ -491,6 +491,11 @@ return {{successReturn}}, nil`,
 		filepath.Join(root, "internal", "bootstrap", "generated_hooks_ext.go"),
 		filepath.Join(root, "internal", "data", "bootstrap", "ent_client.gen.go"),
 		filepath.Join(root, "internal", "data", "bootstrap", "ent_client_ext.go"),
+		filepath.Join(root, "web", "admin", "views", "generated", "admin", "config.ts"),
+		filepath.Join(root, "web", "admin", "views", "generated", "admin", "page_i18n.zh-CN.json"),
+		filepath.Join(root, "web", "admin", "views", "generated", "admin", "page_i18n.en-US.json"),
+		filepath.Join(root, "web", "admin", "views", "generated", "admin", "langs", "zh-CN", "enum.json"),
+		filepath.Join(root, "web", "admin", "views", "generated", "admin", "langs", "en-US", "enum.json"),
 	}
 	for _, path := range expectedPaths {
 		if _, err := os.Stat(path); err != nil {
@@ -1900,12 +1905,12 @@ type LoginAuditLog struct {
 		t.Fatalf("new runner: %v", err)
 	}
 
-	result, err := runner.Generate("frontend-meta")
+	result, err := runner.Generate("all")
 	if err != nil {
-		t.Fatalf("generate frontend-meta: %v", err)
+		t.Fatalf("generate all: %v", err)
 	}
 	if len(result.Written) == 0 {
-		t.Fatalf("expected generated frontend-meta files")
+		t.Fatalf("expected generated files")
 	}
 
 	metaPath := filepath.Join(root, "web", "admin", "views", "generated", "admin", "app", "log", "login-audit-log.meta.ts")

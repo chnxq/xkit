@@ -2,7 +2,7 @@
 
 `xkit` 是面向 XAdmin 风格 Go 服务工程的代码生成器。它把原始 `proto/schema`、已生成的 API/Ent 代码和服务配置组合起来，生成可重复覆盖的服务层、数据层、传输注册和启动装配代码。
 
-当前推荐把项目分成三类输入和代码：
+当前建议把项目分成三类输入和代码：
 
 - `xkit-template`：启动模板仓库，默认来自 `https://github.com/chnxq/xkit-template.git`。它负责 `cmd/server`、`configs`、`internal/bootstrap`、`internal/server`、`internal/data/bootstrap` 等项目骨架。
 - `source`：目标项目中的原始输入目录，通常包含 `source/api/protos`、`source/schema` 和生成出来的 `<project>-config/<service>.yaml`。
@@ -16,9 +16,9 @@
 - 可执行 `git`。默认模板源是 GitHub；离线时可把 `xkit init template` 的第一个参数换成本地模板目录。
 - 需要重新生成 API 时，目标工程可执行 `buf generate --template buf.gen.yaml`。
 - 需要重新生成 Ent 时，目标工程可执行 Ent 生成命令；下面示例使用显式 `ent generate` 命令。
-- 建议所有写文件的 `xkit` 命令先执行 `--dry-run`，确认计划后再真实写入。
+- 建议所有会写文件的 `xkit` 命令先执行 `--dry-run`，确认计划后再真实写入。
 
-## 命令概览
+## 命令总览
 
 ```text
 xkit init template [template-source] [--project <path>] [--module <module>] [--app-name <name>] [--command-name <name>] [--service-name <name>] [--force] [--dry-run] [--skip-go-get-update-all]
@@ -28,14 +28,15 @@ xkit gen repo <service> [--project <path>] [--config <path>] [--domain <name>] [
 xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 xkit gen bootstrap <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 xkit gen wire <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
+xkit gen frontend-meta <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 xkit gen all <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
 ```
 
-`xkit init template` 在真实复制模板后默认执行 `go get -u all`。实际项目初始化时，如果 API/Ent 代码还没有生成完整，建议先加 `--skip-go-get-update-all`，等完整生成后在目标工程手动执行依赖更新。
+`xkit init template` 在真实复制模板后默认执行 `go get -u all`。实际项目初始化时，如果 API/Ent 代码还没有生成完整，建议先加 `--skip-go-get-update-all`，等完整生成后再在目标工程手动执行依赖更新。
 
 ## 快速开始
 
-下面以当前工作区的 `xadmin-web` 和 `admin` 服务为例。其他项目只需要替换路径、module 和服务名。
+下面以当前工作区的 `xadmin-web` 和 `admin` 服务为例。其它项目只需要替换路径、module 和服务名。
 
 1. 预览启动模板落地计划：
 
@@ -122,7 +123,7 @@ go run -mod=mod entgo.io/ent/cmd/ent generate ./internal/data/ent/schema --featu
 
 如果目标工程维护了可靠的 `internal/data/ent/generate.go`，也可以按项目约定执行 `go generate ./internal/data/ent`。
 
-6. 预览并执行 xkit 动态代码生成：
+6. 预览并执行 `xkit` 动态代码生成：
 
 ```powershell
 cd D:\GoProjects\XAdmin\xkit
@@ -139,6 +140,49 @@ go run ./cmd/xkit gen all admin `
 
 `gen all` 会生成 service、repo、HTTP/gRPC register 和 bootstrap glue。它会覆盖 `*.gen.go`，但不会覆盖已有的 `*_ext.go`。
 
+如果目标前端是 `admin-ui` 这种基于生成元数据的页面体系，还可以单独执行 `frontend-meta` 生成，将搜索、列表、表单元数据以及页面 I18n 输出到前端项目：
+
+```powershell
+cd D:\GoProjects\XAdmin\xkit
+
+go run ./cmd/xkit gen frontend-meta admin `
+  --project D:\GoProjects\XAdmin\admin-ui `
+  --config D:\GoProjects\XAdmin\xkit\examples\admin\admin-target-config\admin.yaml `
+  --dry-run
+
+go run ./cmd/xkit gen frontend-meta admin `
+  --project D:\GoProjects\XAdmin\admin-ui `
+  --config D:\GoProjects\XAdmin\xkit\examples\admin\admin-target-config\admin.yaml
+```
+
+当前推荐以 `xkit/examples/admin/admin-target-config/admin.yaml` 作为真实迭代基线，等验证通过后再同步回：
+
+- `xkit/examples/admin/admin-config/admin.yaml`
+- `xkit/examples/admin-v2/admin-config/admin.yaml`
+
+`frontend-meta` 当前输出到：
+
+```text
+admin-ui/apps/web-antd/src/views/generated/admin/
+```
+
+主要包含：
+
+- `**/*.meta.ts`
+- `page_i18n.zh-CN.json`
+- `page_i18n.en-US.json`
+- `langs/zh-CN/*.json`
+- `langs/en-US/*.json`
+- `config.ts`
+
+当前生成的元数据模块约定导出：
+
+- `buildSearchFormOptions`
+- `buildListGridColumns`
+- `buildFormOptions`
+
+其中非标准 CRUD 弹窗页面可以只接入搜索和列表元数据，把业务特有的 slot、动作列、请求参数映射、复杂弹窗逻辑继续保留在手写 `index.vue` 中。
+
 7. 更新依赖、测试并启动：
 
 ```powershell
@@ -151,12 +195,12 @@ go run ./cmd/server server -config_path ./configs
 
 如果目标环境的数据库、Redis、注册中心、trace exporter 等外部依赖还没有准备好，启动失败不一定代表生成失败；先以 `go test ./...` 和编译错误为准。
 
-如果你希望复用 `examples/generateAll.ps1` 走一键流程，但默认的 `examples/admin/<project>-config/<service>.yaml` 约定不适合当前项目，可以显式传入：
+如果希望复用 `examples/generateAll.ps1` 走一键流程，但默认的 `examples/admin/<project>-config/<service>.yaml` 约定不适合当前项目，可以显式传入：
 
 - `-ConfigPath <生成配置文件路径>`
 - `-CanonicalConfigPath <用于覆盖的基线配置路径>`
 
-例如使用 `admin-v2-config` 作为基线：
+例如使用 `admin-v2` 的配置作为基线：
 
 ```powershell
 & 'D:\GoProjects\XAdmin\xkit\examples\generateAll.ps1' `
@@ -167,7 +211,7 @@ go run ./cmd/server server -config_path ./configs
   -ServiceName 'admin' `
   -TypeScriptRoot 'D:\GoProjects\XAdmin\qadmin\.generated-ui' `
   -ConfigPath 'D:\GoProjects\XAdmin\xkit\examples\admin\qadmin-config\admin.yaml' `
-  -CanonicalConfigPath 'D:\GoProjects\XAdmin\xkit\examples\admin\admin-v2-config\admin.yaml' `
+  -CanonicalConfigPath 'D:\GoProjects\XAdmin\xkit\examples\admin-v2\admin-config\admin.yaml' `
   -SkipGoGetUpdateAll
 ```
 
@@ -178,9 +222,9 @@ go run ./cmd/server server -config_path ./configs
 | 启动模板代码 | `cmd/server/*`、`configs/*`、`internal/bootstrap/app.go`、`internal/server/*`、`internal/data/bootstrap/*` | `xkit init template` 复制后归目标项目维护 |
 | 动态生成代码 | `internal/service/*_service.gen.go`、`internal/data/repo/*_repo.gen.go`、`internal/server/*_register.gen.go`、`internal/bootstrap/generated_servers.gen.go`、`internal/bootstrap/generated_data_providers.gen.go`、`internal/data/bootstrap/ent_client.gen.go` | `xkit gen ...` 可重复覆盖 |
 | 手写扩展代码 | `*_ext.go`、`internal/bootstrap/hooks.go`、`internal/server/options.go`、`internal/server/manual_http_data.go`、`internal/data/bootstrap/data.go`、`internal/data/bootstrap/resources.go` | 只在缺失时创建或由模板 preserve，后续人工维护 |
+| 前端生成资源 | `admin-ui/apps/web-antd/src/views/generated/admin/**/*` | `xkit gen frontend-meta` 可重复覆盖，页面层按需引用 |
 
 `internal/server/manual_http.go` 属于模板基线文件，不再作为 project preserve 扩展点保留；需要 `GeneratedData` 的项目手写 HTTP 逻辑应放在 `internal/server/manual_http_data.go`。
-| 历史兼容代码 | Wire provider set、旧 `wire.go`、旧 `wire_gen.go` | 默认流程不依赖，`gen all` 不自动生成或清理 |
 
 ## 常见问题
 
@@ -190,15 +234,37 @@ go run ./cmd/server server -config_path ./configs
 
 找不到 Ent 类型、predicate、字段或 client：确认已重新执行 Ent 生成命令，并且 `internal/data/ent/schema` 与 Ent 生成代码一致。
 
-`go.sum` 或依赖缺失：完整生成 API、Ent 和 xkit 代码后，在目标项目执行 `go get -u all` 与 `go mod tidy`。
+`go.sum` 或依赖缺失：完整生成 API、Ent 和 `xkit` 代码后，在目标项目执行 `go get -u all` 与 `go mod tidy`。
 
 `skipped resources without matching proto service`：通常是关系表、详情表或嵌入实体没有独立 service，属于正常提示；只有需要生成 service/repo 的资源才必须补齐 proto service。
+
+前端生成后如果所见变更很多，先区分是否属于真实语义差异，还是仅仅是 `page_i18n`、meta 文件格式或时间戳刷新。
+
+如果改了 `frontend-meta` 规则，可先执行：
+
+```powershell
+cd D:\GoProjects\XAdmin\xkit
+go test ./internal/codegen -count=1
+
+cd D:\GoProjects\XAdmin\admin-ui
+pnpm exec eslint apps/web-antd/src/views/generated/admin --fix
+pnpm -F @vben/web-antd run typecheck
+```
+
+对于 zh-CN 占位文案，当前规则应避免出现：
+
+- `Search ...`
+- `Select ...`
+- `... Range`
+
+这类中英混杂文本，优先回退到字段标题。
 
 ## 进一步文档
 
 - [启动模板与生成代码边界](doc/bootstrap-template-generated-boundary.md)
 - [Source import 命令](doc/source-import-command.md)
 - [前端 API 集成计划](doc/frontend-api-integration-plan.md)
+- [前端 view meta 生成方案](doc/frontend-view-meta-generation-plan.md)
 - [服务代码生成规格](doc/service-codegen-spec.md)
 - [模板仓库方案记录](doc/template-repo-bootstrap-solution.md)：历史方案和决策过程，以 README 与边界文档为当前准则。
 - [xkit-helper 技能主文档](xkit-helper/SKILL.md)：面向 Codex 的三阶段操作说明，覆盖生成、对齐与功能差异复盘。
