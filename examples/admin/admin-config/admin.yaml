@@ -1,7 +1,5 @@
 service: admin
 module: admin
-frontend:
-  output_root: ../admin-ui/apps/web-antd/src
 resources:
     - name: api
       proto_service: admin.service.v1.ApiService
