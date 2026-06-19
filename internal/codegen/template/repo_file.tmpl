@@ -213,7 +213,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 {{ .Pre }}
 {{- end}}
 {{- if and (eq $.TenantScope "tenant_scoped") (eq .Method "SetNillableTenantID")}}
-		tenantID, err := resolveCreateTenantID(ctx, {{ .Expr }})
+		tenantID, err := {{if $.UseSharedModule}}modulex.ResolveCreateTenantID{{else}}resolveCreateTenantID{{end}}(ctx, {{ .Expr }})
 		if err != nil {
 			return {{ $method.ZeroReturn }}, err
 		}
@@ -229,7 +229,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 {{ .Pre }}
 {{- end}}
 {{- if and (eq $.TenantScope "tenant_scoped") (eq .Method "SetNillableTenantID")}}
-	tenantID, err := resolveCreateTenantID(ctx, {{ .Expr }})
+	tenantID, err := {{if $.UseSharedModule}}modulex.ResolveCreateTenantID{{else}}resolveCreateTenantID{{end}}(ctx, {{ .Expr }})
 	if err != nil {
 		return {{ $method.ZeroReturn }}, err
 	}
@@ -271,7 +271,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		r.log.Errorf("get {{ $.ResourceName }} before update failed: %s", err.Error())
 		return {{ .ZeroReturn }}, err
 	}
-	if err := ensureTenantAccessible(ctx, current.TenantID); err != nil {
+	if err := {{if $.UseSharedModule}}modulex.EnsureTenantAccessible{{else}}ensureTenantAccessible{{end}}(ctx, current.TenantID); err != nil {
 		return {{ .ZeroReturn }}, err
 	}
 {{- end}}
@@ -334,7 +334,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 			r.log.Errorf("get {{ $.ResourceName }} before delete failed: %s", err.Error())
 			return {{ .ZeroReturn }}, err
 		}
-		if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {
+		if err := {{if $.UseSharedModule}}modulex.EnsureTenantAccessible{{else}}ensureTenantAccessible{{end}}(ctx, entity.TenantID); err != nil {
 			return {{ .ZeroReturn }}, err
 		}
 {{- end}}
@@ -350,7 +350,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 			return {{ .ZeroReturn }}, err
 		}
 		for _, entity := range entities {
-			if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {
+			if err := {{if $.UseSharedModule}}modulex.EnsureTenantAccessible{{else}}ensureTenantAccessible{{end}}(ctx, entity.TenantID); err != nil {
 				return {{ .ZeroReturn }}, err
 			}
 		}
@@ -410,7 +410,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		return {{ .ZeroReturn }}, err
 	}
 {{- if eq $.TenantScope "tenant_scoped"}}
-	if err := ensureTenantAccessible(ctx, entity.TenantID); err != nil {
+	if err := {{if $.UseSharedModule}}modulex.EnsureTenantAccessible{{else}}ensureTenantAccessible{{end}}(ctx, entity.TenantID); err != nil {
 		return {{ .ZeroReturn }}, err
 	}
 {{- end}}
@@ -439,7 +439,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	builder := r.entClient.Client().{{ $.EntityName }}.Query()
 	countBuilder := r.entClient.Client().{{ $.EntityName }}.Query()
 {{- if eq $.TenantScope "tenant_scoped"}}
-	if tenantID := viewerTenantID(ctx); tenantID != nil {
+	if tenantID := {{if $.UseSharedModule}}modulex.ViewerTenantID{{else}}viewerTenantID{{end}}(ctx); tenantID != nil {
 		builder.Where({{ $.EntPackage }}.TenantIDEQ(*tenantID))
 		countBuilder.Where({{ $.EntPackage }}.TenantIDEQ(*tenantID))
 	}
@@ -456,7 +456,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	if listReq == nil {
 		listReq = &paginationv1.PagingRequest{}
 	}
-	listReq.Sorting = withDefaultSorting(
+	listReq.Sorting = {{if $.UseSharedModule}}modulex.WithDefaultSorting{{else}}withDefaultSorting{{end}}(
 		listReq.Sorting,
 		"{{if $.DefaultListSortField}}{{ $.DefaultListSortField }}{{else}}id{{end}}",
 		paginationv1.Sorting_{{if $.DefaultListSortDirection}}{{ $.DefaultListSortDirection }}{{else}}ASC{{end}},
@@ -467,7 +467,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		listReq.Limit = &limit
 		listReq.Offset = &offset
 	}
-	sortField, sortDirection, err := firstSorting(listReq)
+	sortField, sortDirection, err := {{if $.UseSharedModule}}modulex.FirstSorting{{else}}firstSorting{{end}}(listReq)
 	if err != nil {
 		return {{ .ZeroReturn }}, err
 	}
@@ -479,7 +479,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 			builder.Order(ent.Asc(sortField))
 		}
 	}
-	offset, limit, applyPaging, err := resolvePaging(listReq)
+	offset, limit, applyPaging, err := {{if $.UseSharedModule}}modulex.ResolvePaging{{else}}resolvePaging{{end}}(listReq)
 	if err != nil {
 		return {{ .ZeroReturn }}, err
 	}

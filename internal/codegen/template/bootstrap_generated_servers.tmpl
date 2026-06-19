@@ -5,16 +5,12 @@
 package bootstrap
 
 import (
-	"fmt"
-
 	"github.com/chnxq/xkitpkg/app"
-	"github.com/chnxq/xkitpkg/transport"
 
 {{- if .RepoResources }}
 	databootstrap "{{ .DataBootImport }}"
 	"{{ .RepoImport }}"
 {{- end }}
-	"{{ .ServerImport }}"
 {{- if .ServerResources }}
 	"{{ .ServiceImport }}"
 {{- end }}
@@ -74,28 +70,6 @@ func NewGeneratedServices(appCtx *app.AppCtx, data *GeneratedData) *GeneratedSer
 {{- end }}
 }
 
-func (services *GeneratedServices) HTTP() server.GeneratedHTTPServices {
-	if services == nil {
-		return server.GeneratedHTTPServices{}
-	}
-	return server.GeneratedHTTPServices{
-{{- range .HTTPResources }}
-		{{ .FieldName }}: services.{{ .FieldName }},
-{{- end }}
-	}
-}
-
-func (services *GeneratedServices) GRPC() server.GeneratedGRPCServices {
-	if services == nil {
-		return server.GeneratedGRPCServices{}
-	}
-	return server.GeneratedGRPCServices{
-{{- range .GRPCResources }}
-		{{ .FieldName }}: services.{{ .FieldName }},
-{{- end }}
-	}
-}
-
 type GeneratedComponents struct {
 	Data     *GeneratedData
 	Services *GeneratedServices
@@ -112,29 +86,4 @@ func NewGeneratedComponents(appCtx *app.AppCtx) (*GeneratedComponents, func(), e
 		Data:     data,
 		Services: services,
 	}, cleanup, nil
-}
-
-func (components *GeneratedComponents) Servers(appCtx *app.AppCtx) ([]transport.Server, error) {
-	httpServer, err := server.NewHTTPServer(appCtx, components.Services.HTTP(), components.Data)
-	if err != nil {
-		return nil, fmt.Errorf("new generated http server: %w", err)
-	}
-	grpcServer, err := server.NewGRPCServer(appCtx, components.Services.GRPC(), components.Data)
-	if err != nil {
-		return nil, fmt.Errorf("new generated grpc server: %w", err)
-	}
-	return []transport.Server{httpServer, grpcServer}, nil
-}
-
-func NewGeneratedServers(appCtx *app.AppCtx) ([]transport.Server, func(), error) {
-	components, cleanup, err := NewGeneratedComponents(appCtx)
-	if err != nil {
-		return nil, cleanup, err
-	}
-
-	servers, err := components.Servers(appCtx)
-	if err != nil {
-		return nil, cleanup, err
-	}
-	return servers, cleanup, nil
 }

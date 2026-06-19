@@ -24,6 +24,7 @@ type serviceTemplateData struct {
 	ExtraFields     []serviceFieldData
 	ResourceName    string
 	NeedsIdentity   bool
+	UseSharedModule bool
 	Tree            *treeConfigData
 	Aggregates      []aggregateConfigData
 }
@@ -56,19 +57,29 @@ func (r *Runner) generateServiceFiles() (Result, error) {
 	}
 
 	var result Result
-	sharedContent, err := renderTemplate(codegentemplate.ServiceSharedExt, struct {
-		templateBase
-		NeedsIdentity bool
-	}{
-		templateBase:  r.templateBase(),
-		NeedsIdentity: serviceNeedsIdentity(plans),
-	})
-	if err != nil {
-		return result, err
-	}
-	sharedPath := filepath.Join(r.internalDir("service"), "service_shared_ext.go")
-	if err := r.writeGeneratedFile(sharedPath, sharedContent, &result); err != nil {
-		return result, err
+	needsIdentity := serviceNeedsIdentity(plans)
+	if r.isModuleMode() {
+		if err := r.removeObsoleteGeneratedFile(filepath.Join(r.internalDir("service"), "service_shared_ext.go")); err != nil {
+			return result, err
+		}
+		if err := r.ensureModuleSharedExtFile(&result, needsIdentity); err != nil {
+			return result, err
+		}
+	} else {
+		sharedContent, err := renderTemplate(codegentemplate.ServiceSharedExt, struct {
+			templateBase
+			NeedsIdentity bool
+		}{
+			templateBase:  r.templateBase(),
+			NeedsIdentity: needsIdentity,
+		})
+		if err != nil {
+			return result, err
+		}
+		sharedPath := filepath.Join(r.internalDir("service"), "service_shared_ext.go")
+		if err := r.writeGeneratedFile(sharedPath, sharedContent, &result); err != nil {
+			return result, err
+		}
 	}
 
 	for _, plan := range plans {
@@ -199,6 +210,7 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 		ExtraFields:     extraFields,
 		ResourceName:    plan.Resource.Name,
 		NeedsIdentity:   strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped",
+		UseSharedModule: r.isModuleMode(),
 		Tree:            buildTreeConfig(plan.Resource.Tree),
 		Aggregates:      r.aggregateConfigs(plan),
 	}

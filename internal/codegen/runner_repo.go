@@ -46,6 +46,7 @@ type repoTemplateData struct {
 	UsesAuditFields          bool
 	TenantScope              string
 	NeedsTenantHelpers       bool
+	UseSharedModule          bool
 	Tree                     *treeConfigData
 	Aggregates               []aggregateConfigData
 }
@@ -82,19 +83,29 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 	}
 
 	var result Result
-	sharedContent, err := renderTemplate(codegentemplate.RepoSharedExt, struct {
-		templateBase
-		NeedsTenantHelpers bool
-	}{
-		templateBase:       r.templateBase(),
-		NeedsTenantHelpers: repoNeedsTenantHelpers(plans),
-	})
-	if err != nil {
-		return result, err
-	}
-	sharedPath := filepath.Join(r.internalDir("data", "repo"), "repo_shared_ext.go")
-	if err := r.writeGeneratedFile(sharedPath, sharedContent, &result); err != nil {
-		return result, err
+	needsTenantHelpers := repoNeedsTenantHelpers(plans)
+	if r.isModuleMode() {
+		if err := r.removeObsoleteGeneratedFile(filepath.Join(r.internalDir("data", "repo"), "repo_shared_ext.go")); err != nil {
+			return result, err
+		}
+		if err := r.ensureModuleSharedExtFile(&result, needsTenantHelpers); err != nil {
+			return result, err
+		}
+	} else {
+		sharedContent, err := renderTemplate(codegentemplate.RepoSharedExt, struct {
+			templateBase
+			NeedsTenantHelpers bool
+		}{
+			templateBase:       r.templateBase(),
+			NeedsTenantHelpers: needsTenantHelpers,
+		})
+		if err != nil {
+			return result, err
+		}
+		sharedPath := filepath.Join(r.internalDir("data", "repo"), "repo_shared_ext.go")
+		if err := r.writeGeneratedFile(sharedPath, sharedContent, &result); err != nil {
+			return result, err
+		}
 	}
 
 	for _, plan := range plans {
@@ -146,6 +157,18 @@ func repoNeedsTenantHelpers(plans []resourcePlan) bool {
 	return false
 }
 
+func repoUsesSharedModule(plan resourcePlan) bool {
+	if strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped" {
+		return true
+	}
+	for _, method := range plan.Binding.Methods {
+		if repoMethodKind(method.Name) == "list" && resourceOperationEnabled(plan.Resource, "list") {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	entityName := strings.TrimSpace(plan.Resource.Entity)
 	if entityName == "" {
@@ -155,7 +178,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 
 	dtoAlias := plan.APIPackageAlias
 	dtoImport := plan.Binding.ImportPath
-	if strings.TrimSpace(plan.Resource.DTOImport) != "" {
+	if strings.TrimSpace(plan.Resource.DTOImport) != "" && importExistsInProject(r.project, strings.TrimSpace(plan.Resource.DTOImport)) {
 		dtoImport = strings.TrimSpace(plan.Resource.DTOImport)
 		dtoAlias = apiAlias(dtoImport)
 	}
@@ -182,6 +205,9 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		{Path: filepath.ToSlash(filepath.Join(r.layout.EntImportRoot, strings.ToLower(entityName)))},
 		{Path: filepath.ToSlash(filepath.Join(r.layout.EntImportRoot, "predicate"))},
 		{Alias: dtoAlias, Path: dtoImport},
+	}
+	if r.isModuleMode() && repoUsesSharedModule(plan) {
+		imports = append(imports, importSpec{Alias: "modulex", Path: r.sharedModuleImport()})
 	}
 	filters := repoFilters(plan.Schema.Fields, effectiveFilterAllow(plan))
 	usesFilters := len(filters) > 0
@@ -325,6 +351,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		UsesAuditFields:          usesAuditFields,
 		TenantScope:              strings.TrimSpace(plan.Resource.TenantScope),
 		NeedsTenantHelpers:       strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped",
+		UseSharedModule:          r.isModuleMode(),
 		Tree:                     buildTreeConfig(plan.Resource.Tree),
 		Aggregates:               r.aggregateConfigs(plan),
 	}

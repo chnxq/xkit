@@ -690,7 +690,7 @@ return {{successReturn}}, nil`,
 	}
 
 	bootstrapFile := readFile(t, filepath.Join(root, "internal", "bootstrap", "generated_servers.gen.go"))
-	if !strings.Contains(bootstrapFile, "func NewGeneratedServers") || strings.Contains(bootstrapFile, "func Initialize") {
+	if strings.Contains(bootstrapFile, "func NewGeneratedServers") || strings.Contains(bootstrapFile, "func Initialize") {
 		t.Fatalf("bootstrap generation should only write generated server glue")
 	}
 	if !strings.Contains(bootstrapFile, "type GeneratedData struct") || !strings.Contains(bootstrapFile, "type GeneratedServices struct") || !strings.Contains(bootstrapFile, "func NewGeneratedComponents") {
@@ -702,8 +702,8 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(bootstrapFile, "data.afterInit()") || !strings.Contains(bootstrapFile, "services.afterInit(data)") {
 		t.Fatalf("bootstrap generation should call generated bootstrap hooks")
 	}
-	if !strings.Contains(bootstrapFile, "httpServer, err := server.NewHTTPServer(appCtx, components.Services.HTTP(), components.Data)") || !strings.Contains(bootstrapFile, "grpcServer, err := server.NewGRPCServer(appCtx, components.Services.GRPC(), components.Data)") || !strings.Contains(bootstrapFile, "new generated grpc server") {
-		t.Fatalf("bootstrap generation should handle transport constructor errors")
+	if strings.Contains(bootstrapFile, "server.NewHTTPServer(") || strings.Contains(bootstrapFile, "server.NewGRPCServer(") || strings.Contains(bootstrapFile, "new generated grpc server") {
+		t.Fatalf("module-aware bootstrap generation should not construct transport servers directly")
 	}
 	if strings.Contains(bootstrapFile, "UserCredential:") {
 		t.Fatalf("bootstrap generation should not register resources without generated service stubs")

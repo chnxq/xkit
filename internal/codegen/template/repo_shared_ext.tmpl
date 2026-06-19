@@ -7,9 +7,7 @@ package repo
 import (
 {{- if .NeedsTenantHelpers }}
 	"context"
-	identityv1 "{{ .Module }}/api/gen/identity/v1"
-	"{{ .Module }}/internal/data/ent"
-	"{{ .Module }}/internal/data/ent/tenant"
+	identityv1 "{{ .Project }}/api/gen/identity/v1"
 {{- end }}
 	"fmt"
 	"strings"
@@ -133,24 +131,10 @@ func collectTenantIDs(values ...*uint32) []uint32 {
 {{- end }}
 
 {{- if .NeedsTenantHelpers }}
-func loadTenantNameMap(ctx context.Context, client *ent.Client, tenantIDs []uint32) map[uint32]string {
-	if client == nil || len(tenantIDs) == 0 {
-		return nil
-	}
-	rows, err := client.Tenant.Query().
-		Where(tenant.IDIn(tenantIDs...)).
-		All(ctx)
-	if err != nil {
-		return nil
-	}
-	result := make(map[uint32]string, len(rows))
-	for _, row := range rows {
-		if row == nil || row.Name == nil {
-			continue
-		}
-		result[row.ID] = *row.Name
-	}
-	return result
+func loadTenantNameMap(ctx context.Context, tenantIDs []uint32) map[uint32]string {
+	_ = ctx
+	_ = tenantIDs
+	return nil
 }
 {{- end }}
 

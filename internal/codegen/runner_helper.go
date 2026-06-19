@@ -14,9 +14,37 @@ import (
 	"text/template"
 
 	"github.com/chnxq/xkit/internal/binding"
+	codegentemplate "github.com/chnxq/xkit/internal/codegen/template"
 	"github.com/chnxq/xkit/internal/config"
 	"github.com/chnxq/xkit/internal/entschema"
+	"github.com/chnxq/xkit/internal/project"
 )
+
+func (r *Runner) sharedModuleDir() string {
+	return filepath.Join(r.project.Root, "shared", "modulex")
+}
+
+func (r *Runner) sharedModuleImport() string {
+	return filepath.ToSlash(filepath.Join(r.project.Module, "shared", "modulex"))
+}
+
+func (r *Runner) ensureModuleSharedExtFile(result *Result, needsIdentity bool) error {
+	if !r.isModuleMode() {
+		return nil
+	}
+	content, err := renderTemplate(codegentemplate.ModuleSharedExt, struct {
+		templateBase
+		NeedsIdentity bool
+	}{
+		templateBase:  r.templateBase(),
+		NeedsIdentity: needsIdentity,
+	})
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(r.sharedModuleDir(), "module_shared_ext.go")
+	return r.writeFile(path, content, result, true)
+}
 
 func resolveTypeScriptRoot(projectRoot, configured string) (string, error) {
 	configured = strings.TrimSpace(configured)
@@ -1026,8 +1054,8 @@ func pagingRequestExpr(params []namedType) string {
 	if len(params) < 2 {
 		return "nil"
 	}
-	requestType := strings.TrimSpace(params[1].Type)
-	if requestType == "*paginationv1.PagingRequest" {
+	requestType := strings.TrimSpace(strings.TrimPrefix(params[1].Type, "*"))
+	if strings.HasSuffix(requestType, ".PagingRequest") {
 		return params[1].Name
 	}
 	return params[1].Name + ".GetPaging()"
@@ -1083,6 +1111,21 @@ func normalizeTypeAliases(types []string, imports map[string]string, targetImpor
 		out = append(out, normalized)
 	}
 	return out
+}
+
+func importExistsInProject(info project.Info, importPath string) bool {
+	importPath = strings.TrimSpace(importPath)
+	if importPath == "" {
+		return false
+	}
+	prefix := strings.TrimSuffix(info.Module, "/") + "/"
+	if !strings.HasPrefix(importPath, prefix) {
+		return false
+	}
+	rel := strings.TrimPrefix(importPath, prefix)
+	path := filepath.Join(info.Root, filepath.FromSlash(rel))
+	stat, err := os.Stat(path)
+	return err == nil && stat.IsDir()
 }
 
 func looksLikeGeneratedType(typeText string) bool {

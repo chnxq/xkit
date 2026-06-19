@@ -32,12 +32,20 @@ func (Module) RegisterHTTP(srv *httptransport.Server, services *bootstrap.Genera
 	if srv == nil || services == nil {
 		return
 	}
-	server.RegisterGeneratedHTTPServices(srv, services.HTTP())
+	server.RegisterGeneratedHTTPServices(srv, server.GeneratedHTTPServices{
+{{- range .HTTPResources }}
+		{{ .FieldName }}: services.{{ .FieldName }},
+{{- end }}
+	})
 }
 
 func (Module) RegisterGRPC(registrar grpc.ServiceRegistrar, services *bootstrap.GeneratedServices) {
 	if registrar == nil || services == nil {
 		return
 	}
-	server.RegisterGeneratedGRPCServices(registrar, services.GRPC())
+	server.RegisterGeneratedGRPCServices(registrar, server.GeneratedGRPCServices{
+{{- range .GRPCResources }}
+		{{ .FieldName }}: services.{{ .FieldName }},
+{{- end }}
+	})
 }

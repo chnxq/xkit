@@ -1,6 +1,6 @@
 # Admin Host Module Implementation Plan
 
-Generated at: 2026-06-18 +08:00
+Generated at: 2026-06-20 +08:00
 
 ## 1. Purpose
 
@@ -20,6 +20,9 @@ The output of this document is intended to become the basis for:
 - `xkit init module`
 - `xkit gen module`
 - a concrete pilot implementation using `device` / `xdev`
+
+This document now also records the post-exploration pilot status after the
+first real `xdev` module generation pass against the host project.
 
 ## 2. Executive Summary
 
@@ -262,19 +265,30 @@ These are host-owned, not generally shared:
 
 Do not keep module-visible shared code under `admin/internal/...`.
 
-Recommended new root:
+The pilot settled on a concrete first shared root:
 
 ```text
 admin/shared/
-  authctx/
-  tenant/
-  repohelpers/
-  servicehelpers/
-  moduleapi/
+  modulex/
+    module_shared_ext.go
 ```
 
-If needed, keep a small compatibility bridge in host internals for old code
-during migration.
+Rationale:
+
+- it is visible to generated module code without importing `admin/internal/...`
+- it keeps the first extraction small and focused
+- it gives a stable hand-written extension point for future modules
+
+The current `modulex` helper file already centralizes:
+
+- viewer context helpers
+- tenant visibility and mutation guards
+- default paging and sorting helpers
+- tenant display-name helper functions
+- tenant-name lookup by host Ent client
+
+This is intentionally not yet the final shared package taxonomy. It is the
+first stable landing zone that works with real generated code.
 
 ### 5.5 Role of `xkit-template/shared`
 
@@ -293,12 +307,25 @@ It should not hold:
 
 ### 5.6 Conclusion of exploration 3
 
-Before module generation becomes real, a first shared extraction pass is needed.
+The first shared extraction pass is now partially complete.
 
-Without it:
+Implemented in the pilot:
 
-- generated module code will still rely on host internals
-- future module isolation will be fake
+- `admin/shared/modulex/module_shared_ext.go`
+- module-mode repo generation imports `admin/shared/modulex`
+- module-mode no longer depends on per-module generated shared helper files
+
+Still not complete:
+
+- existing host resources have not been migrated from `admin/internal/...` to
+  the shared package
+- `xkit-template/shared` has not yet been introduced as a reusable source
+- the host module mounting chain is still manual / pending
+
+Without the remaining work:
+
+- future modules will still depend on host-specific shared layout assumptions
+- shared helper evolution will not yet be template-driven
 
 ## 6. What `xkit init module` Should Do
 
@@ -350,6 +377,14 @@ At minimum:
 - module-local buf config files
 - module-local YAML config
 
+Current pilot status:
+
+- this is already working for `xdev`
+- `init module` uses `moduleRoot`, defaulting to
+  `hostProject/modules/<moduleName>`
+- source import is module-aware and no longer routes through project-flat
+  `api/protos` or `internal/data/ent/schema`
+
 ### 6.4 What it must not do
 
 It should not copy:
@@ -367,6 +402,7 @@ It should not copy:
 `xkit gen module` should:
 
 - generate module-local repo/service/register/bootstrap glue
+- generate or reuse host shared helper glue required by module-mode code
 - optionally generate frontend meta
 - update host mounting integration if that part is generated or semi-generated
 
@@ -404,6 +440,44 @@ The current generator will need:
 4. host integration output
    - module mounting registry or hook update
 
+### 7.4 Current pilot status
+
+The following module-generation behavior is now real and verified:
+
+1. module-local generation roots
+   - proto lookup under `modules/<module>/api/protos`
+   - binding lookup under `modules/<module>/api/gen`
+   - schema lookup under `modules/<module>/data/schema`
+
+2. module-local output roots
+   - repo output under `modules/<module>/data/repo`
+   - service output under `modules/<module>/service`
+   - server output under `modules/<module>/server`
+   - bootstrap output under `modules/<module>/bootstrap`
+
+3. host shared helper output
+   - module mode writes or reuses:
+     - `admin/shared/modulex/module_shared_ext.go`
+   - if the file already exists, generation skips it
+
+4. module-mode helper import behavior
+   - generated repo code imports `admin/shared/modulex`
+   - module mode no longer requires generated:
+     - `modules/<module>/service/service_shared_ext.go`
+     - `modules/<module>/data/repo/repo_shared_ext.go`
+
+5. frontend-meta behavior
+   - module mode only generates resource-local `*.meta.ts`
+   - module mode does not generate:
+     - shared frontend `config.ts`
+     - shared frontend `page_i18n.*`
+     - shared frontend `langs/*`
+
+6. verified pilot commands
+   - `powershell -ExecutionPolicy Bypass -File xkit/examples/generateModule.ps1 -SkipDryRun`
+   - `go test ./internal/codegen`
+   - `go test ./modules/xdev/...`
+
 ## 8. Recommended Pilot Implementation
 
 Use `xdev` / `device` as the first pilot.
@@ -429,7 +503,7 @@ admin/
 
 Add:
 
-- `admin/shared/...`
+- `admin/shared/modulex`
 - a host module mounting hook
 - a first module list file in host bootstrap
 
@@ -437,62 +511,95 @@ Do not yet migrate all old resources.
 
 ### 8.3 Pilot generator scope
 
-For the pilot, focus only on:
+The original pilot scope was:
 
 - one module
-- one resource
+- one or more tightly-related resources
 - one host
 - dry-run import
 - dry-run codegen
 
-That is enough to expose the real generator delta.
+Current pilot result:
+
+- `xdev` now covers three related resources:
+  - `Device`
+  - `DeviceModel`
+  - `DeviceModelType`
+- module generation is no longer dry-run only
+- the backend and frontend-meta generation chain has been exercised against the
+  real `admin` and `admin-ui` targets
 
 ## 9. Implementation Task List
 
-### Phase A: shared boundary exploration and extraction
+### Phase A: completed pilot baseline
 
-1. Create `admin/shared/`.
-2. Audit module-visible candidates in:
+1. `examples/xdev` source set built with:
+   - split proto files
+   - restored comments / `json_name`
+   - three related resources
+   - tenant mixin usage
+2. `xkit init module` creates and fills `admin/modules/xdev`.
+3. `xkit gen module` generates repo / service / register / bootstrap /
+   module-entry code for module mode.
+4. module-mode frontend-meta writes only under:
+   - `admin-ui/apps/web-antd/src/views/generated/xdev`
+5. host-visible shared helper extraction landed at:
+   - `admin/shared/modulex/module_shared_ext.go`
+
+### Phase B: remaining shared-boundary work
+
+1. Audit additional module-visible candidates in:
    - `internal/data/repo`
    - `internal/service`
    - `internal/server`
-3. Move only the first minimal helper set required by the `xdev` pilot.
-4. Leave compatibility wrappers in old locations if necessary.
+2. Decide which existing host helpers should migrate into `modulex` now, and
+   which should wait for package split beyond `modulex`.
+3. Introduce `xkit-template/shared` so future host projects can receive the
+   same shared helper baseline.
+4. Decide whether compatibility wrappers are needed for host-internal callers.
 
-### Phase B: module scaffold definition
+### Phase C: module scaffold hardening
 
-1. Define final `admin/modules/<module>` directory contract.
-2. Add a first manual `modules/xdev/` skeleton in `admin`.
-3. Decide module-local proto and schema roots.
-4. Define `module.go` contract.
+1. Freeze the `admin/modules/<module>` directory contract.
+2. Keep `module.go` as the stable entry contract with:
+   - `Name()`
+   - `RegisterData(*app.AppCtx)`
+   - `RegisterServices(*app.AppCtx, *bootstrap.GeneratedData)`
+   - `RegisterHTTP(...)`
+   - `RegisterGRPC(...)`
+3. Decide whether additional per-module manual extension files are required in
+   the scaffold beyond current generated outputs.
 
-### Phase C: host mounting points
+### Phase D: host mounting points
 
 1. Add host-side module list / mounting hook in `internal/bootstrap`.
 2. Keep `http.go` and `grpc.go` generic.
 3. Add transition-friendly host hooks for module registration.
 
-### Phase D: xkit command design
+### Phase E: xkit command design refinement
 
-1. Design `xkit init module` CLI arguments.
-2. Design `xkit gen module` CLI arguments.
-3. Define module-aware config extensions.
-4. Define module template files.
+1. Preserve the current `moduleName` + `moduleRoot` parameter structure.
+2. Decide which `gen module` sub-targets should remain aligned with `gen all`
+   and which should stay module-specific.
+3. Define how `xkit-template/shared` participates in `init module`.
+4. Decide whether host mounting update is generated, semi-generated, or manual.
 
-### Phase E: xkit implementation
+### Phase F: xkit implementation follow-up
 
-1. Refactor `sourceimport` to support configurable destination roots.
-2. Refactor `codegen.Runner` to support configurable source and output roots.
-3. Refactor import generation to support shared import roots.
-4. Add host mounting integration generation or update hooks.
+1. Keep project-mode generation behavior stable.
+2. Continue isolating module-mode code paths where project-mode assumptions
+   differ.
+3. Add host mounting integration generation or update hooks.
+4. Add tests that pin module shared-helper generation and skip-if-exists
+   behavior.
 
-### Phase F: pilot execution
+### Phase G: host integration execution
 
-1. Initialize `admin/modules/xdev`.
-2. Import `examples/xdev`.
-3. Generate module-local code.
-4. Mount into host.
-5. Verify build and runtime registration.
+1. Mount `xdev.Module` into the host bootstrap/server chain.
+2. Verify host HTTP registration.
+3. Verify host gRPC registration.
+4. Verify runtime startup with the mounted module enabled.
+5. Only after that, evaluate generating into additional business modules.
 
 ## 10. Decision
 
@@ -502,13 +609,14 @@ Main decisions confirmed:
 
 - current `xkit` cannot reach `admin/modules/xdev` by config-only tuning
 - a module scaffold distinct from the host template is required
-- some host internals must move to `shared` before module generation is real
+- the first shared extraction is now concretely implemented as
+  `admin/shared/modulex`
 - `xkit init module` and `xkit gen module` are justified by real structural gaps,
   not by stylistic preference
 
 The next best step is to turn this plan into a concrete implementation backlog
 and start with:
 
-1. `admin/shared` first extraction candidates
-2. `admin/modules/xdev` skeleton
-3. module-aware root configuration design in `xkit`
+1. host mounting of `xdev.Module`
+2. `xkit-template/shared` introduction
+3. follow-up shared helper extraction beyond the first `modulex` baseline
