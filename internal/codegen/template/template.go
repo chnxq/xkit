@@ -41,6 +41,9 @@ var BootstrapEntClient string
 //go:embed bootstrap_ent_client_ext.tmpl
 var BootstrapEntClientExt string
 
+//go:embed module_entry.tmpl
+var ModuleEntry string
+
 //go:embed frontend_view_meta.tmpl
 var FrontendViewMeta string
 

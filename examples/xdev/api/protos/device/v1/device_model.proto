@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package xdev.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "pagination/v1/pagination.proto";
+
+// 设备型号服务
+service DeviceModelService {
+  // 查询设备型号列表
+  rpc List(pagination.PagingRequest) returns (DeviceModelServiceListResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-models"};
+  }
+
+  // 统计设备型号数量
+  rpc Count(pagination.PagingRequest) returns (DeviceModelServiceCountResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-models/count"};
+  }
+
+  // 查询设备型号详情
+  rpc Get(DeviceModelServiceGetRequest) returns (DeviceModelServiceGetResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-models/{id}"};
+  }
+
+  // 创建设备型号
+  rpc Create(DeviceModelServiceCreateRequest) returns (DeviceModelServiceCreateResponse) {
+    option (google.api.http) = {
+      post: "/xdev/v1/device-models"
+      body: "*"
+    };
+  }
+
+  // 更新设备型号
+  rpc Update(DeviceModelServiceUpdateRequest) returns (DeviceModelServiceUpdateResponse) {
+    option (google.api.http) = {
+      put: "/xdev/v1/device-models/{id}"
+      body: "*"
+    };
+  }
+
+  // 删除设备型号
+  rpc Delete(DeviceModelServiceDeleteRequest) returns (DeviceModelServiceDeleteResponse) {
+    option (google.api.http) = {delete: "/xdev/v1/device-models/{id}"};
+  }
+}
+
+// 设备型号
+message DeviceModel {
+  optional uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "型号ID"}
+  ];
+  optional string model_name = 2 [
+    json_name = "modelName",
+    (gnostic.openapi.v3.property) = {description: "型号名称"}
+  ];
+  optional uint32 model_type_id = 3 [
+    json_name = "modelTypeId",
+    (gnostic.openapi.v3.property) = {description: "型号分类ID"}
+  ];
+  optional string description = 4 [
+    json_name = "description",
+    (gnostic.openapi.v3.property) = {description: "型号描述"}
+  ];
+  optional string remark = 5 [
+    json_name = "remark",
+    (gnostic.openapi.v3.property) = {description: "备注"}
+  ];
+  optional uint32 tenant_id = 20 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  optional uint64 created_by = 100 [
+    json_name = "createdBy",
+    (gnostic.openapi.v3.property) = {description: "创建者"}
+  ];
+  optional google.protobuf.Timestamp created_at = 200 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "创建时间"}
+  ];
+  optional google.protobuf.Timestamp updated_at = 201 [
+    json_name = "updatedAt",
+    (gnostic.openapi.v3.property) = {description: "最后更新时间"}
+  ];
+  optional google.protobuf.Timestamp deleted_at = 202 [
+    json_name = "deletedAt",
+    (gnostic.openapi.v3.property) = {description: "删除时间"}
+  ];
+}
+
+// 设备型号列表响应
+message DeviceModelServiceListResponse {
+  repeated DeviceModel items = 1;
+  uint64 total = 2;
+}
+
+// 设备型号数量响应
+message DeviceModelServiceCountResponse {
+  uint64 count = 1;
+}
+
+// 设备型号详情请求
+message DeviceModelServiceGetRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "型号ID"}
+  ];
+  optional google.protobuf.FieldMask view_mask = 100 [
+    json_name = "viewMask",
+    (gnostic.openapi.v3.property) = {description: "返回字段掩码"}
+  ];
+}
+
+// 设备型号详情响应
+message DeviceModelServiceGetResponse {
+  DeviceModel data = 1;
+}
+
+// 创建设备型号请求
+message DeviceModelServiceCreateRequest {
+  DeviceModel data = 1 [json_name = "data"];
+}
+
+// 创建设备型号响应
+message DeviceModelServiceCreateResponse {}
+
+// 更新设备型号请求
+message DeviceModelServiceUpdateRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "型号ID"}
+  ];
+  DeviceModel data = 2 [json_name = "data"];
+  google.protobuf.FieldMask update_mask = 3 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新字段掩码"}
+  ];
+  optional bool allow_missing = 4 [
+    json_name = "allowMissing",
+    (gnostic.openapi.v3.property) = {description: "资源不存在时是否允许创建"}
+  ];
+}
+
+// 更新设备型号响应
+message DeviceModelServiceUpdateResponse {}
+
+// 删除设备型号请求
+message DeviceModelServiceDeleteRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "型号ID"}
+  ];
+}
+
+// 删除设备型号响应
+message DeviceModelServiceDeleteResponse {}

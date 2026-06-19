@@ -1022,6 +1022,17 @@ func requestParamType(types []string) string {
 	return ""
 }
 
+func pagingRequestExpr(params []namedType) string {
+	if len(params) < 2 {
+		return "nil"
+	}
+	requestType := strings.TrimSpace(params[1].Type)
+	if requestType == "*paginationv1.PagingRequest" {
+		return params[1].Name
+	}
+	return params[1].Name + ".GetPaging()"
+}
+
 func trimPointer(typeText string) string {
 	return strings.TrimPrefix(typeText, "*")
 }

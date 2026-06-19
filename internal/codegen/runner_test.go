@@ -562,7 +562,7 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoSharedFile, "func ensureTenantAccessible(") || !strings.Contains(repoSharedFile, "func viewerTenantID(") {
 		t.Fatalf("repo shared helper file is missing tenant scope helpers")
 	}
-	if !strings.Contains(repoFile, "if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
+	if !strings.Contains(repoFile, "sortField, sortDirection, err := firstSorting(listReq)") || !strings.Contains(repoFile, "offset, limit, applyPaging, err := resolvePaging(listReq)") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
 		t.Fatalf("repo file is missing generated List body")
 	}
 	if !strings.Contains(repoFile, "userEnrichListDTOs(context.Context, []*ent.User) ([]*identityv1.User, error)") || !strings.Contains(repoFile, "custom.userEnrichListDTOs(ctx, entities)") {

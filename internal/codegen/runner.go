@@ -33,6 +33,7 @@ type generatedMeta struct {
 type templateBase struct {
 	Generated generatedMeta
 	Module    string
+	Frontend  string
 }
 
 type Result struct {
@@ -265,6 +266,8 @@ func (r *Runner) Generate(target string) (Result, error) {
 		return r.generateBootstrapFiles()
 	case "frontend-meta":
 		return r.generateFrontendMetaFiles()
+	case "module-entry":
+		return r.generateModuleEntryFile()
 	case "module":
 		return r.generateModule()
 	case "all":
@@ -290,7 +293,7 @@ func (r *Runner) generateAll() (Result, error) {
 
 func (r *Runner) generateModule() (Result, error) {
 	var result Result
-	parts := []string{"service", "repo", "register", "bootstrap", "frontend-meta"}
+	parts := []string{"service", "repo", "register", "bootstrap", "module-entry", "frontend-meta"}
 	for _, part := range parts {
 		partResult, err := r.Generate(part)
 		if err != nil {

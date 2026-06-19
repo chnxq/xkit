@@ -67,7 +67,7 @@ func (r *Runner) generateServiceFiles() (Result, error) {
 		return result, err
 	}
 	sharedPath := filepath.Join(r.internalDir("service"), "service_shared_ext.go")
-	if err := r.writeExtensionFile(sharedPath, sharedContent, &result); err != nil {
+	if err := r.writeGeneratedFile(sharedPath, sharedContent, &result); err != nil {
 		return result, err
 	}
 
@@ -151,7 +151,9 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 	usedAliases := make(map[string]struct{})
 	methods := make([]serviceMethodData, 0, len(plan.Binding.Methods))
 	for _, method := range plan.Binding.Methods {
-		for _, typeText := range append(slices.Clone(method.Params), method.Results...) {
+		normalizedParams := normalizeTypeAliases(method.Params, plan.Binding.Imports, plan.Binding.ImportPath, plan.APIPackageAlias)
+		normalizedResults := normalizeTypeAliases(method.Results, plan.Binding.Imports, plan.Binding.ImportPath, plan.APIPackageAlias)
+		for _, typeText := range append(slices.Clone(normalizedParams), normalizedResults...) {
 			for _, alias := range aliasesInType(typeText) {
 				usedAliases[alias] = struct{}{}
 			}
@@ -160,8 +162,8 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 		kind := repoMethodKind(method.Name)
 		delegate := hasRepo && isCRUDMethod(method.Name) && resourceOperationEnabled(plan.Resource, kind)
 		classification := lookupClassification(plan.Proto.Methods, method.Name)
-		responseType := firstResult(method.Results)
-		params := nameParams(method.Params)
+		responseType := firstResult(normalizedResults)
+		params := nameParams(normalizedParams)
 		methods = append(methods, serviceMethodData{
 			Name:           method.Name,
 			Classification: classification,

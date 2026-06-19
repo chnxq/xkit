@@ -429,12 +429,12 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		dto = items[0]
 	}
 
-	return dto, nil
+	return &{{ .ResponseType | trimPointer }}{Data: dto}, nil
 {{else if eq .Kind "list"}}
 	if req == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
 	}
-	pagingReq := req.GetPaging()
+	pagingReq := {{ .PagingReqExpr }}
 
 	builder := r.entClient.Client().{{ $.EntityName }}.Query()
 	countBuilder := r.entClient.Client().{{ $.EntityName }}.Query()
@@ -467,8 +467,25 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		listReq.Limit = &limit
 		listReq.Offset = &offset
 	}
-	if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
+	sortField, sortDirection, err := firstSorting(listReq)
+	if err != nil {
 		return {{ .ZeroReturn }}, err
+	}
+	if sortField != "" {
+		switch sortDirection {
+		case paginationv1.Sorting_DESC:
+			builder.Order(ent.Desc(sortField))
+		default:
+			builder.Order(ent.Asc(sortField))
+		}
+	}
+	offset, limit, applyPaging, err := resolvePaging(listReq)
+	if err != nil {
+		return {{ .ZeroReturn }}, err
+	}
+	if applyPaging {
+		builder.Offset(offset)
+		builder.Limit(limit)
 	}
 	total, err := countBuilder.Count(ctx)
 	if err != nil {
@@ -500,7 +517,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	if req == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
 	}
-	pagingReq := req.GetPaging()
+	pagingReq := {{ .PagingReqExpr }}
 
 	builder := r.entClient.Client().{{ $.EntityName }}.Query()
 {{if .UsesFilters}}

@@ -72,6 +72,7 @@ type repoMethodData struct {
 	NilReturn       string
 	ZeroReturn      string
 	UsesFilters     bool
+	PagingReqExpr   string
 }
 
 func (r *Runner) generateRepoFiles() (Result, error) {
@@ -92,7 +93,7 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 		return result, err
 	}
 	sharedPath := filepath.Join(r.internalDir("data", "repo"), "repo_shared_ext.go")
-	if err := r.writeExtensionFile(sharedPath, sharedContent, &result); err != nil {
+	if err := r.writeGeneratedFile(sharedPath, sharedContent, &result); err != nil {
 		return result, err
 	}
 
@@ -248,6 +249,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 			NilReturn:       nilReturn(firstResult(normalizedResults)),
 			ZeroReturn:      zeroReturnValue,
 			UsesFilters:     usesFilters,
+			PagingReqExpr:   pagingRequestExpr(nameParams(normalizedParams)),
 		}
 		methods = append(methods, methodData)
 

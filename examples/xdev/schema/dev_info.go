@@ -4,13 +4,14 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
+	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 
 	"github.com/chnxq/x-crud/entgo/mixin"
 )
 
-// Device holds the schema definition for the Device entity.
+// Device maps to dev_info.
 type Device struct {
 	ent.Schema
 }
@@ -23,11 +24,10 @@ func (Device) Annotations() []schema.Annotation {
 			Collation: "utf8mb4_bin",
 		},
 		entsql.WithComments(true),
-		schema.Comment("设备信息表"),
+		schema.Comment("设备信息"),
 	}
 }
 
-// Fields of the DevInfo.
 func (Device) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("device_code").
@@ -35,41 +35,35 @@ func (Device) Fields() []ent.Field {
 			Nillable().
 			MaxLen(48).
 			Comment("设备编码"),
-
 		field.String("name").
 			Optional().
 			Nillable().
 			MaxLen(64).
 			Comment("设备名称"),
-
-		field.Uint64("model_id").
+		field.Uint32("model_id").
 			Default(0).
 			Comment("设备型号ID"),
-
 		field.String("serial_number").
 			Optional().
 			Nillable().
 			MaxLen(32).
 			Comment("设备序列号"),
-
 		field.Bytes("finger_print").
 			Optional().
 			Nillable().
 			Comment("设备指纹"),
-
 		field.String("use_status").
 			NotEmpty().
 			MaxLen(2).
 			Comment("使用状态"),
-
 		field.Bytes("meta_data").
 			Optional().
 			Nillable().
+			MaxLen(4096).
 			Comment("其他数据"),
 	}
 }
 
-// Mixin of the Device.
 func (Device) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		mixin.AutoIncrementId{},
@@ -80,7 +74,16 @@ func (Device) Mixin() []ent.Mixin {
 	}
 }
 
-// Indexes of the Device.
+func (Device) Edges() []ent.Edge {
+	return []ent.Edge{
+		edge.From("model", DeviceModel.Type).
+			Ref("devices").
+			Field("model_id").
+			Unique().
+			Required(),
+	}
+}
+
 func (Device) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("created_by").

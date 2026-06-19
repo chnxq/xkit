@@ -54,11 +54,19 @@ func (r *Runner) internalImport(parts ...string) string {
 }
 
 func (r *Runner) templateBase() templateBase {
+	frontend := r.config.Service
+	if strings.TrimSpace(r.options.ModuleName) != "" {
+		frontend = strings.TrimSpace(r.options.ModuleName)
+	}
+	if strings.TrimSpace(frontend) == "" {
+		frontend = "admin"
+	}
 	return templateBase{
 		Generated: generatedMeta{
 			Version:     r.version(),
 			GeneratedAt: time.Now().Format("2006-01-02 15:04:05 MST"),
 		},
-		Module: r.layout.ModuleImport,
+		Module:   r.layout.ModuleImport,
+		Frontend: frontend,
 	}
 }
