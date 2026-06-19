@@ -1,0 +1,187 @@
+syntax = "proto3";
+
+package xdev.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "pagination/v1/pagination.proto";
+
+message Device {
+  optional uint64 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备ID"}
+  ];
+
+  optional string device_code = 2 [
+    json_name = "deviceCode",
+    (gnostic.openapi.v3.property) = {description: "设备编码"}
+  ];
+
+  optional string name = 3 [
+    json_name = "name",
+    (gnostic.openapi.v3.property) = {description: "设备名称"}
+  ];
+
+  optional uint64 model_id = 4 [
+    json_name = "modelId",
+    (gnostic.openapi.v3.property) = {description: "设备型号ID"}
+  ];
+
+  optional string serial_number = 5 [
+    json_name = "serialNumber",
+    (gnostic.openapi.v3.property) = {description: "设备序列号"}
+  ];
+
+  optional bytes finger_print = 6 [
+    json_name = "fingerPrint",
+    (gnostic.openapi.v3.property) = {description: "设备指纹"}
+  ];
+
+  optional string use_status = 7 [
+    json_name = "useStatus",
+    (gnostic.openapi.v3.property) = {description: "使用状态"}
+  ];
+
+  optional bytes meta_data = 8 [
+    json_name = "metaData",
+    (gnostic.openapi.v3.property) = {description: "其他数据"}
+  ];
+
+  optional uint64 tenant_id = 20 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+
+  optional uint64 created_by = 100 [
+    json_name = "createdBy",
+    (gnostic.openapi.v3.property) = {description: "创建者"}
+  ];
+
+  optional uint64 updated_by = 101 [
+    json_name = "updatedBy",
+    (gnostic.openapi.v3.property) = {description: "更新者"}
+  ];
+
+  optional google.protobuf.Timestamp created_at = 200 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "创建时间"}
+  ];
+
+  optional google.protobuf.Timestamp updated_at = 201 [
+    json_name = "updatedAt",
+    (gnostic.openapi.v3.property) = {description: "最后更新时间"}
+  ];
+
+  optional google.protobuf.Timestamp deleted_at = 202 [
+    json_name = "deletedAt",
+    (gnostic.openapi.v3.property) = {description: "删除时间"}
+  ];
+}
+
+message DeviceServiceListRequest {
+  pagination.PagingRequest paging = 1;
+}
+
+message DeviceServiceListResponse {
+  repeated Device items = 1;
+  uint64 total = 2;
+}
+
+message DeviceServiceCountRequest {
+  pagination.PagingRequest paging = 1;
+}
+
+message DeviceServiceCountResponse {
+  uint64 count = 1;
+}
+
+message DeviceServiceGetRequest {
+  uint64 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备ID"}
+  ];
+
+  optional google.protobuf.FieldMask view_mask = 100 [
+    json_name = "viewMask",
+    (gnostic.openapi.v3.property) = {description: "返回字段过滤"}
+  ];
+}
+
+message DeviceServiceGetResponse {
+  Device data = 1;
+}
+
+message DeviceServiceCreateRequest {
+  Device data = 1;
+}
+
+message DeviceServiceCreateResponse {}
+
+message DeviceServiceUpdateRequest {
+  uint64 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备ID"}
+  ];
+  Device data = 2;
+  google.protobuf.FieldMask update_mask = 3 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新字段掩码"}
+  ];
+  optional bool allow_missing = 4 [
+    json_name = "allowMissing",
+    (gnostic.openapi.v3.property) = {description: "资源不存在时是否允许补建"}
+  ];
+}
+
+message DeviceServiceUpdateResponse {}
+
+message DeviceServiceDeleteRequest {
+  uint64 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备ID"}
+  ];
+}
+
+message DeviceServiceDeleteResponse {}
+
+service DeviceService {
+  rpc List(DeviceServiceListRequest) returns (DeviceServiceListResponse) {
+    option (google.api.http) = {
+      get: "/xdev/v1/devices"
+    };
+  }
+
+  rpc Count(DeviceServiceCountRequest) returns (DeviceServiceCountResponse) {
+    option (google.api.http) = {
+      get: "/xdev/v1/devices/count"
+    };
+  }
+
+  rpc Get(DeviceServiceGetRequest) returns (DeviceServiceGetResponse) {
+    option (google.api.http) = {
+      get: "/xdev/v1/devices/{id}"
+    };
+  }
+
+  rpc Create(DeviceServiceCreateRequest) returns (DeviceServiceCreateResponse) {
+    option (google.api.http) = {
+      post: "/xdev/v1/devices"
+      body: "*"
+    };
+  }
+
+  rpc Update(DeviceServiceUpdateRequest) returns (DeviceServiceUpdateResponse) {
+    option (google.api.http) = {
+      put: "/xdev/v1/devices/{id}"
+      body: "*"
+    };
+  }
+
+  rpc Delete(DeviceServiceDeleteRequest) returns (DeviceServiceDeleteResponse) {
+    option (google.api.http) = {
+      delete: "/xdev/v1/devices/{id}"
+    };
+  }
+}

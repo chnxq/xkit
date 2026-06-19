@@ -21,6 +21,7 @@ const defaultTemplateSource = "https://github.com/chnxq/xkit-template.git"
 const usageText = `Usage:
   xkit init template [template-source] [--project <path>] [--module <module>] [--app-name <name>] [--command-name <name>] [--service-name <name>] [--force] [--dry-run] [--skip-go-get-update-all]
   xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--typescript-project <path>] [--force] [--dry-run]
+  xkit init module <source-path> [--project <path>] [--module-name <name>] [--module-root <path>] [--service <name>] [--config <path>] [--typescript-project <path>] [--template-root <path>] [--force] [--dry-run]
   xkit gen service <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen repo <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
@@ -74,6 +75,8 @@ func runInit(args []string) error {
 		return runInitTemplate(args[1:])
 	case "source":
 		return runInitSource(args[1:])
+	case "module":
+		return runInitModule(args[1:])
 	default:
 		return fmt.Errorf("unknown init kind %q", kind)
 	}
@@ -194,6 +197,84 @@ func runInitSource(args []string) error {
 		Service:        options.serviceName,
 		ConfigPath:     options.configPath,
 		TypeScriptRoot: options.typeScriptRoot,
+		Force:          options.force,
+		DryRun:         options.dryRun,
+	})
+	if err != nil {
+		return err
+	}
+
+	printSourceImportResult(options.dryRun, result)
+	return nil
+}
+
+type moduleInitOptions struct {
+	projectRoot    string
+	moduleName     string
+	moduleRoot     string
+	serviceName    string
+	configPath     string
+	typeScriptRoot string
+	templateRoot   string
+	force          bool
+	dryRun         bool
+}
+
+func runInitModule(args []string) error {
+	if len(args) < 1 {
+		return errors.New("init module requires a source path")
+	}
+
+	sourceRoot := strings.TrimSpace(args[0])
+	if sourceRoot == "" {
+		return errors.New("init module requires a source path")
+	}
+
+	var options moduleInitOptions
+	flagSet := flag.NewFlagSet("init module", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&options.projectRoot, "project", "", "target host project root")
+	flagSet.StringVar(&options.moduleName, "module-name", "", "target module name")
+	flagSet.StringVar(&options.moduleRoot, "module-root", "", "target module root; defaults to <project>/modules/<module-name>")
+	flagSet.StringVar(&options.serviceName, "service", "admin", "service name used in generated xkit config")
+	flagSet.StringVar(&options.configPath, "config", "", "path to write generated module config")
+	flagSet.StringVar(&options.typeScriptRoot, "typescript-project", "", "target TypeScript project root; relative paths are resolved beside the Go project")
+	flagSet.StringVar(&options.templateRoot, "template-root", "", "template root used to copy module assets; defaults to sibling xkit-template")
+	flagSet.BoolVar(&options.force, "force", false, "overwrite existing target files")
+	flagSet.BoolVar(&options.dryRun, "dry-run", false, "plan file writes without modifying the target project")
+	if err := flagSet.Parse(args[1:]); err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(options.moduleName) == "" {
+		return errors.New("init module requires --module-name")
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	projectInfo, err := project.DiscoverModule(options.projectRoot, cwd)
+	if err != nil {
+		return err
+	}
+
+	templateRoot := strings.TrimSpace(options.templateRoot)
+	if templateRoot == "" {
+		templateRoot = filepath.Join(filepath.Dir(cwd), "xkit-template")
+	}
+
+	result, err := sourceimport.ImportModule(sourceimport.ModuleOptions{
+		SourceRoot:     sourceRoot,
+		ProjectRoot:    projectInfo.Root,
+		Module:         projectInfo.Module,
+		ModuleName:     options.moduleName,
+		ModuleRoot:     options.moduleRoot,
+		Service:        options.serviceName,
+		ConfigPath:     options.configPath,
+		TypeScriptRoot: options.typeScriptRoot,
+		TemplateRoot:   templateRoot,
 		Force:          options.force,
 		DryRun:         options.dryRun,
 	})

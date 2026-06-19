@@ -1,0 +1,61 @@
+service: xdev
+module: xdev
+resources:
+  - name: device
+    proto_service: xdev.service.v1.DeviceService
+    entity: Device
+    dto_import: xdev/api/gen/xdev/service/v1
+    dto_type: Device
+    tenant_scope: tenant_scoped
+    repo_interface: DeviceRepo
+    frontend:
+      view_path: xdev/device
+      i18n_prefix: page.device
+      list:
+        columns:
+          - [deviceCode, Device Code, 设备编码, 180]
+          - [name, Device Name, 设备名称, 200]
+          - [modelId, Model ID, 设备型号ID, 140]
+          - [serialNumber, Serial Number, 设备序列号, 160]
+          - [useStatus, Use Status, 使用状态, 120]
+          - [createdAt, Created At, 创建时间, 180]
+        filters:
+          - [deviceCode, Input, Device Code, 设备编码]
+          - [name, Input, Device Name, 设备名称]
+          - [modelId, InputNumber, Model ID, 设备型号ID]
+          - [serialNumber, Input, Serial Number, 设备序列号]
+          - [useStatus, Input, Use Status, 使用状态]
+      form:
+        fields:
+          - [deviceCode, Device Code, 设备编码]
+          - [name, Device Name, 设备名称]
+          - [modelId, Model ID, 设备型号ID]
+          - [serialNumber, Serial Number, 设备序列号]
+          - [fingerPrint, Finger Print, 设备指纹]
+          - [useStatus, Use Status, 使用状态]
+          - [metaData, Meta Data, 其他数据]
+    filters:
+      allow:
+        - id
+        - device_code
+        - name
+        - model_id
+        - serial_number
+        - use_status
+        - tenant_id
+        - created_by
+        - updated_by
+        - created_at
+        - updated_at
+        - deleted_at
+    operations:
+      create: true
+      delete: true
+      get: true
+      list: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true

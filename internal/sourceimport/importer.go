@@ -30,6 +30,20 @@ type Options struct {
 	DryRun         bool
 }
 
+type ModuleOptions struct {
+	SourceRoot     string
+	ProjectRoot    string
+	Module         string
+	ModuleName     string
+	ModuleRoot     string
+	Service        string
+	ConfigPath     string
+	TypeScriptRoot string
+	TemplateRoot   string
+	Force          bool
+	DryRun         bool
+}
+
 type Result struct {
 	Written          []string
 	Skipped          []string
@@ -155,6 +169,115 @@ func Import(options Options) (Result, error) {
 	return result, nil
 }
 
+func ImportModule(options ModuleOptions) (Result, error) {
+	if strings.TrimSpace(options.SourceRoot) == "" {
+		return Result{}, fmt.Errorf("source root is required")
+	}
+	if strings.TrimSpace(options.ModuleName) == "" {
+		return Result{}, fmt.Errorf("module name is required")
+	}
+
+	sourceRoot, err := filepath.Abs(options.SourceRoot)
+	if err != nil {
+		return Result{}, fmt.Errorf("resolve source root: %w", err)
+	}
+	sourceRoot = filepath.Clean(sourceRoot)
+
+	projectRoot := strings.TrimSpace(options.ProjectRoot)
+	if projectRoot == "" {
+		projectRoot = "."
+	}
+	projectInfo, err := project.ModuleRoot(projectRoot)
+	if err != nil {
+		return Result{}, err
+	}
+	if strings.TrimSpace(options.Module) != "" {
+		projectInfo.Module = strings.TrimSpace(options.Module)
+	}
+
+	moduleRoot, moduleImportBase, err := resolveModuleRoot(projectInfo, options.ModuleName, options.ModuleRoot)
+	if err != nil {
+		return Result{}, err
+	}
+
+	service := strings.TrimSpace(options.Service)
+	if service == "" {
+		service = "admin"
+	}
+
+	roots, err := findSourceRoots(sourceRoot)
+	if err != nil {
+		return Result{}, err
+	}
+
+	schemas, err := entschema.LoadDir(roots.Schema)
+	if err != nil {
+		return Result{}, err
+	}
+	services, err := xproto.LoadServicesDir(roots.Proto)
+	if err != nil {
+		return Result{}, err
+	}
+	messages, err := loadMessages(roots.Proto)
+	if err != nil {
+		return Result{}, err
+	}
+
+	cfg, skipped := buildConfig(moduleImportBase, service, schemas, services, messages)
+	if len(cfg.Resources) == 0 {
+		return Result{}, fmt.Errorf("no matching proto services found for schemas under %s", roots.Schema)
+	}
+	cfg = rewriteModuleDTOImports(cfg, moduleImportBase, services)
+
+	configPath := strings.TrimSpace(options.ConfigPath)
+	if configPath == "" {
+		configPath = filepath.Join(moduleRoot, options.ModuleName+".yaml")
+	}
+	configPath, err = filepath.Abs(configPath)
+	if err != nil {
+		return Result{}, fmt.Errorf("resolve config path: %w", err)
+	}
+	configPath = filepath.Clean(configPath)
+
+	typeScriptRoot, err := resolveTypeScriptRoot(projectInfo.Root, options.TypeScriptRoot)
+	if err != nil {
+		return Result{}, err
+	}
+
+	var result Result
+	result.ConfigPath = configPath
+	result.TypeScriptRoot = typeScriptRoot
+	result.SkippedResources = skipped
+
+	writeOptions := Options{
+		Force:  options.Force,
+		DryRun: options.DryRun,
+	}
+
+	if err := copyTree(roots.Proto, filepath.Join(moduleRoot, "api", "protos"), writeOptions, &result); err != nil {
+		return result, err
+	}
+	if err := copyModuleAPIRootFiles(roots.APIRoot, filepath.Join(moduleRoot, "api"), moduleImportBase, service, typeScriptRoot, options.ModuleName, services, writeOptions, &result); err != nil {
+		return result, err
+	}
+	if err := copySchemaTree(roots.Schema, filepath.Join(moduleRoot, "data", "schema"), roots.Proto, moduleImportBase, writeOptions, &result); err != nil {
+		return result, err
+	}
+	if err := copyModuleAssets(strings.TrimSpace(options.TemplateRoot), moduleRoot, writeOptions, &result); err != nil {
+		return result, err
+	}
+
+	configData, err := yaml.Marshal(cfg)
+	if err != nil {
+		return result, fmt.Errorf("marshal config: %w", err)
+	}
+	if err := writeFile(configPath, configData, writeOptions, &result); err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
 func resolveTypeScriptRoot(projectRoot, configured string) (string, error) {
 	configured = strings.TrimSpace(configured)
 	if configured == "" {
@@ -164,6 +287,36 @@ func resolveTypeScriptRoot(projectRoot, configured string) (string, error) {
 		return filepath.Clean(configured), nil
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(projectRoot), configured)), nil
+}
+
+func resolveModuleRoot(projectInfo project.Info, moduleName, configured string) (string, string, error) {
+	moduleName = strings.TrimSpace(moduleName)
+	if moduleName == "" {
+		return "", "", fmt.Errorf("module name is required")
+	}
+
+	moduleRoot := strings.TrimSpace(configured)
+	if moduleRoot == "" {
+		moduleRoot = filepath.Join(projectInfo.Root, "modules", moduleName)
+	} else if !filepath.IsAbs(moduleRoot) {
+		moduleRoot = filepath.Join(projectInfo.Root, moduleRoot)
+	}
+	moduleRoot, err := filepath.Abs(moduleRoot)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve module root: %w", err)
+	}
+	moduleRoot = filepath.Clean(moduleRoot)
+
+	rel, err := filepath.Rel(projectInfo.Root, moduleRoot)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve module import base: %w", err)
+	}
+	rel = filepath.ToSlash(filepath.Clean(rel))
+	if rel == "." {
+		return "", "", fmt.Errorf("module root must not equal project root")
+	}
+
+	return moduleRoot, importpath.Join(projectInfo.Module, rel), nil
 }
 
 func findSourceRoots(sourceRoot string) (sourceRoots, error) {
@@ -205,6 +358,18 @@ func findSourceRoots(sourceRoot string) (sourceRoots, error) {
 	return roots, nil
 }
 
+func copyModuleAssets(templateRoot, moduleRoot string, options Options, result *Result) error {
+	templateRoot = strings.TrimSpace(templateRoot)
+	if templateRoot == "" {
+		return nil
+	}
+	assetsRoot := filepath.Join(templateRoot, "cmd", "server", "assets")
+	if !isDir(assetsRoot) {
+		return nil
+	}
+	return copyTree(assetsRoot, filepath.Join(moduleRoot, "assets"), options, result)
+}
+
 func copyAPIRootFiles(sourceRoot, targetRoot, module, service, typeScriptRoot string, options Options, result *Result) error {
 	if sourceRoot == "" || !isDir(sourceRoot) {
 		return nil
@@ -238,6 +403,113 @@ func copyAPIRootFiles(sourceRoot, targetRoot, module, service, typeScriptRoot st
 		}
 	}
 	return nil
+}
+
+func copyModuleAPIRootFiles(sourceRoot, targetRoot, module, service, typeScriptRoot, moduleName string, services map[string]xproto.Service, options Options, result *Result) error {
+	if sourceRoot == "" || !isDir(sourceRoot) {
+		return nil
+	}
+	entries, err := os.ReadDir(sourceRoot)
+	if err != nil {
+		return fmt.Errorf("read api root %s: %w", sourceRoot, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		sourcePath := filepath.Join(sourceRoot, name)
+		content, err := os.ReadFile(sourcePath)
+		if err != nil {
+			return fmt.Errorf("read source file %s: %w", sourcePath, err)
+		}
+		alwaysCorrect := false
+		switch {
+		case isBufGenYAML(name):
+			rewritten, err := rewriteModuleBufGoPackages(content, module, services)
+			if err != nil {
+				return err
+			}
+			rewritten = rewriteModuleBufOpenAPIOutput(rewritten)
+			rewritten = rewriteModuleBufTypeScriptClean(rewritten, name)
+			content = rewriteBufTypeScriptOutput(rewritten, targetRoot, typeScriptRoot, name, service)
+			alwaysCorrect = true
+		case strings.Contains(strings.ToLower(name), "openapi"):
+			content = rewriteModuleBufOpenAPIOutput(content)
+			alwaysCorrect = true
+		}
+		if err := writeFileWithPolicy(filepath.Join(targetRoot, name), content, options, result, alwaysCorrect); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func rewriteModuleBufTypeScriptClean(content []byte, fileName string) []byte {
+	lowerName := strings.ToLower(strings.TrimSpace(fileName))
+	if !strings.Contains(lowerName, "typescript") && !strings.Contains(lowerName, "ts") {
+		return content
+	}
+
+	lines := strings.SplitAfter(string(content), "\n")
+	changed := false
+	foundClean := false
+	for index, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "clean:") {
+			foundClean = true
+			rewritten := rewriteYAMLScalarLine(line, "clean", "false")
+			if rewritten != line {
+				lines[index] = rewritten
+				changed = true
+			}
+			break
+		}
+	}
+
+	if !foundClean {
+		inserted := false
+		for index, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "version:") {
+				extra := line + "\nclean: false\n"
+				lines[index] = extra
+				changed = true
+				inserted = true
+				break
+			}
+		}
+		if !inserted {
+			lines = append([]string{"clean: false\n"}, lines...)
+			changed = true
+		}
+	}
+
+	if !changed {
+		return content
+	}
+	return []byte(strings.Join(lines, ""))
+}
+
+func rewriteYAMLScalarLine(line, key, value string) string {
+	trimmed := strings.TrimLeft(line, " \t")
+	indent := line[:len(line)-len(trimmed)]
+	if !strings.HasPrefix(trimmed, key+":") {
+		return line
+	}
+	comment := ""
+	if idx := strings.Index(trimmed, "#"); idx >= 0 {
+		comment = trimmed[idx:]
+	}
+	if comment != "" {
+		return indent + key + ": " + value + " " + comment
+	}
+	newline := ""
+	if strings.HasSuffix(line, "\r\n") {
+		newline = "\r\n"
+	} else if strings.HasSuffix(line, "\n") {
+		newline = "\n"
+	}
+	return indent + key + ": " + value + newline
 }
 
 func isBufGenYAML(name string) bool {
@@ -340,6 +612,33 @@ func rewriteBufOpenAPIOutput(content []byte) []byte {
 	return []byte(strings.Join(lines, ""))
 }
 
+func rewriteModuleBufOpenAPIOutput(content []byte) []byte {
+	lines := strings.SplitAfter(string(content), "\n")
+	openAPIPlugin := false
+	changed := false
+	for index, line := range lines {
+		if matches := yamlPluginPattern.FindStringSubmatch(line); len(matches) == 4 {
+			openAPIPlugin = isOpenAPIPlugin(matches[2])
+			continue
+		}
+		if !openAPIPlugin {
+			continue
+		}
+		if matches := yamlOutPattern.FindStringSubmatch(line); len(matches) == 4 {
+			rewritten := matches[1] + "../assets" + matches[3]
+			if rewritten != line {
+				lines[index] = rewritten
+				changed = true
+			}
+			openAPIPlugin = false
+		}
+	}
+	if !changed {
+		return content
+	}
+	return []byte(strings.Join(lines, ""))
+}
+
 func isOpenAPIPlugin(name string) bool {
 	return strings.Contains(strings.ToLower(strings.TrimSpace(name)), "openapi")
 }
@@ -370,6 +669,104 @@ func rewriteBufTypeScriptOutput(content []byte, apiRoot, typeScriptRoot, fileNam
 		return content
 	}
 	return []byte(strings.Join(lines, ""))
+}
+
+func rewriteModuleBufGoPackages(content []byte, module string, services map[string]xproto.Service) ([]byte, error) {
+	module = strings.TrimSpace(module)
+	if module == "" {
+		return content, nil
+	}
+
+	packageByProtoPath := make(map[string]string)
+	for _, service := range services {
+		rel := service.ProtoPath
+		rel = filepath.ToSlash(rel)
+		packageByProtoPath[pathDirWithoutProtoRoot(rel)] = service.Package
+	}
+
+	lines := strings.SplitAfter(string(content), "\n")
+	fileOption := ""
+	protoPath := ""
+	changed := false
+	for index, line := range lines {
+		if matches := yamlFileOptionPattern.FindStringSubmatch(line); len(matches) == 4 {
+			fileOption = matches[2]
+			protoPath = ""
+			continue
+		}
+		if matches := yamlPathPattern.FindStringSubmatch(line); len(matches) == 4 {
+			if fileOption == "go_package" {
+				protoPath = strings.TrimSpace(strings.ReplaceAll(matches[2], "\\", "/"))
+			}
+			continue
+		}
+		if len(yamlValuePattern.FindStringSubmatch(line)) == 0 {
+			continue
+		}
+
+		switch fileOption {
+		case "go_package_prefix":
+			expected := importpath.Join(module, "api", "gen")
+			rewritten := rewriteYAMLValueLine(line, expected)
+			if rewritten != line {
+				lines[index] = rewritten
+				changed = true
+			}
+		case "go_package":
+			if protoPath == "" {
+				continue
+			}
+			pkg, ok := packageByProtoPath[normalizeProtoPathKey(protoPath)]
+			if !ok {
+				expected := importpath.Join(module, "api", "gen", strings.Trim(protoPath, "/")) + ";" + goPackageName(protoPath)
+				rewritten := rewriteYAMLValueLine(line, expected)
+				if rewritten != line {
+					lines[index] = rewritten
+					changed = true
+				}
+				continue
+			}
+			expected := packageImportPath(module, pkg) + ";" + goPackageNameFromPackage(pkg)
+			rewritten := rewriteYAMLValueLine(line, expected)
+			if rewritten != line {
+				lines[index] = rewritten
+				changed = true
+			}
+		}
+	}
+
+	if !changed {
+		return content, nil
+	}
+	return []byte(strings.Join(lines, "")), nil
+}
+
+func pathDirWithoutProtoRoot(path string) string {
+	path = strings.ReplaceAll(path, "\\", "/")
+	if idx := strings.Index(path, "/protos/"); idx >= 0 {
+		path = path[idx+len("/protos/"):]
+	}
+	path = strings.TrimSuffix(path, filepath.Ext(path))
+	path = importpath.Dir(path)
+	return normalizeProtoPathKey(path)
+}
+
+func normalizeProtoPathKey(path string) string {
+	path = strings.ReplaceAll(path, "\\", "/")
+	path = strings.Trim(path, "/")
+	return path
+}
+
+func goPackageNameFromPackage(pkg string) string {
+	parts := strings.Split(strings.TrimSpace(pkg), ".")
+	for idx := len(parts) - 1; idx >= 0; idx-- {
+		part := strings.TrimSpace(parts[idx])
+		if part == "" || isVersionPathSegment(part) || part == "service" {
+			continue
+		}
+		return sanitizeGoPackageName(part)
+	}
+	return "pb"
 }
 
 func isTypeScriptPlugin(name string) bool {
@@ -649,6 +1046,24 @@ func buildConfig(module, service string, schemas map[string]entschema.Schema, se
 		Module:    module,
 		Resources: resources,
 	}, skipped
+}
+
+func rewriteModuleDTOImports(cfg config.Config, moduleImportBase string, services map[string]xproto.Service) config.Config {
+	serviceProtoPackages := make(map[string]string, len(services))
+	for fullName, service := range services {
+		rel := service.ProtoPath
+		rel = filepath.ToSlash(rel)
+		rel = pathDirWithoutProtoRoot(rel)
+		serviceProtoPackages[fullName] = importpath.Join(moduleImportBase, "api", "gen", rel)
+	}
+
+	for index := range cfg.Resources {
+		resource := &cfg.Resources[index]
+		if dtoImport, ok := serviceProtoPackages[resource.ProtoService]; ok && strings.TrimSpace(dtoImport) != "" {
+			resource.DTOImport = dtoImport
+		}
+	}
+	return cfg
 }
 
 func sortedSchemaNames(schemas map[string]entschema.Schema) []string {
