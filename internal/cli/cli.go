@@ -22,6 +22,7 @@ const usageText = `Usage:
   xkit init template [template-source] [--project <path>] [--module <module>] [--app-name <name>] [--command-name <name>] [--service-name <name>] [--force] [--dry-run] [--skip-go-get-update-all]
   xkit init source <source-path> [--project <path>] [--service <name>] [--config <path>] [--typescript-project <path>] [--force] [--dry-run]
   xkit init module <source-path> [--project <path>] [--module-name <name>] [--module-root <path>] [--service <name>] [--config <path>] [--typescript-project <path>] [--template-root <path>] [--force] [--dry-run]
+  xkit gen module <module-name> <service> [--project <path>] [--module-root <path>] [--config <path>] [--domain <name>] [--typescript-project <path>] [--dry-run]
   xkit gen service <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen repo <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
   xkit gen register <service> [--project <path>] [--config <path>] [--domain <name>] [--dry-run]
@@ -47,7 +48,12 @@ func Run(args []string, version string) error {
 	case "init":
 		return runInit(args[1:])
 	case "gen":
-		return runGen(args[1:], version)
+		switch args[1] {
+		case "module":
+			return runGenModule(args[1:], version)
+		default:
+			return runGenProject(args[1:], version)
+		}
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -288,13 +294,14 @@ func runInitModule(args []string) error {
 
 type genOptions struct {
 	projectRoot    string
+	moduleRoot     string
 	configPath     string
 	domain         string
 	typeScriptRoot string
 	dryRun         bool
 }
 
-func runGen(args []string, version string) error {
+func runGenProject(args []string, version string) error {
 	if len(args) < 2 {
 		return errors.New("gen requires a target and service name")
 	}
@@ -344,7 +351,7 @@ func runGen(args []string, version string) error {
 		return fmt.Errorf("config service %q does not match argument %q", cfg.Service, serviceName)
 	}
 
-	runner, err := codegen.New(projectInfo, cfg, codegen.Options{
+	runner, err := codegen.NewProjectRunner(projectInfo, cfg, codegen.Options{
 		DryRun:         options.dryRun,
 		Version:        version,
 		TypeScriptRoot: options.typeScriptRoot,
@@ -359,6 +366,79 @@ func runGen(args []string, version string) error {
 	}
 
 	printResult(target, options.dryRun, result)
+	return nil
+}
+
+func runGenModule(args []string, version string) error {
+	if len(args) < 2 {
+		return errors.New("gen module requires a module name and service name")
+	}
+
+	moduleName := strings.TrimSpace(args[0])
+	serviceName := strings.TrimSpace(args[1])
+	if moduleName == "" || serviceName == "" {
+		return errors.New("gen module requires a module name and service name")
+	}
+
+	var options genOptions
+	flagSet := flag.NewFlagSet("gen module", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+	flagSet.StringVar(&options.projectRoot, "project", "", "target project root")
+	flagSet.StringVar(&options.moduleRoot, "module-root", "", "target module root; defaults to <project>/modules/<module-name>")
+	flagSet.StringVar(&options.configPath, "config", "", "path to generation config")
+	flagSet.StringVar(&options.domain, "domain", "", "domain name used to resolve the default config path")
+	flagSet.StringVar(&options.typeScriptRoot, "typescript-project", "", "target TypeScript project root; relative paths are resolved beside the Go project")
+	flagSet.BoolVar(&options.dryRun, "dry-run", false, "plan file writes without modifying the target project")
+	if err := flagSet.Parse(args[2:]); err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	projectInfo, err := project.DiscoverModule(options.projectRoot, cwd)
+	if err != nil {
+		return err
+	}
+
+	moduleRoot := strings.TrimSpace(options.moduleRoot)
+	if moduleRoot == "" {
+		moduleRoot = filepath.Join(projectInfo.Root, "modules", moduleName)
+	}
+	if !filepath.IsAbs(moduleRoot) {
+		moduleRoot = filepath.Join(projectInfo.Root, moduleRoot)
+	}
+
+	configPath := options.configPath
+	if configPath == "" {
+		configPath = filepath.Join(moduleRoot, moduleName+".yaml")
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	if cfg.Service != serviceName {
+		return fmt.Errorf("config service %q does not match argument %q", cfg.Service, serviceName)
+	}
+
+	runner, err := codegen.NewModuleRunner(projectInfo, cfg, codegen.Options{
+		DryRun:         options.dryRun,
+		Version:        version,
+		TypeScriptRoot: options.typeScriptRoot,
+	})
+	if err != nil {
+		return err
+	}
+
+	result, err := runner.Generate("all")
+	if err != nil {
+		return err
+	}
+
+	printResult("module", options.dryRun, result)
 	return nil
 }
 
