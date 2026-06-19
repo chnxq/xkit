@@ -16,9 +16,9 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 
-	"{{ .Module }}/internal/data/ent"
-	"{{ .Module }}/internal/data/ent/migrate"
-	_ "{{ .Module }}/internal/data/ent/runtime"
+	ent "{{ .EntImport }}"
+	"{{ .EntMigrateImport }}"
+	_ "{{ .EntRuntimeImport }}"
 )
 
 func NewEntClient(ctx *app.AppCtx) (*entCrud.EntClient[*ent.Client], func(), error) {

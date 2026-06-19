@@ -159,13 +159,16 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 	providerResources, generateGetAppCtx := r.bootstrapProviderResources(plans)
 	data := bootstrapTemplateData{
 		templateBase:      r.templateBase(),
-		Module:            r.project.Module,
+		Module:            r.layout.ModuleImport,
 		ServiceName:       r.config.Service,
 		AppName:           r.project.Module,
 		ServerImport:      r.internalImport("server"),
 		DataBootImport:    r.internalImport("data", "bootstrap"),
 		RepoImport:        r.internalImport("data", "repo"),
 		ServiceImport:     r.internalImport("service"),
+		EntImport:         r.layout.EntImportRoot,
+		EntMigrateImport:  filepath.ToSlash(filepath.Join(r.layout.EntImportRoot, "migrate")),
+		EntRuntimeImport:  filepath.ToSlash(filepath.Join(r.layout.EntImportRoot, "runtime")),
 		RepoResources:     r.bootstrapRepoResources(plans),
 		ProviderResources: providerResources,
 		ServerResources:   serverResources,
@@ -178,16 +181,16 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		GenerateGetAppCtx: generateGetAppCtx,
 	}
 
-	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.go")); err != nil {
+	if err := r.removeObsoleteGeneratedFile(filepath.Join(r.layout.DataBootstrapRoot, "ent_client.go")); err != nil {
 		return Result{}, err
 	}
 	files := []struct {
 		path     string
 		template string
 	}{
-		{path: filepath.Join(r.project.Root, "internal", "bootstrap", "generated_servers.gen.go"), template: codegentemplate.BootstrapGeneratedServers},
-		{path: filepath.Join(r.project.Root, "internal", "bootstrap", "generated_data_providers.gen.go"), template: codegentemplate.BootstrapGeneratedDataProviders},
-		{path: filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client.gen.go"), template: codegentemplate.BootstrapEntClient},
+		{path: filepath.Join(r.layout.BootstrapRoot, "generated_servers.gen.go"), template: codegentemplate.BootstrapGeneratedServers},
+		{path: filepath.Join(r.layout.BootstrapRoot, "generated_data_providers.gen.go"), template: codegentemplate.BootstrapGeneratedDataProviders},
+		{path: filepath.Join(r.layout.DataBootstrapRoot, "ent_client.gen.go"), template: codegentemplate.BootstrapEntClient},
 	}
 
 	var result Result
@@ -205,7 +208,7 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 	if err != nil {
 		return result, err
 	}
-	hooksPath := filepath.Join(r.project.Root, "internal", "bootstrap", "generated_hooks_ext.go")
+	hooksPath := filepath.Join(r.layout.BootstrapRoot, "generated_hooks_ext.go")
 	if err := r.writeExtensionFile(hooksPath, hooksContent, &result); err != nil {
 		return result, err
 	}
@@ -214,7 +217,7 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 	if err != nil {
 		return result, err
 	}
-	entHooksPath := filepath.Join(r.project.Root, "internal", "data", "bootstrap", "ent_client_ext.go")
+	entHooksPath := filepath.Join(r.layout.DataBootstrapRoot, "ent_client_ext.go")
 	if err := r.writeExtensionFile(entHooksPath, entHooksContent, &result); err != nil {
 		return result, err
 	}

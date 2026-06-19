@@ -23,6 +23,7 @@ type serviceTemplateData struct {
 	ExtraRepos      []serviceRepoData
 	ExtraFields     []serviceFieldData
 	ResourceName    string
+	NeedsIdentity   bool
 	Tree            *treeConfigData
 	Aggregates      []aggregateConfigData
 }
@@ -55,7 +56,13 @@ func (r *Runner) generateServiceFiles() (Result, error) {
 	}
 
 	var result Result
-	sharedContent, err := renderTemplate(codegentemplate.ServiceSharedExt, r.templateBase())
+	sharedContent, err := renderTemplate(codegentemplate.ServiceSharedExt, struct {
+		templateBase
+		NeedsIdentity bool
+	}{
+		templateBase:  r.templateBase(),
+		NeedsIdentity: serviceNeedsIdentity(plans),
+	})
 	if err != nil {
 		return result, err
 	}
@@ -103,6 +110,15 @@ func (r *Runner) generateServiceFiles() (Result, error) {
 	}
 
 	return result, nil
+}
+
+func serviceNeedsIdentity(plans []resourcePlan) bool {
+	for _, plan := range plans {
+		if strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped" {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
@@ -180,6 +196,7 @@ func (r *Runner) renderServiceFile(plan resourcePlan) ([]byte, error) {
 		ExtraRepos:      extraRepos,
 		ExtraFields:     extraFields,
 		ResourceName:    plan.Resource.Name,
+		NeedsIdentity:   strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped",
 		Tree:            buildTreeConfig(plan.Resource.Tree),
 		Aggregates:      r.aggregateConfigs(plan),
 	}

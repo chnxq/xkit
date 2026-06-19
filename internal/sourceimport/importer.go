@@ -677,11 +677,11 @@ func rewriteModuleBufGoPackages(content []byte, module string, services map[stri
 		return content, nil
 	}
 
-	packageByProtoPath := make(map[string]string)
+	importByProtoPath := make(map[string]string)
 	for _, service := range services {
 		rel := service.ProtoPath
 		rel = filepath.ToSlash(rel)
-		packageByProtoPath[pathDirWithoutProtoRoot(rel)] = service.Package
+		importByProtoPath[pathDirWithoutProtoRoot(rel)] = importpath.Join(module, "api", "gen", pathDirWithoutProtoRoot(rel))
 	}
 
 	lines := strings.SplitAfter(string(content), "\n")
@@ -716,7 +716,7 @@ func rewriteModuleBufGoPackages(content []byte, module string, services map[stri
 			if protoPath == "" {
 				continue
 			}
-			pkg, ok := packageByProtoPath[normalizeProtoPathKey(protoPath)]
+			importPath, ok := importByProtoPath[normalizeProtoPathKey(protoPath)]
 			if !ok {
 				expected := importpath.Join(module, "api", "gen", strings.Trim(protoPath, "/")) + ";" + goPackageName(protoPath)
 				rewritten := rewriteYAMLValueLine(line, expected)
@@ -726,7 +726,7 @@ func rewriteModuleBufGoPackages(content []byte, module string, services map[stri
 				}
 				continue
 			}
-			expected := packageImportPath(module, pkg) + ";" + goPackageNameFromPackage(pkg)
+			expected := importPath + ";" + goPackageName(protoPath)
 			rewritten := rewriteYAMLValueLine(line, expected)
 			if rewritten != line {
 				lines[index] = rewritten

@@ -434,6 +434,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	if req == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
 	}
+	pagingReq := req.GetPaging()
 
 	builder := r.entClient.Client().{{ $.EntityName }}.Query()
 	countBuilder := r.entClient.Client().{{ $.EntityName }}.Query()
@@ -444,23 +445,16 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	}
 {{- end}}
 {{if .UsesFilters}}
-	if err := r.applyGeneratedFilters(builder, req); err != nil {
+	if err := r.applyGeneratedFilters(builder, pagingReq); err != nil {
 		return {{ .ZeroReturn }}, err
 	}
-	if err := r.applyGeneratedFilters(countBuilder, req); err != nil {
+	if err := r.applyGeneratedFilters(countBuilder, pagingReq); err != nil {
 		return {{ .ZeroReturn }}, err
 	}
 {{end}}
-	listReq := &v1.PagingRequest{
-		Page: req.Page,
-		PageSize: req.PageSize,
-		Offset: req.Offset,
-		Limit: req.Limit,
-		Token: req.Token,
-		NoPaging: req.NoPaging,
-		OrderBy: req.OrderBy,
-		Sorting: req.Sorting,
-		FieldMask: req.FieldMask,
+	listReq := pagingReq
+	if listReq == nil {
+		listReq = &paginationv1.PagingRequest{}
 	}
 	listReq.Sorting = withDefaultSorting(
 		listReq.Sorting,
@@ -469,7 +463,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	)
 	if listReq.Page == nil && listReq.PageSize == nil && listReq.Offset == nil && listReq.Limit == nil && !listReq.GetNoPaging() {
 		limit := uint32(20)
-		offset := req.GetOffset()
+		offset := listReq.GetOffset()
 		listReq.Limit = &limit
 		listReq.Offset = &offset
 	}
@@ -506,10 +500,11 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	if req == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
 	}
+	pagingReq := req.GetPaging()
 
 	builder := r.entClient.Client().{{ $.EntityName }}.Query()
 {{if .UsesFilters}}
-	if err := r.applyGeneratedFilters(builder, req); err != nil {
+	if err := r.applyGeneratedFilters(builder, pagingReq); err != nil {
 		return {{ .ZeroReturn }}, err
 	}
 {{end}}

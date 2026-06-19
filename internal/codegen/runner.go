@@ -21,6 +21,8 @@ type Options struct {
 	DryRun         bool
 	Version        string
 	TypeScriptRoot string
+	ModuleName     string
+	ModuleRoot     string
 }
 
 type generatedMeta struct {
@@ -45,6 +47,7 @@ type Runner struct {
 	bindingIndex map[string]binding.ServiceBinding
 	schemaIndex  map[string]entschema.Schema
 	options      Options
+	layout       layout
 }
 
 type resourcePlan struct {
@@ -118,6 +121,9 @@ type bootstrapTemplateData struct {
 	DataBootImport    string
 	RepoImport        string
 	ServiceImport     string
+	EntImport         string
+	EntMigrateImport  string
+	EntRuntimeImport  string
 	RepoResources     []bootstrapResourceData
 	ProviderResources []bootstrapResourceData
 	ServerResources   []bootstrapResourceData
@@ -197,6 +203,7 @@ func NewProjectRunner(info project.Info, cfg config.Config, options Options) (*R
 		bindingIndex: bindingIndex,
 		schemaIndex:  schemaIndex,
 		options:      options,
+		layout:       newProjectLayout(info),
 	}, nil
 }
 
@@ -205,8 +212,43 @@ func New(info project.Info, cfg config.Config, options Options) (*Runner, error)
 }
 
 func NewModuleRunner(info project.Info, cfg config.Config, options Options) (*Runner, error) {
-	//...
-	return &Runner{}, nil
+	moduleName := strings.TrimSpace(options.ModuleName)
+	if moduleName == "" {
+		return nil, fmt.Errorf("module name is required")
+	}
+
+	layout, err := newModuleLayout(info, moduleName, options.ModuleRoot)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Module != "" && cfg.Module != layout.ModuleImport {
+		return nil, fmt.Errorf("config module %q does not match target module %q", cfg.Module, layout.ModuleImport)
+	}
+
+	protoIndex, err := xproto.LoadServicesDir(filepath.Join(layout.ModuleRoot, "api", "protos"))
+	if err != nil {
+		return nil, err
+	}
+
+	bindingIndex, err := binding.Load(layout.ModuleRoot, layout.ModuleImport)
+	if err != nil {
+		return nil, err
+	}
+
+	schemaIndex, err := entschema.LoadDir(filepath.Join(layout.ModuleRoot, "data", "schema"))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Runner{
+		project:      info,
+		config:       cfg,
+		protoIndex:   protoIndex,
+		bindingIndex: bindingIndex,
+		schemaIndex:  schemaIndex,
+		options:      options,
+		layout:       layout,
+	}, nil
 }
 
 func (r *Runner) Generate(target string) (Result, error) {
@@ -248,7 +290,15 @@ func (r *Runner) generateAll() (Result, error) {
 
 func (r *Runner) generateModule() (Result, error) {
 	var result Result
-	// ...
+	parts := []string{"service", "repo", "register", "bootstrap", "frontend-meta"}
+	for _, part := range parts {
+		partResult, err := r.Generate(part)
+		if err != nil {
+			return result, err
+		}
+		result.Written = append(result.Written, partResult.Written...)
+		result.Skipped = append(result.Skipped, partResult.Skipped...)
+	}
 	return result, nil
 }
 

@@ -45,6 +45,7 @@ type repoTemplateData struct {
 	UsesFilters              bool
 	UsesAuditFields          bool
 	TenantScope              string
+	NeedsTenantHelpers       bool
 	Tree                     *treeConfigData
 	Aggregates               []aggregateConfigData
 }
@@ -80,7 +81,13 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 	}
 
 	var result Result
-	sharedContent, err := renderTemplate(codegentemplate.RepoSharedExt, r.templateBase())
+	sharedContent, err := renderTemplate(codegentemplate.RepoSharedExt, struct {
+		templateBase
+		NeedsTenantHelpers bool
+	}{
+		templateBase:       r.templateBase(),
+		NeedsTenantHelpers: repoNeedsTenantHelpers(plans),
+	})
 	if err != nil {
 		return result, err
 	}
@@ -129,6 +136,15 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 	return result, nil
 }
 
+func repoNeedsTenantHelpers(plans []resourcePlan) bool {
+	for _, plan := range plans {
+		if strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped" {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 	entityName := strings.TrimSpace(plan.Resource.Entity)
 	if entityName == "" {
@@ -161,9 +177,9 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		{Path: "github.com/chnxq/x-utils/mapper"},
 		{Path: "github.com/chnxq/xkitmod/log"},
 		{Path: "github.com/chnxq/xkitpkg/app"},
-		{Path: filepath.ToSlash(filepath.Join(r.project.Module, "internal", "data", "ent"))},
-		{Path: filepath.ToSlash(filepath.Join(r.project.Module, "internal", "data", "ent", strings.ToLower(entityName)))},
-		{Path: filepath.ToSlash(filepath.Join(r.project.Module, "internal", "data", "ent", "predicate"))},
+		{Alias: "ent", Path: r.layout.EntImportRoot},
+		{Path: filepath.ToSlash(filepath.Join(r.layout.EntImportRoot, strings.ToLower(entityName)))},
+		{Path: filepath.ToSlash(filepath.Join(r.layout.EntImportRoot, "predicate"))},
 		{Alias: dtoAlias, Path: dtoImport},
 	}
 	filters := repoFilters(plan.Schema.Fields, effectiveFilterAllow(plan))
@@ -306,6 +322,7 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		UsesFilters:              usesFilters,
 		UsesAuditFields:          usesAuditFields,
 		TenantScope:              strings.TrimSpace(plan.Resource.TenantScope),
+		NeedsTenantHelpers:       strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped",
 		Tree:                     buildTreeConfig(plan.Resource.Tree),
 		Aggregates:               r.aggregateConfigs(plan),
 	}

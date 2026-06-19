@@ -5,21 +5,26 @@
 package repo
 
 import (
+{{- if .NeedsTenantHelpers }}
 	"context"
-	"strings"
-
 	identityv1 "{{ .Module }}/api/gen/identity/v1"
 	"{{ .Module }}/internal/data/ent"
 	"{{ .Module }}/internal/data/ent/tenant"
+{{- end }}
+	"strings"
 
 	paginationv1 "github.com/chnxq/x-crud/api/gen/pagination/v1"
+{{- if .NeedsTenantHelpers }}
 	crudviewer "github.com/chnxq/x-crud/viewer"
+{{- end }}
 )
 
+{{- if .NeedsTenantHelpers }}
 const (
 	platformTenantID   uint32 = 0
 	platformTenantName        = "XAdmin Platform"
 )
+{{- end }}
 
 func withDefaultSorting(
 	items []*paginationv1.Sorting,
@@ -41,6 +46,7 @@ func withDefaultSorting(
 	}
 }
 
+{{- if .NeedsTenantHelpers }}
 func displayTenantName(tenantID *uint32, tenantName *string) *string {
 	if tenantID != nil && *tenantID == platformTenantID {
 		return tenantNamePtr(platformTenantName)
@@ -54,7 +60,9 @@ func displayTenantName(tenantID *uint32, tenantName *string) *string {
 	}
 	return tenantNamePtr(trimmed)
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func collectTenantIDs(values ...*uint32) []uint32 {
 	if len(values) == 0 {
 		return nil
@@ -73,7 +81,9 @@ func collectTenantIDs(values ...*uint32) []uint32 {
 	}
 	return result
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func loadTenantNameMap(ctx context.Context, client *ent.Client, tenantIDs []uint32) map[uint32]string {
 	if client == nil || len(tenantIDs) == 0 {
 		return nil
@@ -93,7 +103,9 @@ func loadTenantNameMap(ctx context.Context, client *ent.Client, tenantIDs []uint
 	}
 	return result
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func tenantNameFromMap(tenantNameMap map[uint32]string, tenantID *uint32) *string {
 	if tenantID == nil {
 		return nil
@@ -110,7 +122,9 @@ func tenantNameFromMap(tenantNameMap map[uint32]string, tenantID *uint32) *strin
 	}
 	return tenantNamePtr(name)
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func resolvedTenantDisplayName(tenantNameMap map[uint32]string, tenantID uint32) string {
 	if tenantID == platformTenantID {
 		return platformTenantName
@@ -124,11 +138,15 @@ func resolvedTenantDisplayName(tenantNameMap map[uint32]string, tenantID uint32)
 	}
 	return tenantName
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func tenantNamePtr(value string) *string {
 	return &value
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func viewerTenantID(ctx context.Context) *uint32 {
 	viewer, ok := crudviewer.FromContext(ctx)
 	if !ok || viewer == nil {
@@ -143,7 +161,9 @@ func viewerTenantID(ctx context.Context) *uint32 {
 	}
 	return &tenantID
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func ensureTenantAccessible(ctx context.Context, resourceTenantID *uint32) error {
 	viewerTenant := viewerTenantID(ctx)
 	if viewerTenant == nil {
@@ -154,7 +174,9 @@ func ensureTenantAccessible(ctx context.Context, resourceTenantID *uint32) error
 	}
 	return nil
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func hybridTenantVisible(resourceTenantID *uint32, viewerTenant *uint32) bool {
 	if viewerTenant == nil {
 		return true
@@ -164,7 +186,9 @@ func hybridTenantVisible(resourceTenantID *uint32, viewerTenant *uint32) bool {
 	}
 	return *resourceTenantID == *viewerTenant
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func ensureHybridTenantAccessible(ctx context.Context, resourceTenantID *uint32) error {
 	viewerTenant := viewerTenantID(ctx)
 	if hybridTenantVisible(resourceTenantID, viewerTenant) {
@@ -172,7 +196,9 @@ func ensureHybridTenantAccessible(ctx context.Context, resourceTenantID *uint32)
 	}
 	return identityv1.ErrorForbidden("cross-tenant access is forbidden")
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func ensureHybridTenantMutable(ctx context.Context, resourceTenantID *uint32) error {
 	viewerTenant := viewerTenantID(ctx)
 	if viewerTenant == nil {
@@ -183,14 +209,18 @@ func ensureHybridTenantMutable(ctx context.Context, resourceTenantID *uint32) er
 	}
 	return identityv1.ErrorForbidden("cross-tenant access is forbidden")
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func ensurePlatformOnlyMutable(ctx context.Context) error {
 	if viewerTenantID(ctx) != nil {
 		return identityv1.ErrorForbidden("cross-tenant access is forbidden")
 	}
 	return nil
 }
+{{- end }}
 
+{{- if .NeedsTenantHelpers }}
 func resolveCreateTenantID(ctx context.Context, requestedTenantID *uint32) (*uint32, error) {
 	viewerTenant := viewerTenantID(ctx)
 	if viewerTenant == nil {
@@ -204,3 +234,4 @@ func resolveCreateTenantID(ctx context.Context, requestedTenantID *uint32) (*uin
 	}
 	return requestedTenantID, nil
 }
+{{- end }}

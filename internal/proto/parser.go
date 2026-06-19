@@ -46,7 +46,11 @@ func LoadServicesDir(protoRoot string) (map[string]Service, error) {
 			return nil
 		}
 
-		fileServices, err := parseFile(path)
+		relPath, err := filepath.Rel(protoRoot, path)
+		if err != nil {
+			return fmt.Errorf("resolve proto relative path %s: %w", path, err)
+		}
+		fileServices, err := parseFile(path, filepath.ToSlash(relPath))
 		if err != nil {
 			return err
 		}
@@ -62,7 +66,7 @@ func LoadServicesDir(protoRoot string) (map[string]Service, error) {
 	return services, nil
 }
 
-func parseFile(path string) ([]Service, error) {
+func parseFile(path, protoPath string) ([]Service, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open proto file %s: %w", path, err)
@@ -89,7 +93,7 @@ func parseFile(path string) ([]Service, error) {
 				current = &Service{
 					Package:   pkg,
 					Name:      matches[1],
-					ProtoPath: path,
+					ProtoPath: protoPath,
 				}
 				current.FullName = pkg + "." + current.Name
 				braceDepth = 1

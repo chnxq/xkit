@@ -50,7 +50,7 @@ func Run(args []string, version string) error {
 	case "gen":
 		switch args[1] {
 		case "module":
-			return runGenModule(args[1:], version)
+			return runGenModule(args[2:], version)
 		default:
 			return runGenProject(args[1:], version)
 		}
@@ -428,12 +428,14 @@ func runGenModule(args []string, version string) error {
 		DryRun:         options.dryRun,
 		Version:        version,
 		TypeScriptRoot: options.typeScriptRoot,
+		ModuleName:     moduleName,
+		ModuleRoot:     moduleRoot,
 	})
 	if err != nil {
 		return err
 	}
 
-	result, err := runner.Generate("all")
+	result, err := runner.Generate("module")
 	if err != nil {
 		return err
 	}

@@ -72,11 +72,11 @@ func (Device) Fields() []ent.Field {
 // Mixin of the Device.
 func (Device) Mixin() []ent.Mixin {
 	return []ent.Mixin{
-		mixin.AutoIncrementId64{},
-		mixin.CreatedBy64{},
-		mixin.UpdatedBy64{},
+		mixin.AutoIncrementId{},
+		mixin.CreatedBy{},
+		mixin.UpdatedBy{},
 		mixin.TimeAt{},
-		mixin.TenantID[uint64]{},
+		mixin.TenantID[uint32]{},
 	}
 }
 

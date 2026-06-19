@@ -44,12 +44,12 @@ func (r *Runner) plans() ([]resourcePlan, error) {
 }
 
 func (r *Runner) internalDir(parts ...string) string {
-	pathParts := append([]string{r.project.Root, "internal"}, parts...)
+	pathParts := append([]string{r.layout.InternalRoot}, parts...)
 	return filepath.Join(pathParts...)
 }
 
 func (r *Runner) internalImport(parts ...string) string {
-	pathParts := append([]string{r.project.Module, "internal"}, parts...)
+	pathParts := append([]string{r.layout.InternalImportRoot}, parts...)
 	return filepath.ToSlash(filepath.Join(pathParts...))
 }
 
@@ -59,6 +59,6 @@ func (r *Runner) templateBase() templateBase {
 			Version:     r.version(),
 			GeneratedAt: time.Now().Format("2006-01-02 15:04:05 MST"),
 		},
-		Module: r.project.Module,
+		Module: r.layout.ModuleImport,
 	}
 }
