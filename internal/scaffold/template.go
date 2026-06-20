@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"regexp"
 	"os"
 	"os/exec"
 	"path"
@@ -369,10 +370,20 @@ func renderTemplateContent(content []byte, options TemplateOptions, manifest Man
 		return len(literalReplacements[i].oldValue) > len(literalReplacements[j].oldValue)
 	})
 	for _, replacement := range literalReplacements {
-		rendered = strings.ReplaceAll(rendered, replacement.oldValue, replacement.newValue)
+		rendered = replaceWholeWordLiteral(rendered, replacement.oldValue, replacement.newValue)
 	}
 
 	return []byte(rendered)
+}
+
+func replaceWholeWordLiteral(input, oldValue, newValue string) string {
+	if strings.TrimSpace(oldValue) == "" || oldValue == newValue {
+		return input
+	}
+
+	pattern := `\b` + regexp.QuoteMeta(oldValue) + `\b`
+	re := regexp.MustCompile(pattern)
+	return re.ReplaceAllString(input, newValue)
 }
 
 func annotateTemplateGoFile(rel string, content []byte, source string, generatedAt time.Time) []byte {

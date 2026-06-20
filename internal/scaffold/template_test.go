@@ -68,6 +68,47 @@ const commandName = "xkit-template"
 	}
 }
 
+func TestApplyTemplateDoesNotDoubleReplaceAppNameLiteral(t *testing.T) {
+	templateRoot := t.TempDir()
+	projectRoot := t.TempDir()
+
+	writeTestFile(t, filepath.Join(templateRoot, "template.yaml"), `name: test
+kind: service-template
+version: 0.1.0
+variables:
+  app_name: Admin
+  command_name: xkit-template
+`)
+	writeTestFile(t, filepath.Join(templateRoot, "cmd", "server", "main.go"), `package main
+
+var (
+	Name = "Admin"
+	CommandName = "xkit-template"
+)
+`)
+
+	_, err := ApplyTemplate(TemplateOptions{
+		TemplateRoot: templateRoot,
+		ProjectRoot:  projectRoot,
+		AppName:      "MyAdmin",
+		CommandName:  "my-admin",
+	})
+	if err != nil {
+		t.Fatalf("apply template: %v", err)
+	}
+
+	content := readTestFile(t, filepath.Join(projectRoot, "cmd", "server", "main.go"))
+	if !strings.Contains(content, `Name = "MyAdmin"`) {
+		t.Fatalf("app name was not replaced correctly: %s", content)
+	}
+	if strings.Contains(content, "MyMyAdmin") {
+		t.Fatalf("app name was replaced twice: %s", content)
+	}
+	if !strings.Contains(content, `CommandName = "my-admin"`) {
+		t.Fatalf("command name was not replaced correctly: %s", content)
+	}
+}
+
 func TestApplyTemplateSkipsGeneratedHeaderForAlreadyGeneratedGoFile(t *testing.T) {
 	templateRoot := t.TempDir()
 	projectRoot := t.TempDir()
