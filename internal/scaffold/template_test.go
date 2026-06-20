@@ -262,6 +262,76 @@ preserve:
 	}
 }
 
+func TestApplyTemplateCopiesModuleHostSkeleton(t *testing.T) {
+	templateRoot := t.TempDir()
+	projectRoot := t.TempDir()
+
+	writeTestFile(t, filepath.Join(templateRoot, "template.yaml"), `name: test
+kind: service-template
+version: 0.1.0
+variables:
+  module: xkit-template-v01
+`)
+	writeTestFile(t, filepath.Join(templateRoot, "shared", "modulehost", "module.go"), "package modulehost\n\ntype Marker interface{}\n")
+	writeTestFile(t, filepath.Join(templateRoot, "internal", "bootstrap", "modules.go"), "package bootstrap\n\nfunc registeredHostModules() []any { return nil }\n")
+
+	result, err := ApplyTemplate(TemplateOptions{
+		TemplateRoot: templateRoot,
+		ProjectRoot:  projectRoot,
+		Module:       "example.com/demo",
+		GeneratedAt:  time.Date(2026, 6, 20, 0, 0, 0, 0, time.FixedZone("CST", 8*60*60)),
+	})
+	if err != nil {
+		t.Fatalf("apply template: %v", err)
+	}
+	if len(result.Written) != 2 {
+		t.Fatalf("unexpected result: written=%d skipped=%d", len(result.Written), len(result.Skipped))
+	}
+
+	moduleHostContent := readTestFile(t, filepath.Join(projectRoot, "shared", "modulehost", "module.go"))
+	if !strings.Contains(moduleHostContent, "package modulehost") {
+		t.Fatalf("modulehost skeleton was not copied: %s", moduleHostContent)
+	}
+
+	modulesContent := readTestFile(t, filepath.Join(projectRoot, "internal", "bootstrap", "modules.go"))
+	if !strings.Contains(modulesContent, "registeredHostModules") {
+		t.Fatalf("bootstrap modules skeleton was not copied: %s", modulesContent)
+	}
+}
+
+func TestApplyTemplateForceKeepsBootstrapModulesProjectOwned(t *testing.T) {
+	templateRoot := t.TempDir()
+	projectRoot := t.TempDir()
+
+	writeTestFile(t, filepath.Join(templateRoot, "template.yaml"), `name: test
+kind: service-template
+version: 0.1.0
+preserve:
+  - internal/bootstrap/modules.go
+`)
+	modulesPath := filepath.Join("internal", "bootstrap", "modules.go")
+	writeTestFile(t, filepath.Join(templateRoot, modulesPath), "package bootstrap\n\nfunc registeredHostModules() []any { return nil }\n")
+	writeTestFile(t, filepath.Join(projectRoot, modulesPath), "package bootstrap\n\nfunc registeredHostModules() []any { return []any{\"project-owned\"} }\n")
+
+	result, err := ApplyTemplate(TemplateOptions{
+		TemplateRoot: templateRoot,
+		ProjectRoot:  projectRoot,
+		Force:        true,
+		GeneratedAt:  time.Date(2026, 6, 20, 0, 0, 0, 0, time.FixedZone("CST", 8*60*60)),
+	})
+	if err != nil {
+		t.Fatalf("apply template: %v", err)
+	}
+	if len(result.Written) != 1 || len(result.Skipped) != 0 {
+		t.Fatalf("unexpected result: written=%d skipped=%d", len(result.Written), len(result.Skipped))
+	}
+
+	modulesContent := readTestFile(t, filepath.Join(projectRoot, modulesPath))
+	if !strings.Contains(modulesContent, "project-owned") || strings.Contains(modulesContent, "return nil") {
+		t.Fatalf("bootstrap modules file should stay project-owned: %s", modulesContent)
+	}
+}
+
 func TestIsGitTemplateSource(t *testing.T) {
 	t.Parallel()
 
