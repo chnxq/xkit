@@ -82,10 +82,14 @@ func ApplyTemplate(options TemplateOptions) (TemplateResult, error) {
 	for _, rel := range files {
 		sourcePath := filepath.Join(templateRoot, filepath.FromSlash(rel))
 		targetPath := filepath.Join(projectRoot, filepath.FromSlash(rel))
+		preserved := matchesAny(rel, manifest.Preserve)
 
 		if exists(targetPath) {
-			preserved := matchesAny(rel, manifest.Preserve)
-			if !options.Force || (preserved && !isGeneratedByXkit(targetPath)) {
+			if preserved {
+				result.Skipped = append(result.Skipped, targetPath)
+				continue
+			}
+			if !options.Force {
 				annotated, err := annotateExistingTemplateGoFile(rel, targetPath, templateSource, generatedAt, options.DryRun)
 				if err != nil {
 					return result, err
