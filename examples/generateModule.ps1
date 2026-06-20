@@ -1,28 +1,134 @@
 param(
     [string]$WorkspaceRoot = "D:\GoProjects\XAdmin",
-    [string]$ModuleName = "xdev",
+    [string]$ModuleName = "",
     [string]$ServiceName = "xdev",
-    [string]$HostProject = "D:\GoProjects\XAdmin\admin",
-    [string]$TypeScriptRoot = "D:\GoProjects\XAdmin\admin-ui",
+    [string]$HostProject = "",
+    [string]$TypeScriptRoot = "",
     [string]$SourceRoot = "",
     [string]$ModuleRoot = "",
     [string]$CanonicalConfigPath = "",
+    [string]$ConfigPath = "",
     [switch]$SkipDryRun,
     [switch]$SkipTypeScript
 )
 
 $ErrorActionPreference = "Stop"
 
-function Resolve-Default {
+function Test-InteractiveSession {
+    try {
+        return -not [Console]::IsInputRedirected
+    } catch {
+        return $true
+    }
+}
+
+function Resolve-InputValue {
     param(
+        [string]$Name,
         [string]$Value,
-        [string]$DefaultValue
+        [string]$DefaultValue = "",
+        [string]$Hint = "",
+        [switch]$Required
     )
 
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        return $DefaultValue
+    if (-not [string]::IsNullOrWhiteSpace($Value)) {
+        return $Value.Trim()
     }
-    return $Value
+
+    if (Test-InteractiveSession) {
+        if (-not [string]::IsNullOrWhiteSpace($Hint)) {
+            Write-Host "${Name}: $Hint"
+        }
+
+        $prompt = if ([string]::IsNullOrWhiteSpace($DefaultValue)) {
+            $Name
+        } else {
+            "$Name [$DefaultValue]"
+        }
+
+        $inputValue = Read-Host $prompt
+        if ([string]::IsNullOrWhiteSpace($inputValue)) {
+            $inputValue = $DefaultValue
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($inputValue)) {
+            return $inputValue.Trim()
+        }
+    } elseif (-not [string]::IsNullOrWhiteSpace($DefaultValue)) {
+        return $DefaultValue.Trim()
+    }
+
+    if ($Required) {
+        throw "$Name is required. Pass -$Name explicitly or run the script in an interactive terminal."
+    }
+
+    return ""
+}
+
+function Show-ExecutionSummary {
+    param(
+        [string]$WorkspaceRoot,
+        [string]$XkitRoot,
+        [string]$SourceRoot,
+        [string]$HostProject,
+        [string]$ModuleName,
+        [string]$ServiceName,
+        [string]$ModuleRoot,
+        [string]$ConfigPath,
+        [string]$CanonicalConfigPath,
+        [string]$TypeScriptRoot,
+        [string]$FrontendApiRoot,
+        [bool]$InteractiveMode,
+        [bool]$SkipDryRun,
+        [bool]$SkipTypeScript
+    )
+
+    Write-Host ""
+    Write-Host "================ xkit generateModule summary ================"
+    Write-Host "WorkspaceRoot:      $WorkspaceRoot"
+    Write-Host "XkitRoot:           $XkitRoot"
+    Write-Host "SourceRoot:         $SourceRoot"
+    Write-Host "HostProject:        $HostProject"
+    Write-Host "ModuleName:         $ModuleName"
+    Write-Host "ServiceName:        $ServiceName"
+    Write-Host "ModuleRoot:         $ModuleRoot"
+    Write-Host "TargetConfig:       $ConfigPath"
+    Write-Host "CanonicalConfig:    $CanonicalConfigPath"
+    Write-Host "TypeScriptRoot:     $TypeScriptRoot"
+    Write-Host "FrontendApiRoot:    $FrontendApiRoot"
+    Write-Host "InteractiveMode:    $InteractiveMode"
+    Write-Host "SkipDryRun:         $SkipDryRun"
+    Write-Host "SkipTypeScript:     $SkipTypeScript"
+    Write-Host ""
+    Write-Host "Planned stages:"
+    Write-Host "  1. init module"
+    Write-Host "  2. apply canonical module config"
+    Write-Host "  3. generate Go/OpenAPI/TypeScript API code"
+    Write-Host "  4. generate Ent code"
+    Write-Host "  5. run xkit gen module (including frontend meta generation)"
+    Write-Host "============================================================="
+}
+
+function Confirm-OrAbort {
+    param(
+        [bool]$InteractiveMode
+    )
+
+    if (-not $InteractiveMode) {
+        return
+    }
+
+    $answer = Read-Host "Continue with this plan? [Y/n]"
+    if ([string]::IsNullOrWhiteSpace($answer)) {
+        return
+    }
+
+    $normalized = $answer.Trim().ToLowerInvariant()
+    if ($normalized -eq "y" -or $normalized -eq "yes") {
+        return
+    }
+
+    throw "Aborted by user before execution."
 }
 
 function Invoke-Step {
@@ -67,30 +173,71 @@ function Sync-CanonicalConfig {
     [System.IO.File]::WriteAllText($TargetPath, $content, [System.Text.UTF8Encoding]::new($false))
 }
 
+$InteractiveMode = Test-InteractiveSession
+
+$ModuleName = Resolve-InputValue `
+    -Name "ModuleName" `
+    -Value $ModuleName `
+    -DefaultValue "xdev" `
+    -Hint "module directory name under admin/modules, for example xdev" `
+    -Required
+
 $XkitRoot = Join-Path $WorkspaceRoot "xkit"
-$SourceRoot = Resolve-Default $SourceRoot (Join-Path $XkitRoot "examples\$ModuleName")
-$ModuleRoot = Resolve-Default $ModuleRoot (Join-Path $HostProject "modules\$ModuleName")
-$CanonicalConfigPath = Resolve-Default $CanonicalConfigPath (Join-Path $SourceRoot "$ModuleName-config\$ModuleName.yaml")
-$ModuleConfigPath = Join-Path $ModuleRoot "$ModuleName.yaml"
+$SourceRoot = Resolve-InputValue `
+    -Name "SourceRoot" `
+    -Value $SourceRoot `
+    -DefaultValue (Join-Path $XkitRoot "examples\$ModuleName") `
+    -Hint "module example source root"
+
+$HostProject = Resolve-InputValue `
+    -Name "HostProject" `
+    -Value $HostProject `
+    -DefaultValue (Join-Path $WorkspaceRoot "admin") `
+    -Hint "target host admin project root"
+
+$ModuleRoot = Resolve-InputValue `
+    -Name "ModuleRoot" `
+    -Value $ModuleRoot `
+    -DefaultValue (Join-Path $HostProject "modules\$ModuleName") `
+    -Hint "target module source root under host project"
+
+$TypeScriptRoot = Resolve-InputValue `
+    -Name "TypeScriptRoot" `
+    -Value $TypeScriptRoot `
+    -DefaultValue (Join-Path $WorkspaceRoot "admin-ui") `
+    -Hint "target frontend project root"
+
+$CanonicalConfigPath = Resolve-InputValue `
+    -Name "CanonicalConfigPath" `
+    -Value $CanonicalConfigPath `
+    -DefaultValue (Join-Path $SourceRoot "$ModuleName-config\$ModuleName.yaml") `
+    -Hint "canonical config source copied onto TargetConfig after init module"
+
+$ConfigPath = Resolve-InputValue `
+    -Name "ConfigPath" `
+    -Value $ConfigPath `
+    -DefaultValue (Join-Path $SourceRoot "$ModuleName-target-config\$ModuleName.yaml") `
+    -Hint "effective module generation config; future generation should always use this file"
+
 $FrontendApiRoot = Join-Path $TypeScriptRoot "apps\web-antd\src\api\generated\$ServiceName"
 
-Write-Host ""
-Write-Host "================ xkit generateModule summary ================"
-Write-Host "WorkspaceRoot:      $WorkspaceRoot"
-Write-Host "XkitRoot:           $XkitRoot"
-Write-Host "SourceRoot:         $SourceRoot"
-Write-Host "HostProject:        $HostProject"
-Write-Host "ModuleName:         $ModuleName"
-Write-Host "ServiceName:        $ServiceName"
-Write-Host "ModuleRoot:         $ModuleRoot"
-Write-Host "ModuleConfig:       $ModuleConfigPath"
-Write-Host "CanonicalConfig:    $CanonicalConfigPath"
-Write-Host "TypeScriptRoot:     $TypeScriptRoot"
-Write-Host "FrontendApiRoot:    $FrontendApiRoot"
-Write-Host "SkipDryRun:         $SkipDryRun"
-Write-Host "SkipTypeScript:     $SkipTypeScript"
-Write-Host "FrontendMeta:       generated by xkit gen module"
-Write-Host "============================================================"
+Show-ExecutionSummary `
+    -WorkspaceRoot $WorkspaceRoot `
+    -XkitRoot $XkitRoot `
+    -SourceRoot $SourceRoot `
+    -HostProject $HostProject `
+    -ModuleName $ModuleName `
+    -ServiceName $ServiceName `
+    -ModuleRoot $ModuleRoot `
+    -ConfigPath $ConfigPath `
+    -CanonicalConfigPath $CanonicalConfigPath `
+    -TypeScriptRoot $TypeScriptRoot `
+    -FrontendApiRoot $FrontendApiRoot `
+    -InteractiveMode $InteractiveMode `
+    -SkipDryRun ([bool]$SkipDryRun) `
+    -SkipTypeScript ([bool]$SkipTypeScript)
+
+Confirm-OrAbort -InteractiveMode $InteractiveMode
 
 Push-Location $XkitRoot
 try {
@@ -101,7 +248,7 @@ try {
                 --module-name $ModuleName `
                 --module-root $ModuleRoot `
                 --service $ServiceName `
-                --config $ModuleConfigPath `
+                --config $ConfigPath `
                 --typescript-project $TypeScriptRoot `
                 --force `
                 --dry-run
@@ -114,7 +261,7 @@ try {
             --module-name $ModuleName `
             --module-root $ModuleRoot `
             --service $ServiceName `
-            --config $ModuleConfigPath `
+            --config $ConfigPath `
             --typescript-project $TypeScriptRoot `
             --force
     }
@@ -122,7 +269,7 @@ try {
     Invoke-Step "Apply canonical module config" {
         Sync-CanonicalConfig `
             -CanonicalPath $CanonicalConfigPath `
-            -TargetPath $ModuleConfigPath `
+            -TargetPath $ConfigPath `
             -TargetModule ("admin/modules/" + $ModuleName)
     }
 
@@ -138,7 +285,7 @@ try {
     Invoke-Step "Generate OpenAPI document" {
         Push-Location (Join-Path $ModuleRoot "api")
         try {
-            buf generate --template buf.xdev.openapi.gen.yaml
+            buf generate --template "buf.$ModuleName.openapi.gen.yaml"
         } finally {
             Pop-Location
         }
@@ -148,7 +295,7 @@ try {
         Invoke-Step "Generate TypeScript API code" {
             Push-Location (Join-Path $ModuleRoot "api")
             try {
-                buf generate --template buf.vue.xdev.typescript.gen.yaml
+                buf generate --template "buf.vue.$ModuleName.typescript.gen.yaml"
             } finally {
                 Pop-Location
             }
@@ -178,7 +325,7 @@ try {
             go run .\cmd\xkit gen module $ModuleName $ServiceName `
                 --project $HostProject `
                 --module-root $ModuleRoot `
-                --config $ModuleConfigPath `
+                --config $ConfigPath `
                 --typescript-project $TypeScriptRoot `
                 --dry-run
         }
@@ -188,7 +335,7 @@ try {
         go run .\cmd\xkit gen module $ModuleName $ServiceName `
             --project $HostProject `
             --module-root $ModuleRoot `
-            --config $ModuleConfigPath `
+            --config $ConfigPath `
             --typescript-project $TypeScriptRoot
     }
 }

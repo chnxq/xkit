@@ -243,7 +243,7 @@ func runInitModule(args []string) error {
 	flagSet.StringVar(&options.moduleName, "module-name", "", "target module name")
 	flagSet.StringVar(&options.moduleRoot, "module-root", "", "target module root; defaults to <project>/modules/<module-name>")
 	flagSet.StringVar(&options.serviceName, "service", "admin", "service name used in generated xkit config")
-	flagSet.StringVar(&options.configPath, "config", "", "path to write generated module config")
+	flagSet.StringVar(&options.configPath, "config", "", "path to write generated module config; defaults to <source-path>/<module-name>-target-config/<module-name>.yaml")
 	flagSet.StringVar(&options.typeScriptRoot, "typescript-project", "", "target TypeScript project root; relative paths are resolved beside the Go project")
 	flagSet.StringVar(&options.templateRoot, "template-root", "", "template root used to copy module assets; defaults to sibling xkit-template")
 	flagSet.BoolVar(&options.force, "force", false, "overwrite existing target files")
@@ -413,7 +413,7 @@ func runGenModule(args []string, version string) error {
 
 	configPath := options.configPath
 	if configPath == "" {
-		configPath = filepath.Join(moduleRoot, moduleName+".yaml")
+		configPath = filepath.Join(filepath.Dir(projectInfo.Root), "xkit", "examples", moduleName, moduleName+"-target-config", moduleName+".yaml")
 	}
 
 	cfg, err := config.Load(configPath)

@@ -231,7 +231,7 @@ func ImportModule(options ModuleOptions) (Result, error) {
 
 	configPath := strings.TrimSpace(options.ConfigPath)
 	if configPath == "" {
-		configPath = filepath.Join(moduleRoot, options.ModuleName+".yaml")
+		configPath = filepath.Join(sourceRoot, options.ModuleName+"-target-config", options.ModuleName+".yaml")
 	}
 	configPath, err = filepath.Abs(configPath)
 	if err != nil {
