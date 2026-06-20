@@ -1,0 +1,20 @@
+{
+  "device": {
+    "useStatus": {
+      "IDLE": "Idle",
+      "USING": "In Use",
+      "DISABLED": "Disabled",
+      "REPAIR": "Under Repair",
+      "SCRAPPED": "Scrapped"
+    }
+  },
+  "deviceModel": {
+    "useCase": {
+      "OFFICE": "Office Device",
+      "PRODUCTION": "Production Device",
+      "SECURITY": "Security Device",
+      "NETWORK": "Network Device",
+      "OTHER": "Other"
+    }
+  }
+}

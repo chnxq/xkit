@@ -9,7 +9,7 @@ resources:
     tenant_scope: tenant_scoped
     repo_interface: DeviceRepo
     frontend:
-      view_path: asset/device
+      view_path: device/device
       i18n_prefix: page.device
       list:
         columns:
@@ -65,7 +65,7 @@ resources:
     tenant_scope: tenant_scoped
     repo_interface: DeviceModelRepo
     frontend:
-      view_path: asset/device-model
+      view_path: device-model/device-model
       i18n_prefix: page.deviceModel
       list:
         columns:
@@ -113,7 +113,7 @@ resources:
     tenant_scope: tenant_scoped
     repo_interface: DeviceModelTypeRepo
     frontend:
-      view_path: asset/device-model-type
+      view_path: device-model-type/device-model-type
       i18n_prefix: page.deviceModelType
       list:
         columns:

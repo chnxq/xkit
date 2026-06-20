@@ -19,6 +19,8 @@
 
 - `schema/*.go`
 - `api/protos/device/v1/*.proto`
+- `langs/zh-CN/*.json`
+- `langs/en-US/*.json`
 - `xdev-config/xdev.yaml`
   - 规范基线配置
 - `xdev-target-config/xdev.yaml`
@@ -33,6 +35,7 @@
 - 以后的生成与重构都以 `xdev-target-config/xdev.yaml` 为准
 - 只有当配置变更被验证和认可后，才手工同步回 `xdev-config/xdev.yaml`
 - `admin/modules/xdev` 目录只放模块源码、proto、schema 和生成物，不再依赖长期保留的模块内 yaml 配置
+- `langs/*` 下的页面与枚举文案由样例侧维护，`xkit` 只负责同步到目标前端代码中
 
 示例命令：
 

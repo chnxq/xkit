@@ -1,0 +1,20 @@
+{
+  "device": {
+    "useStatus": {
+      "IDLE": "空闲",
+      "USING": "使用中",
+      "DISABLED": "停用",
+      "REPAIR": "维修中",
+      "SCRAPPED": "已报废"
+    }
+  },
+  "deviceModel": {
+    "useCase": {
+      "OFFICE": "办公设备",
+      "PRODUCTION": "生产设备",
+      "SECURITY": "安防设备",
+      "NETWORK": "网络设备",
+      "OTHER": "其他"
+    }
+  }
+}

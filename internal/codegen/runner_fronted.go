@@ -101,6 +101,9 @@ func (r *Runner) generateFrontendMetaFiles() (Result, error) {
 	}
 
 	if r.isModuleMode() {
+		if err := r.copyFrontendGeneratedLangs(baseDir, &result); err != nil {
+			return result, err
+		}
 		return result, nil
 	}
 
@@ -347,7 +350,7 @@ func (r *Runner) writeFrontendI18nFile(path, tmpl string, entries []i18nEntry, r
 }
 
 func (r *Runner) copyFrontendGeneratedLangs(baseDir string, result *Result) error {
-	sourceDir, err := xkitExampleLangsDir()
+	sourceDir, err := r.frontendExampleLangsDir()
 	if err != nil {
 		return err
 	}
@@ -385,12 +388,20 @@ func (r *Runner) copyFrontendGeneratedLangs(baseDir string, result *Result) erro
 	return nil
 }
 
-func xkitExampleLangsDir() (string, error) {
+func (r *Runner) frontendExampleLangsDir() (string, error) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		return "", fmt.Errorf("resolve xkit source location failed")
 	}
-	return filepath.Join(filepath.Dir(file), "..", "..", "examples", "admin", "langs"), nil
+	examplesRoot := filepath.Join(filepath.Dir(file), "..", "..", "examples")
+	if r.isModuleMode() {
+		moduleName := strings.TrimSpace(r.options.ModuleName)
+		if moduleName == "" {
+			return "", fmt.Errorf("module name is required for module frontend langs")
+		}
+		return filepath.Join(examplesRoot, moduleName, "langs"), nil
+	}
+	return filepath.Join(examplesRoot, "admin", "langs"), nil
 }
 
 func removeObsoleteGeneratedDir(path string, dryRun bool) error {
