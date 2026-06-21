@@ -16,12 +16,21 @@ import type {
 {{- if .HasUpdate }}
   {{ .UpdateRequestType }},
 {{- end }}
+{{- range .ExtraTypeImports }}
+  {{ . }},
+{{- end }}
 } from '{{ .GeneratedAPIImportPath }}';
 
-import { createDefaultTransport, {{ .CreateClientFunc }} } from '{{ .GeneratedAPIImportPath }}';
+import {
+  createDefaultTransport,
+  {{ .CreateClientFunc }},
+{{- range .ExtraClientFuncs }}
+  {{ . }},
+{{- end }}
+} from '{{ .GeneratedAPIImportPath }}';
 
 import { requestClient } from '#/api/request';
-import { toAdminTotal, toPagingRequest } from '#/api/admin/paging';
+import { getAdminList, toAdminTotal, toPagingRequest } from '#/api/admin/paging';
 
 export type {{ .FrontendEntityType }} = {{ .EntityType }};
 export type {{ .FrontendSaveInputType }} = Partial<{{ .EntityType }}>;
@@ -39,21 +48,33 @@ export interface {{ .FrontendListResultType }} {
   items: {{ .EntityType }}[];
   total: number;
 }
+{{- range .RelationOptions }}
 
-const transport = createDefaultTransport({
-  request: async (path, init) => {
-    const requestPath = typeof path === 'string' ? path : path.toString();
-    const response = await requestClient.request<unknown>(requestPath, {
-      data: init?.body,
-      method: init?.method || 'GET',
-      responseReturn: 'body',
-    });
-    return new Response(JSON.stringify(response), {
-      headers: { 'Content-Type': 'application/json' },
-      status: 200,
-    });
-  },
-});
+export interface {{ .ResultType }} {
+  label: string;
+  raw: {{ .ItemType }};
+  value: number | string;
+}
+{{- end }}
+
+function createRequestTransport() {
+  return createDefaultTransport({
+    request: async (path, init) => {
+      const requestPath = typeof path === 'string' ? path : path.toString();
+      const response = await requestClient.request<unknown>(requestPath, {
+        data: init?.body,
+        method: init?.method || 'GET',
+        responseReturn: 'body',
+      });
+      return new Response(JSON.stringify(response), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    },
+  });
+}
+
+const transport = createRequestTransport();
 
 const client = {{ .CreateClientFunc }}(transport);
 
@@ -89,14 +110,15 @@ function buildConditions(params: {{ .FrontendListParamsType }} = {}): AdminFilte
 export async function {{ .ListFuncName }}(
   params: {{ .FrontendListParamsType }} = {},
 ): Promise<{{ .FrontendListResultType }}> {
-  const response = await client.List(
+  const response = await getAdminList<{{ .ListResponseType }}>(
+    '{{ .ListPath }}',
     toPagingRequest({
       conditions: buildConditions(params),
       page: params.page,
       pageSize: params.pageSize,
       sorting: params.sorting,
     }),
-  ) as {{ .ListResponseType }};
+  );
 
   return {
     items: response.items ?? [],
@@ -132,5 +154,23 @@ export async function {{ .UpdateFuncName }}(id: number, input: {{ .FrontendSaveI
 
 export async function {{ .DeleteFuncName }}(id: number) {
   return await client.Delete({ id });
+}
+{{- end }}
+{{- range .RelationOptions }}
+
+export async function {{ .FuncName }}(): Promise<{{ .ResultType }}[]> {
+  const relationClient = {{ .RelatedClientFunc }}(createRequestTransport());
+  const response = await relationClient.List(
+    toPagingRequest({
+      page: 1,
+      pageSize: 200,
+    }),
+  ) as {{ .RelatedListResult }};
+
+  return (response.items ?? []).map((item) => ({
+    label: String(item.{{ .LabelField }} ?? ''),
+    raw: item,
+    value: item.{{ .ValueField }} ?? '',
+  }));
 }
 {{- end }}

@@ -5,12 +5,14 @@ import (
 	"strings"
 
 	codegentemplate "github.com/chnxq/xkit/internal/codegen/template"
+	"github.com/chnxq/xkit/internal/config"
 )
 
 type frontendProviderTemplateData struct {
 	templateBase
 	GeneratedAPIImportPath string
 	CreateClientFunc       string
+	ListPath              string
 	EntityType             string
 	ListResponseType       string
 	GetResponseType        string
@@ -31,6 +33,9 @@ type frontendProviderTemplateData struct {
 	HasUpdate              bool
 	HasDelete              bool
 	FilterFields           []frontendProviderFilterField
+	RelationOptions        []frontendRelationOptionData
+	ExtraTypeImports       []string
+	ExtraClientFuncs       []string
 }
 
 type frontendProviderFilterField struct {
@@ -39,6 +44,16 @@ type frontendProviderFilterField struct {
 	Type         string
 	Operator     string
 	UseCleanText bool
+}
+
+type frontendRelationOptionData struct {
+	FuncName           string
+	ResultType         string
+	ItemType           string
+	RelatedClientFunc  string
+	RelatedListResult  string
+	LabelField         string
+	ValueField         string
 }
 
 func (r *Runner) generateFrontendProviderFiles() (Result, error) {
@@ -90,10 +105,14 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 	serviceName := strings.TrimSpace(plan.Binding.ServiceName)
 	resourceField := plan.ResourceField
 
+	relationOptions := r.frontendProviderRelationOptions(plan)
+	extraTypeImports, extraClientFuncs := frontendProviderExtraImports(relationOptions)
+
 	return frontendProviderTemplateData{
 		templateBase:           r.templateBase(),
 		GeneratedAPIImportPath: "#/api/generated/" + r.templateBase().Frontend + "/service/v1",
 		CreateClientFunc:       "create" + serviceName + "Client",
+		ListPath:               r.frontendProviderListPath(plan),
 		EntityType:             entityType,
 		ListResponseType:       serviceName + "ListResponse",
 		GetResponseType:        serviceName + "GetResponse",
@@ -114,6 +133,28 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 		HasUpdate:              true,
 		HasDelete:              true,
 		FilterFields:           r.frontendProviderFilterFields(plan),
+		RelationOptions:        relationOptions,
+		ExtraTypeImports:       extraTypeImports,
+		ExtraClientFuncs:       extraClientFuncs,
+	}
+}
+
+func (r *Runner) frontendProviderListPath(plan resourcePlan) string {
+	serviceName := strings.TrimSpace(plan.Binding.ServiceName)
+	switch serviceName {
+	case "DeviceService":
+		return "/xdev/v1/devices"
+	case "DeviceModelService":
+		return "/xdev/v1/device-models"
+	case "DeviceModelTypeService":
+		return "/xdev/v1/device-model-types"
+	default:
+		resourceName := strings.TrimSpace(plan.Resource.Name)
+		resourceName = strings.ReplaceAll(resourceName, "_", "-")
+		if resourceName == "" {
+			resourceName = strings.ToLower(strings.TrimSuffix(serviceName, "Service"))
+		}
+		return "/" + strings.Trim(r.templateBase().Frontend, "/") + "/v1/" + resourceName + "s"
 	}
 }
 
@@ -128,10 +169,17 @@ func (r *Runner) frontendProviderUpdateMask(plan resourcePlan) string {
 	fields := make([]string, 0, len(plan.Schema.Fields))
 	for _, field := range plan.Schema.Fields {
 		name := strings.TrimSpace(field.Name)
-		if name == "" || name == "created_at" || name == "updated_at" || name == "deleted_at" {
+		if name == "" {
 			continue
 		}
-		fields = append(fields, name)
+		if field.Immutable || skipGeneratedSetter(name) {
+			continue
+		}
+		switch name {
+		case "id", "tenant_id":
+			continue
+		}
+		fields = append(fields, lowerFirst(toPascal(name)))
 	}
 	return strings.Join(fields, ",")
 }
@@ -180,4 +228,90 @@ func frontendProviderNeedsCleanText(component string) bool {
 	default:
 		return false
 	}
+}
+
+func (r *Runner) frontendProviderRelationOptions(plan resourcePlan) []frontendRelationOptionData {
+	resourceNames := map[string]struct{}{}
+	var items []frontendRelationOptionData
+
+	appendRelation := func(spec *config.FrontendRelationSpec) {
+		if spec == nil {
+			return
+		}
+		resourceName := strings.TrimSpace(spec.Resource)
+		if resourceName == "" {
+			return
+		}
+		if _, ok := resourceNames[resourceName]; ok {
+			return
+		}
+		resourceNames[resourceName] = struct{}{}
+
+		relatedPlan, ok := r.findPlanByResourceName(resourceName)
+		if !ok {
+			return
+		}
+		relatedServiceName := strings.TrimSpace(relatedPlan.Binding.ServiceName)
+		relatedEntityType := relatedPlan.DTOTypeOrDefault()
+		resourceField := relatedPlan.ResourceField
+		items = append(items, frontendRelationOptionData{
+			FuncName:          "list" + resourceField + "Options",
+			ResultType:        "Admin" + resourceField + "Option",
+			ItemType:          relatedEntityType,
+			RelatedClientFunc: "create" + relatedServiceName + "Client",
+			RelatedListResult: relatedServiceName + "ListResponse",
+			LabelField:        strings.TrimSpace(spec.LabelField),
+			ValueField:        strings.TrimSpace(spec.ValueField),
+		})
+	}
+
+	if plan.Resource.Frontend != nil {
+		if plan.Resource.Frontend.List != nil {
+			for _, column := range plan.Resource.Frontend.List.Columns {
+				appendRelation(column.Relation)
+			}
+		}
+		if plan.Resource.Frontend.Form != nil {
+			for _, field := range plan.Resource.Frontend.Form.Fields {
+				appendRelation(field.Relation)
+			}
+		}
+	}
+
+	return items
+}
+
+func (r *Runner) findPlanByResourceName(name string) (resourcePlan, bool) {
+	plans, err := r.plans()
+	if err != nil {
+		return resourcePlan{}, false
+	}
+	for _, plan := range plans {
+		if strings.TrimSpace(plan.Resource.Name) == name {
+			return plan, true
+		}
+	}
+	return resourcePlan{}, false
+}
+
+func frontendProviderExtraImports(items []frontendRelationOptionData) ([]string, []string) {
+	typeSeen := map[string]struct{}{}
+	funcSeen := map[string]struct{}{}
+	var typeImports []string
+	var clientFuncs []string
+	for _, item := range items {
+		if _, ok := typeSeen[item.ItemType]; !ok {
+			typeSeen[item.ItemType] = struct{}{}
+			typeImports = append(typeImports, item.ItemType)
+		}
+		if _, ok := typeSeen[item.RelatedListResult]; !ok {
+			typeSeen[item.RelatedListResult] = struct{}{}
+			typeImports = append(typeImports, item.RelatedListResult)
+		}
+		if _, ok := funcSeen[item.RelatedClientFunc]; !ok {
+			funcSeen[item.RelatedClientFunc] = struct{}{}
+			clientFuncs = append(clientFuncs, item.RelatedClientFunc)
+		}
+	}
+	return typeImports, clientFuncs
 }

@@ -17,10 +17,14 @@
       "searchFilterDeviceCode": "设备编码",
       "filterModelId": "设备型号ID",
       "searchFilterModelId": "设备型号ID",
+      "selectFilterModelId": "选择设备型号",
       "filterName": "设备名称",
       "searchFilterName": "设备名称",
       "filterUseStatus": "使用状态",
-      "searchFilterUseStatus": "使用状态"
+      "searchFilterUseStatus": "使用状态",
+      "selectFilterUseStatus": "选择使用状态",
+      "selectModelId": "选择设备型号",
+      "selectUseStatus": "选择使用状态"
     },
     "deviceModel": {
       "moduleName": "设备型号",
@@ -37,7 +41,9 @@
       "filterModelName": "型号",
       "searchFilterModelName": "型号",
       "filterModelTypeId": "型号分类ID",
-      "searchFilterModelTypeId": "型号分类ID"
+      "searchFilterModelTypeId": "型号分类ID",
+      "selectFilterModelTypeId": "选择型号分类",
+      "selectModelTypeId": "选择型号分类"
     },
     "deviceModelType": {
       "moduleName": "设备型号分类",
@@ -56,7 +62,9 @@
       "filterModelTypeValue": "型号分类值",
       "searchFilterModelTypeValue": "型号分类值",
       "filterUseCase": "型号用途",
-      "searchFilterUseCase": "型号用途"
+      "searchFilterUseCase": "型号用途",
+      "selectFilterUseCase": "选择型号用途",
+      "selectUseCase": "选择型号用途"
     }
   }
 }

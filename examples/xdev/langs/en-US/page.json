@@ -17,10 +17,14 @@
       "searchFilterDeviceCode": "Search Device Code",
       "filterModelId": "Model ID",
       "searchFilterModelId": "Search Model ID",
+      "selectFilterModelId": "Select Model ID",
       "filterName": "Name",
       "searchFilterName": "Search Name",
       "filterUseStatus": "Use Status",
-      "searchFilterUseStatus": "Search Use Status"
+      "searchFilterUseStatus": "Search Use Status",
+      "selectFilterUseStatus": "Select Use Status",
+      "selectModelId": "Select Model ID",
+      "selectUseStatus": "Select Use Status"
     },
     "deviceModel": {
       "moduleName": "Device Model",
@@ -37,7 +41,9 @@
       "filterModelName": "Model Name",
       "searchFilterModelName": "Search Model Name",
       "filterModelTypeId": "Model Type ID",
-      "searchFilterModelTypeId": "Search Model Type ID"
+      "searchFilterModelTypeId": "Search Model Type ID",
+      "selectFilterModelTypeId": "Select Model Type ID",
+      "selectModelTypeId": "Select Model Type ID"
     },
     "deviceModelType": {
       "moduleName": "Device Model Type",
@@ -56,7 +62,9 @@
       "filterModelTypeValue": "Model Type Value",
       "searchFilterModelTypeValue": "Search Model Type Value",
       "filterUseCase": "Use Case",
-      "searchFilterUseCase": "Search Use Case"
+      "searchFilterUseCase": "Search Use Case",
+      "selectFilterUseCase": "Select Use Case",
+      "selectUseCase": "Select Use Case"
     }
   }
 }

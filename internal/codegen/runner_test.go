@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/chnxq/xkit/internal/binding"
+	codegentemplate "github.com/chnxq/xkit/internal/codegen/template"
 	"github.com/chnxq/xkit/internal/config"
 	"github.com/chnxq/xkit/internal/entschema"
 	"github.com/chnxq/xkit/internal/project"
@@ -1917,14 +1918,79 @@ type LoginAuditLog struct {
 	}
 	i18nPath := filepath.Join(root, "frontend", "apps", "web-antd", "src", "views", "generated", "admin", "page_i18n.zh-CN.json")
 	i18nContent := readFile(t, i18nPath)
-	if !strings.Contains(i18nContent, `"page.loginAuditLog.createdAt"`) {
+	if !strings.Contains(i18nContent, `"loginAuditLog"`) || !strings.Contains(i18nContent, `"createdAt"`) {
 		t.Fatalf("frontend i18n file missing expected key:\n%s", i18nContent)
 	}
-	if !strings.Contains(i18nContent, `"page.loginAuditLog.filterSessionTenant"`) {
+	if !strings.Contains(i18nContent, `"filterSessionTenant"`) {
 		t.Fatalf("frontend i18n file missing expected explicit filter key:\n%s", i18nContent)
 	}
 	if strings.Contains(i18nContent, `Search `) || strings.Contains(i18nContent, `Select `) || strings.Contains(i18nContent, ` Range"`) {
 		t.Fatalf("frontend i18n placeholders should not contain generated english verbs in zh locale:\n%s", i18nContent)
+	}
+}
+
+func TestFrontendMetaKeepsRelationStaticAndDoesNotImportProvider(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plan := resourcePlan{
+		ResourceField: "DeviceModel",
+		Resource: config.Resource{
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath:   "device-model/device-model",
+				I18nPrefix: "page.deviceModel",
+				List: &config.FrontendListConfig{
+					Filters: []config.FrontendFilter{
+						{Field: "modelTypeId", Component: "InputNumber"},
+					},
+					Columns: []config.FrontendColumn{
+						{
+							Field: "modelTypeId",
+							Relation: &config.FrontendRelationSpec{
+								Resource:   "device_model_type",
+								LabelField: "modelTypeName",
+								ValueField: "id",
+							},
+						},
+					},
+				},
+				Form: &config.FrontendDialogConfig{
+					Fields: []config.FrontendColumn{
+						{
+							Field: "modelTypeId",
+							Relation: &config.FrontendRelationSpec{
+								Resource:   "device_model_type",
+								LabelField: "modelTypeName",
+								ValueField: "id",
+							},
+						},
+					},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "model_type_id", Kind: "Uint64"},
+			},
+		},
+	}
+
+	content, err := renderAnyTemplate(codegentemplate.FrontendViewMeta, runner.frontendMetaData(plan))
+	if err != nil {
+		t.Fatalf("render frontend meta: %v", err)
+	}
+	got := string(content)
+	if strings.Contains(got, ".provider") {
+		t.Fatalf("frontend meta should not import provider runtime helpers:\n%s", got)
+	}
+	if strings.Contains(got, "api:") || strings.Contains(got, "labelField:") || strings.Contains(got, "valueField:") {
+		t.Fatalf("frontend meta should not include runtime relation option props:\n%s", got)
+	}
+	if !strings.Contains(got, "component: 'Select'") {
+		t.Fatalf("frontend meta should keep relation fields as static Select components:\n%s", got)
+	}
+	if strings.Contains(got, "component: 'ApiSelect'") {
+		t.Fatalf("frontend meta should not emit ApiSelect for relation fields:\n%s", got)
 	}
 }
 
@@ -2105,6 +2171,33 @@ func TestEffectiveFilterAllowDoesNotAppendCreatedAtForNonLogResource(t *testing.
 	got := effectiveFilterAllow(plan)
 	if slices.Contains(got, "created_at") {
 		t.Fatalf("effectiveFilterAllow() = %v, want created_at not to be appended for non-log resource", got)
+	}
+}
+
+func TestFrontendProviderUpdateMaskUsesProtoFieldPaths(t *testing.T) {
+	runner := &Runner{}
+
+	plan := resourcePlan{
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "model_name", Kind: "String"},
+				{Name: "model_type_id", Kind: "Uint64"},
+				{Name: "description", Kind: "String"},
+				{Name: "remark", Kind: "String"},
+				{Name: "id", Kind: "Uint64"},
+				{Name: "tenant_id", Kind: "Uint32"},
+				{Name: "created_by", Kind: "Uint64"},
+				{Name: "created_at", Kind: "Time", Immutable: true},
+				{Name: "updated_at", Kind: "Time"},
+				{Name: "deleted_at", Kind: "Time"},
+			},
+		},
+	}
+
+	got := runner.frontendProviderUpdateMask(plan)
+	want := "modelName,modelTypeId,description,remark"
+	if got != want {
+		t.Fatalf("frontendProviderUpdateMask() = %q, want %q", got, want)
 	}
 }
 

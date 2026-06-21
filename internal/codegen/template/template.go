@@ -53,8 +53,8 @@ var FrontendViewMeta string
 //go:embed frontend_provider.tmpl
 var FrontendProvider string
 
-//go:embed frontend_crud_page.tmpl
-var FrontendCRUDPage string
+//go:embed frontend_page.tmpl
+var FrontendPage string
 
 //go:embed frontend_view_config.tmpl
 var FrontendViewConfig string

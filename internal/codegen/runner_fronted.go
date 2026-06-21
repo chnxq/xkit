@@ -215,6 +215,8 @@ func (r *Runner) frontendColumns(plan resourcePlan) []frontendColumn {
 		if slotDefault == "" {
 			if columnCfg.Relation != nil {
 				slotDefault = simpleFieldName(field)
+			} else if r.frontendColumnUsesEnumRuntime(plan, field) {
+				slotDefault = simpleFieldName(field)
 			} else {
 				slotDefault = frontendSlot(field)
 			}
@@ -230,6 +232,11 @@ func (r *Runner) frontendColumns(plan resourcePlan) []frontendColumn {
 		})
 	}
 	return columns
+}
+
+func (r *Runner) frontendColumnUsesEnumRuntime(plan resourcePlan, field string) bool {
+	enumValues, ok := r.frontendEnumValues(plan, field)
+	return ok && len(enumValues) > 0
 }
 
 func (r *Runner) frontendDialogFields(plan resourcePlan) []frontendDialogField {
@@ -279,7 +286,7 @@ func (r *Runner) frontendI18nEntries(plan resourcePlan, lang string) []i18nEntry
 
 	if plan.Resource.Frontend.List != nil {
 		for _, filter := range normalizedFrontendFilters(plan.Resource.Frontend.List.Filters) {
-			component := filter.Component
+			component := r.frontendFilterComponent(plan, filter)
 			labelKey := r.frontendFilterLabelKey(plan, filter)
 			schemaField := r.frontendSchemaField(plan, labelKey)
 			enTitle, cnTitle := r.frontendFilterTitles(plan, filter, labelKey)
@@ -531,7 +538,7 @@ func frontendFormatter(field string) string {
 
 func frontendSlot(field string) string {
 	switch field {
-	case "status", "actionType", "riskLevel", "platformSummary", "geoLocationSummary", "loginMethod", "successSummary", "httpMethod", "type", "auditStatus", "name":
+	case "status", "actionType", "riskLevel", "platformSummary", "geoLocationSummary", "loginMethod", "successSummary", "httpMethod", "type", "auditStatus":
 		return simpleFieldName(field)
 	default:
 		return ""
