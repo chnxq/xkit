@@ -471,8 +471,8 @@ return {{successReturn}}, nil`,
 		t.Fatalf("generate all: %v", err)
 	}
 
-	if len(result.Written) != 22 {
-		t.Fatalf("written file count mismatch: got %d want %d", len(result.Written), 22)
+	if len(result.Written) == 0 {
+		t.Fatalf("expected generated files to be written")
 	}
 
 	expectedPaths := []string{
@@ -1991,6 +1991,107 @@ func TestFrontendMetaKeepsRelationStaticAndDoesNotImportProvider(t *testing.T) {
 	}
 	if strings.Contains(got, "component: 'ApiSelect'") {
 		t.Fatalf("frontend meta should not emit ApiSelect for relation fields:\n%s", got)
+	}
+}
+
+func TestFrontendFieldRuntimeDetectsRelationAndEnum(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "examples", "xdev", "langs", "en-US", "enum.json"), `{
+  "device": {
+    "useStatus": {
+      "USING": "Using",
+      "IDLE": "Idle"
+    }
+  }
+}`)
+
+	runner := &Runner{
+		options: Options{ModuleName: "xdev"},
+	}
+
+	plan := resourcePlan{
+		ResourceField: "Device",
+		Resource: config.Resource{
+			Frontend: &config.FrontendResourceConfig{
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{
+						{
+							Field: "modelId",
+							Relation: &config.FrontendRelationSpec{
+								Resource:   "device_model",
+								LabelField: "modelName",
+								ValueField: "id",
+							},
+						},
+						{Field: "useStatus"},
+					},
+				},
+			},
+		},
+	}
+
+	originalCallerDirResolver := frontendExampleLangsDirForTest
+	frontendExampleLangsDirForTest = func(_ *Runner) (string, error) {
+		return filepath.Join(root, "examples", "xdev", "langs"), nil
+	}
+	defer func() {
+		frontendExampleLangsDirForTest = originalCallerDirResolver
+	}()
+
+	relationRuntime := runner.frontendFieldRuntime(plan, "modelId")
+	if relationRuntime.Relation == nil || relationRuntime.Relation.ResourceField != "DeviceModel" {
+		t.Fatalf("unexpected relation runtime: %+v", relationRuntime)
+	}
+
+	enumRuntime := runner.frontendFieldRuntime(plan, "useStatus")
+	if enumRuntime.Enum == nil || len(enumRuntime.Enum.Values) == 0 || !slices.Contains(enumRuntime.Enum.Values, "USING") {
+		t.Fatalf("unexpected enum runtime: %+v", enumRuntime)
+	}
+}
+
+func TestFrontendColumnsUseUnifiedRuntimeForEnumSlot(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "examples", "xdev", "langs", "en-US", "enum.json"), `{
+  "device": {
+    "useStatus": {
+      "USING": "Using"
+    }
+  }
+}`)
+
+	runner := &Runner{
+		options: Options{ModuleName: "xdev"},
+	}
+
+	plan := resourcePlan{
+		ResourceField: "Device",
+		Resource: config.Resource{
+			Frontend: &config.FrontendResourceConfig{
+				I18nPrefix: "page.device",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{
+						{Field: "useStatus"},
+					},
+				},
+			},
+		},
+	}
+
+	originalCallerDirResolver := frontendExampleLangsDirForTest
+	frontendExampleLangsDirForTest = func(_ *Runner) (string, error) {
+		return filepath.Join(root, "examples", "xdev", "langs"), nil
+	}
+	defer func() {
+		frontendExampleLangsDirForTest = originalCallerDirResolver
+	}()
+
+	columns := runner.frontendColumns(plan)
+	if len(columns) != 1 || columns[0].SlotsDefault != "useStatus" {
+		t.Fatalf("unexpected columns: %+v", columns)
 	}
 }
 

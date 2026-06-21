@@ -119,15 +119,16 @@ func (r *Runner) frontendRelationRuntimes(plan resourcePlan) []frontendRelationR
 	seen := map[string]struct{}{}
 	var items []frontendRelationRuntime
 	for _, column := range plan.Resource.Frontend.List.Columns {
-		if column.Relation == nil {
+		runtime := r.frontendFieldRuntime(plan, column.Field)
+		if runtime.Relation == nil {
 			continue
 		}
-		fieldName := simpleFieldName(column.Field)
+		fieldName := runtime.FieldName
 		if _, ok := seen[fieldName]; ok {
 			continue
 		}
 		seen[fieldName] = struct{}{}
-		relationResourceField := frontendResourceFieldName(column.Relation.Resource)
+		relationResourceField := runtime.Relation.ResourceField
 		optionsVar := lowerFirst(relationResourceField) + "Options"
 		suffix := frontendKeySuffix(fieldName)
 		items = append(items, frontendRelationRuntime{
@@ -135,7 +136,7 @@ func (r *Runner) frontendRelationRuntimes(plan resourcePlan) []frontendRelationR
 			FuncName:            "list" + relationResourceField + "Options",
 			OptionsVarName:      optionsVar,
 			OptionsMapVarName:   optionsVar + "Map",
-			PlaceholderKey:      "select" + suffix,
+			PlaceholderKey:      runtime.Relation.PlaceholderKey,
 			ResolveFuncName:     "resolve" + suffix + "Label",
 			SearchPatchFuncName: "patchSearch" + suffix + "Field",
 			DialogPatchFuncName: "patchDialog" + suffix + "Field",
@@ -151,33 +152,29 @@ func (r *Runner) frontendEnumRuntimes(plan resourcePlan) []frontendEnumRuntime {
 	seen := map[string]struct{}{}
 	var items []frontendEnumRuntime
 	for _, column := range plan.Resource.Frontend.List.Columns {
-		if column.Relation != nil {
+		fieldRuntime := r.frontendFieldRuntime(plan, column.Field)
+		if fieldRuntime.Enum == nil {
 			continue
 		}
-		fieldName := simpleFieldName(column.Field)
+		fieldName := fieldRuntime.FieldName
 		if _, ok := seen[fieldName]; ok {
-			continue
-		}
-		enumValues, ok := r.frontendEnumValues(plan, fieldName)
-		if !ok || len(enumValues) == 0 {
 			continue
 		}
 		seen[fieldName] = struct{}{}
 		suffix := frontendKeySuffix(fieldName)
-		resourceKey := lowerFirst(plan.ResourceField)
-		runtime := frontendEnumRuntime{
+		enumRuntime := frontendEnumRuntime{
 			FieldName:       fieldName,
 			TextMapVarName:  lowerFirst(fieldName) + "TextMap",
 			ResolveFuncName: "resolve" + suffix + "Text",
-			EnumItems:       make([]frontendEnumRuntimeItem, 0, len(enumValues)),
+			EnumItems:       make([]frontendEnumRuntimeItem, 0, len(fieldRuntime.Enum.Values)),
 		}
-		for _, value := range enumValues {
-			runtime.EnumItems = append(runtime.EnumItems, frontendEnumRuntimeItem{
+		for _, value := range fieldRuntime.Enum.Values {
+			enumRuntime.EnumItems = append(enumRuntime.EnumItems, frontendEnumRuntimeItem{
 				Key:     value,
-				I18nKey: "enum." + resourceKey + "." + fieldName + "." + value,
+				I18nKey: "enum." + fieldRuntime.Enum.ResourceKey + "." + fieldName + "." + value,
 			})
 		}
-		items = append(items, runtime)
+		items = append(items, enumRuntime)
 	}
 	return items
 }

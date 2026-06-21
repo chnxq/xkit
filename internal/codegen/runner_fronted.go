@@ -53,6 +53,24 @@ type frontendDialogField struct {
 	ExtraProps string
 }
 
+var frontendExampleLangsDirForTest func(*Runner) (string, error)
+
+type frontendFieldRuntime struct {
+	FieldName string
+	Relation  *frontendFieldRelationRuntime
+	Enum      *frontendFieldEnumRuntime
+}
+
+type frontendFieldRelationRuntime struct {
+	ResourceField string
+	PlaceholderKey string
+}
+
+type frontendFieldEnumRuntime struct {
+	ResourceKey string
+	Values      []string
+}
+
 func (r *Runner) generateFrontendMetaFiles() (Result, error) {
 	plans, err := r.plans()
 	if err != nil {
@@ -203,6 +221,7 @@ func (r *Runner) frontendColumns(plan resourcePlan) []frontendColumn {
 	columns := make([]frontendColumn, 0, len(plan.Resource.Frontend.List.Columns))
 	for _, columnCfg := range plan.Resource.Frontend.List.Columns {
 		field := columnCfg.Field
+		runtime := r.frontendFieldRuntime(plan, field)
 		width := columnCfg.Width
 		if width <= 0 {
 			width = frontendWidth(field)
@@ -213,9 +232,7 @@ func (r *Runner) frontendColumns(plan resourcePlan) []frontendColumn {
 		}
 		slotDefault := strings.TrimSpace(columnCfg.Slot)
 		if slotDefault == "" {
-			if columnCfg.Relation != nil {
-				slotDefault = simpleFieldName(field)
-			} else if r.frontendColumnUsesEnumRuntime(plan, field) {
+			if runtime.Relation != nil || runtime.Enum != nil {
 				slotDefault = simpleFieldName(field)
 			} else {
 				slotDefault = frontendSlot(field)
@@ -232,11 +249,6 @@ func (r *Runner) frontendColumns(plan resourcePlan) []frontendColumn {
 		})
 	}
 	return columns
-}
-
-func (r *Runner) frontendColumnUsesEnumRuntime(plan resourcePlan, field string) bool {
-	enumValues, ok := r.frontendEnumValues(plan, field)
-	return ok && len(enumValues) > 0
 }
 
 func (r *Runner) frontendDialogFields(plan resourcePlan) []frontendDialogField {
@@ -432,6 +444,9 @@ func (r *Runner) copyFrontendGeneratedLangs(baseDir string, result *Result) erro
 }
 
 func (r *Runner) frontendExampleLangsDir() (string, error) {
+	if frontendExampleLangsDirForTest != nil {
+		return frontendExampleLangsDirForTest(r)
+	}
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		return "", fmt.Errorf("resolve xkit source location failed")
@@ -600,17 +615,38 @@ func frontendDialogComponent(field string) string {
 }
 
 func (r *Runner) frontendDialogComponent(plan resourcePlan, field string) string {
-	if r.frontendRelationForField(plan, field) != nil {
+	if r.frontendFieldRuntime(plan, field).Relation != nil {
 		return "Select"
 	}
 	return frontendDialogComponent(field)
 }
 
 func (r *Runner) frontendFilterComponent(plan resourcePlan, filter config.FrontendFilter) string {
-	if r.frontendRelationForField(plan, filter.Field) != nil {
+	if r.frontendFieldRuntime(plan, filter.Field).Relation != nil {
 		return "Select"
 	}
 	return strings.TrimSpace(filter.Component)
+}
+
+func (r *Runner) frontendFieldRuntime(plan resourcePlan, field string) frontendFieldRuntime {
+	fieldName := simpleFieldName(field)
+	runtime := frontendFieldRuntime{FieldName: fieldName}
+
+	if relation := r.frontendRelationForField(plan, field); relation != nil {
+		runtime.Relation = &frontendFieldRelationRuntime{
+			ResourceField:  frontendResourceFieldName(relation.Resource),
+			PlaceholderKey: "select" + frontendKeySuffix(fieldName),
+		}
+	}
+
+	if enumValues, ok := r.frontendEnumValues(plan, field); ok && len(enumValues) > 0 {
+		runtime.Enum = &frontendFieldEnumRuntime{
+			ResourceKey: lowerFirst(plan.ResourceField),
+			Values:      enumValues,
+		}
+	}
+
+	return runtime
 }
 
 func (r *Runner) frontendRelationForField(plan resourcePlan, field string) *config.FrontendRelationSpec {

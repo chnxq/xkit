@@ -51,6 +51,7 @@ func (Device) Fields() []ent.Field {
 		field.Bytes("finger_print").
 			Optional().
 			Nillable().
+			MaxLen(4096).
 			Comment("设备指纹"),
 		field.String("use_status").
 			NotEmpty().
