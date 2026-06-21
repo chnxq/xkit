@@ -314,7 +314,7 @@ variables:
   module: xkit-template-v01
 `)
 	writeTestFile(t, filepath.Join(templateRoot, "shared", "modulehost", "module.go"), "package modulehost\n\ntype Marker interface{}\n")
-	writeTestFile(t, filepath.Join(templateRoot, "internal", "bootstrap", "modules.go"), "package bootstrap\n\nfunc registeredHostModules() []any { return nil }\n")
+	writeTestFile(t, filepath.Join(templateRoot, "internal", "bootstrap", "modules.go"), "package bootstrap\n\nimport _ \"xkit-template-v01/modules\"\n")
 
 	result, err := ApplyTemplate(TemplateOptions{
 		TemplateRoot: templateRoot,
@@ -335,7 +335,7 @@ variables:
 	}
 
 	modulesContent := readTestFile(t, filepath.Join(projectRoot, "internal", "bootstrap", "modules.go"))
-	if !strings.Contains(modulesContent, "registeredHostModules") {
+	if !strings.Contains(modulesContent, "_ \"example.com/demo/modules\"") {
 		t.Fatalf("bootstrap modules skeleton was not copied: %s", modulesContent)
 	}
 }
@@ -351,8 +351,8 @@ preserve:
   - internal/bootstrap/modules.go
 `)
 	modulesPath := filepath.Join("internal", "bootstrap", "modules.go")
-	writeTestFile(t, filepath.Join(templateRoot, modulesPath), "package bootstrap\n\nfunc registeredHostModules() []any { return nil }\n")
-	writeTestFile(t, filepath.Join(projectRoot, modulesPath), "package bootstrap\n\nfunc registeredHostModules() []any { return []any{\"project-owned\"} }\n")
+	writeTestFile(t, filepath.Join(templateRoot, modulesPath), "package bootstrap\n\nimport _ \"xkit-template-v01/modules\"\n")
+	writeTestFile(t, filepath.Join(projectRoot, modulesPath), "package bootstrap\n\nimport _ \"project-owned/modules\"\n")
 
 	result, err := ApplyTemplate(TemplateOptions{
 		TemplateRoot: templateRoot,
@@ -368,7 +368,7 @@ preserve:
 	}
 
 	modulesContent := readTestFile(t, filepath.Join(projectRoot, modulesPath))
-	if !strings.Contains(modulesContent, "project-owned") || strings.Contains(modulesContent, "return nil") {
+	if !strings.Contains(modulesContent, "project-owned/modules") || strings.Contains(modulesContent, "xkit-template-v01/modules") {
 		t.Fatalf("bootstrap modules file should stay project-owned: %s", modulesContent)
 	}
 }

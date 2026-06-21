@@ -8,6 +8,7 @@ import (
 {{- range .Imports }}
 	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end }}
+	assets "{{ .Module }}/assets"
 	modulehost "{{ .Project }}/shared/modulehost"
 	"github.com/chnxq/xkitmod/log"
 )
@@ -16,8 +17,12 @@ type Module struct{}
 
 var _ modulehost.Module = (*Module)(nil)
 
-func NewModule() Module {
-	return Module{}
+func init() {
+	modulehost.RegisterModule(NewModule())
+}
+
+func NewModule() modulehost.Module {
+	return &Module{}
 }
 
 func (m *Module) Name() string {
@@ -62,6 +67,39 @@ func (m *Module) RegisterGRPC(registrar grpc.ServiceRegistrar, services any) {
 		{{ .FieldName }}: generatedServices.{{ .FieldName }},
 {{- end }}
 	})
+}
+
+func (m *Module) OpenAPIDocuments() []modulehost.OpenAPIDocument {
+	if len(assets.OpenApiData) == 0 {
+		return nil
+	}
+	return []modulehost.OpenAPIDocument{
+		{
+			Name:     m.Name(),
+			FileName: "openapi.yaml",
+			Format:   "yaml",
+			Data:     assets.OpenApiData,
+		},
+	}
+}
+
+func (m *Module) SyncResources(ctx context.Context, appCtx *app.AppCtx, data any, syncer modulehost.ResourceSyncer) error {
+	logModuleRegistration(appCtx, m.Name(), "Resource Sync Started")
+	if err := bootstrap.SyncModuleResources(ctx, syncer); err != nil {
+		return err
+	}
+	logModuleRegistration(appCtx, m.Name(), "Resource Sync Completed")
+	return nil
+}
+
+func (m *Module) SeedDefaultData(ctx context.Context, appCtx *app.AppCtx, data any) error {
+	logModuleRegistration(appCtx, m.Name(), "Default Seed Started")
+	generatedData, _ := data.(*bootstrap.GeneratedData)
+	if err := bootstrap.SeedModuleDefaultData(ctx, generatedData); err != nil {
+		return err
+	}
+	logModuleRegistration(appCtx, m.Name(), "Default Seed Completed")
+	return nil
 }
 
 func logModuleRegistration(appCtx *app.AppCtx, name, event string) {

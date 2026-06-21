@@ -2302,6 +2302,97 @@ func TestFrontendProviderUpdateMaskUsesProtoFieldPaths(t *testing.T) {
 	}
 }
 
+func TestRunnerGenerateModuleEntryIncludesHostModuleContract(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/admin\n\ngo 1.26.0\n")
+	moduleRoot := filepath.Join(root, "modules", "xdev")
+	writeFile(t, filepath.Join(moduleRoot, "api", "protos", "admin", "v1", "i_device.proto"), `syntax = "proto3";
+
+package admin.service.v1;
+
+service DeviceService {
+  rpc List (ListDeviceRequest) returns (ListDeviceResponse) {}
+}`)
+	writeFile(t, filepath.Join(moduleRoot, "api", "gen", "admin", "v1", "i_device_grpc.pb.go"), `package admin
+
+type DeviceServiceServer interface {
+	mustEmbedUnimplementedDeviceServiceServer()
+}
+
+var DeviceService_ServiceDesc = struct{
+	ServiceName string
+}{
+	ServiceName: "admin.service.v1.DeviceService",
+}
+`)
+	writeFile(t, filepath.Join(moduleRoot, "api", "gen", "admin", "v1", "i_device_http.pb.go"), "package admin\ntype DeviceServiceHTTPServer interface{}\n")
+	writeFile(t, filepath.Join(moduleRoot, "data", "schema", "device.go"), `package schema
+
+import "entgo.io/ent"
+
+type Device struct { ent.Schema }
+`)
+
+	cfg := config.Config{
+		Service: "admin",
+		Module:  "example.com/admin/modules/xdev",
+		Resources: []config.Resource{
+			{
+				Name:          "device",
+				Entity:        "Device",
+				ProtoService:  "admin.service.v1.DeviceService",
+				DTOImport:     "example.com/admin/modules/xdev/api/gen/device/v1",
+				DTOType:       "Device",
+				RepoInterface: "DeviceRepo",
+				Generate: config.GenerateFlags{
+					ServiceStub:  true,
+					RestRegister: true,
+					GRPCRegister: true,
+				},
+			},
+		},
+	}
+
+	runner, err := NewModuleRunner(project.Info{
+		Root:   root,
+		Module: "example.com/admin",
+	}, cfg, Options{
+		Version:    "test-version",
+		ModuleName: "xdev",
+		ModuleRoot: moduleRoot,
+	})
+	if err != nil {
+		t.Fatalf("new module runner: %v", err)
+	}
+
+	result, err := runner.Generate("module-entry")
+	if err != nil {
+		t.Fatalf("generate module-entry: %v", err)
+	}
+	if len(result.Written) == 0 {
+		t.Fatalf("expected module entry file to be written")
+	}
+
+	got := readFile(t, filepath.Join(moduleRoot, "module.go"))
+	for _, want := range []string{
+		"func init() {",
+		"modulehost.RegisterModule(NewModule())",
+		"func NewModule() modulehost.Module {",
+		"func (m *Module) OpenAPIDocuments() []modulehost.OpenAPIDocument {",
+		"assets.OpenApiData",
+		"func (m *Module) SyncResources(ctx context.Context, appCtx *app.AppCtx, data any, syncer modulehost.ResourceSyncer) error {",
+		"bootstrap.SyncModuleResources(ctx, syncer)",
+		"func (m *Module) SeedDefaultData(ctx context.Context, appCtx *app.AppCtx, data any) error {",
+		"bootstrap.SeedModuleDefaultData(ctx, generatedData)",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("module entry missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func readFile(t *testing.T, path string) string {
 	t.Helper()
 
