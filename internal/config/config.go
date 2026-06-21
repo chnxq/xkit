@@ -70,13 +70,20 @@ type FrontendDialogConfig struct {
 }
 
 type FrontendColumn struct {
-	Field    string `yaml:"field,omitempty"`
-	EN       string `yaml:"en,omitempty"`
-	CN       string `yaml:"cn,omitempty"`
-	Width    int    `yaml:"width,omitempty"`
-	Slot     string `yaml:"slot,omitempty"`
-	TreeNode bool   `yaml:"tree_node,omitempty"`
-	TitleKey string `yaml:"title_key,omitempty"`
+	Field    string                `yaml:"field,omitempty"`
+	EN       string                `yaml:"en,omitempty"`
+	CN       string                `yaml:"cn,omitempty"`
+	Width    int                   `yaml:"width,omitempty"`
+	Slot     string                `yaml:"slot,omitempty"`
+	TreeNode bool                  `yaml:"tree_node,omitempty"`
+	TitleKey string                `yaml:"title_key,omitempty"`
+	Relation *FrontendRelationSpec `yaml:"relation,omitempty"`
+}
+
+type FrontendRelationSpec struct {
+	Resource   string `yaml:"resource,omitempty"`
+	LabelField string `yaml:"label_field,omitempty"`
+	ValueField string `yaml:"value_field,omitempty"`
 }
 
 type FrontendFilter struct {
@@ -126,6 +133,11 @@ func (c *FrontendColumn) UnmarshalYAML(value *yaml.Node) error {
 		c.CN = strings.TrimSpace(c.CN)
 		c.Slot = strings.TrimSpace(c.Slot)
 		c.TitleKey = strings.TrimSpace(c.TitleKey)
+		if c.Relation != nil {
+			c.Relation.Resource = strings.TrimSpace(c.Relation.Resource)
+			c.Relation.LabelField = strings.TrimSpace(c.Relation.LabelField)
+			c.Relation.ValueField = strings.TrimSpace(c.Relation.ValueField)
+		}
 		return nil
 	default:
 		return fmt.Errorf("frontend column must be a string, sequence, or mapping")

@@ -54,7 +54,7 @@ func (Device) Fields() []ent.Field {
 			Comment("设备指纹"),
 		field.String("use_status").
 			NotEmpty().
-			MaxLen(2).
+			MaxLen(16).
 			Comment("使用状态"),
 		field.Bytes("meta_data").
 			Optional().

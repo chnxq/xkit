@@ -1,0 +1,10 @@
+{
+  "menu": {
+    "xdev": {
+      "moduleName": "Device Management",
+      "deviceModelType": "Device Types",
+      "deviceModel": "Device Models",
+      "device": "Devices"
+    }
+  }
+}

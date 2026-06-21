@@ -1,0 +1,10 @@
+{
+  "menu": {
+    "xdev": {
+      "moduleName": "设备管理",
+      "deviceModelType": "设备类型",
+      "deviceModel": "设备型号",
+      "device": "设备信息"
+    }
+  }
+}

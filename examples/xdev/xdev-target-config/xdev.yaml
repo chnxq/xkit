@@ -15,7 +15,14 @@ resources:
         columns:
           - [deviceCode, Device Code, 设备编码, 180]
           - [name, Name, 设备名称, 180]
-          - [modelId, Model ID, 设备型号ID, 140]
+          - field: modelId
+            en: Model ID
+            cn: 设备型号
+            width: 140
+            relation:
+              resource: device_model
+              label_field: modelName
+              value_field: id
           - [serialNumber, Serial Number, 设备序列号, 180]
           - [useStatus, Use Status, 使用状态, 120]
           - [createdAt, Created At, 创建时间, 170]
@@ -23,12 +30,18 @@ resources:
           - [deviceCode, Input, Device Code, 设备编码]
           - [name, Input, Name, 设备名称]
           - [modelId, InputNumber, Model ID, 设备型号ID]
-          - [useStatus, Input, Use Status, 使用状态]
+          - [useStatus, Select, Use Status, 使用状态]
       form:
         fields:
           - [deviceCode, Device Code, 设备编码]
           - [name, Name, 设备名称]
-          - [modelId, Model ID, 设备型号ID]
+          - field: modelId
+            en: Model ID
+            cn: 设备型号
+            relation:
+              resource: device_model
+              label_field: modelName
+              value_field: id
           - [serialNumber, Serial Number, 设备序列号]
           - [useStatus, Use Status, 使用状态]
     filters:
@@ -57,6 +70,7 @@ resources:
       repo_crud: true
       rest_register: true
       grpc_register: true
+
   - name: device_model
     proto_service: xdev.service.v1.DeviceModelService
     entity: DeviceModel
@@ -70,7 +84,14 @@ resources:
       list:
         columns:
           - [modelName, Model Name, 型号, 180]
-          - [modelTypeId, Model Type ID, 型号分类ID, 140]
+          - field: modelTypeId
+            en: Model Type ID
+            cn: 型号分类
+            width: 140
+            relation:
+              resource: device_model_type
+              label_field: modelTypeName
+              value_field: id
           - [description, Description, 型号描述, 220]
           - [remark, Remark, 备注, 180]
           - [createdAt, Created At, 创建时间, 170]
@@ -80,7 +101,13 @@ resources:
       form:
         fields:
           - [modelName, Model Name, 型号]
-          - [modelTypeId, Model Type ID, 型号分类ID]
+          - field: modelTypeId
+            en: Model Type ID
+            cn: 型号分类
+            relation:
+              resource: device_model_type
+              label_field: modelTypeName
+              value_field: id
           - [description, Description, 型号描述]
           - [remark, Remark, 备注]
     filters:
@@ -105,6 +132,7 @@ resources:
       repo_crud: true
       rest_register: true
       grpc_register: true
+
   - name: device_model_type
     proto_service: xdev.service.v1.DeviceModelTypeService
     entity: DeviceModelType
@@ -125,7 +153,7 @@ resources:
         filters:
           - [modelTypeName, Input, Model Type Name, 型号分类名]
           - [modelTypeValue, Input, Model Type Value, 型号分类值]
-          - [useCase, Input, Use Case, 型号用途]
+          - [useCase, Select, Use Case, 型号用途]
       form:
         fields:
           - [modelTypeName, Model Type Name, 型号分类名]

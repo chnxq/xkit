@@ -8,7 +8,7 @@
       "SCRAPPED": "Scrapped"
     }
   },
-  "deviceModel": {
+  "deviceModelType": {
     "useCase": {
       "OFFICE": "Office Device",
       "PRODUCTION": "Production Device",

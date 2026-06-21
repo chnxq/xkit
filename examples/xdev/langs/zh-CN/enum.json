@@ -8,7 +8,7 @@
       "SCRAPPED": "已报废"
     }
   },
-  "deviceModel": {
+  "deviceModelType": {
     "useCase": {
       "OFFICE": "办公设备",
       "PRODUCTION": "生产设备",
