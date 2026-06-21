@@ -21,6 +21,7 @@ type frontendMetaTemplateData struct {
 	I18nPrefix           string
 	DefaultSortField     string
 	DefaultSortDirection string
+	ProviderBaseName     string
 	FilterItems          []frontendFilterItem
 	Columns              []frontendColumn
 	HasDialogForm        bool
@@ -46,9 +47,10 @@ type frontendColumn struct {
 }
 
 type frontendDialogField struct {
-	FieldName string
-	Component string
-	LabelKey  string
+	FieldName  string
+	Component  string
+	LabelKey   string
+	ExtraProps string
 }
 
 func (r *Runner) generateFrontendMetaFiles() (Result, error) {
@@ -150,6 +152,7 @@ func (r *Runner) frontendMetaData(plan resourcePlan) frontendMetaTemplateData {
 		I18nPrefix:           i18nPrefix,
 		DefaultSortField:     r.frontendDefaultSortField(plan),
 		DefaultSortDirection: "DESC",
+		ProviderBaseName:     filepath.Base(strings.TrimSpace(frontend.ViewPath)),
 		FilterItems:          r.frontendFilterItems(plan),
 		Columns:              r.frontendColumns(plan),
 		HasDialogForm:        frontend.Form != nil && (frontend.Form.Enabled == nil || *frontend.Form.Enabled) && len(frontend.Form.Fields) > 0,
@@ -175,7 +178,7 @@ func (r *Runner) frontendFilterItems(plan resourcePlan) []frontendFilterItem {
 	items := make([]frontendFilterItem, 0, len(filters))
 	for _, filter := range filters {
 		fieldName := filter.Field
-		component := strings.TrimSpace(filter.Component)
+		component := r.frontendFilterComponent(plan, filter)
 		labelKey := r.frontendFilterLabelKey(plan, filter)
 		item := frontendFilterItem{
 			FieldName:      fieldName,
@@ -185,6 +188,8 @@ func (r *Runner) frontendFilterItems(plan resourcePlan) []frontendFilterItem {
 		}
 		if component == "RangePicker" {
 			item.ExtraProps = "          showTime: true,\n          valueFormat: 'YYYY-MM-DD HH:mm:ss',"
+		} else if component == "Select" {
+			item.ExtraProps = r.frontendEnumOptionsProps(plan, fieldName)
 		}
 		items = append(items, item)
 	}
@@ -208,7 +213,11 @@ func (r *Runner) frontendColumns(plan resourcePlan) []frontendColumn {
 		}
 		slotDefault := strings.TrimSpace(columnCfg.Slot)
 		if slotDefault == "" {
-			slotDefault = frontendSlot(field)
+			if columnCfg.Relation != nil {
+				slotDefault = simpleFieldName(field)
+			} else {
+				slotDefault = frontendSlot(field)
+			}
 		}
 		columns = append(columns, frontendColumn{
 			Field:        field,
@@ -230,13 +239,23 @@ func (r *Runner) frontendDialogFields(plan resourcePlan) []frontendDialogField {
 	fields := plan.Resource.Frontend.Form.Fields
 	items := make([]frontendDialogField, 0, len(fields))
 	for _, field := range fields {
+		component := r.frontendDialogComponent(plan, field.Field)
 		items = append(items, frontendDialogField{
-			FieldName: field.Field,
-			Component: frontendDialogComponent(field.Field),
-			LabelKey:  field.Field,
+			FieldName:  field.Field,
+			Component:  component,
+			LabelKey:   field.Field,
+			ExtraProps: r.frontendDialogExtraProps(plan, field.Field),
 		})
 	}
 	return items
+}
+
+func (r *Runner) frontendDialogExtraProps(plan resourcePlan, fieldName string) string {
+	component := r.frontendDialogComponent(plan, fieldName)
+	if component == "Select" {
+		return r.frontendEnumOptionsProps(plan, fieldName)
+	}
+	return ""
 }
 
 func (r *Runner) frontendI18nEntries(plan resourcePlan, lang string) []i18nEntry {
@@ -328,25 +347,42 @@ func (r *Runner) frontendSchemaField(plan resourcePlan, field string) *entschema
 }
 
 func (r *Runner) writeFrontendI18nFile(path, tmpl string, entries []i18nEntry, result *Result) error {
+	_ = tmpl
 	slices.SortFunc(entries, func(a, b i18nEntry) int {
 		return strings.Compare(a.Key, b.Key)
 	})
-	data := struct {
-		Entries   []i18nEntry
-		LastIndex int
-	}{
-		Entries:   entries,
-		LastIndex: len(entries) - 1,
+	messages := make(map[string]any, len(entries))
+	for _, entry := range entries {
+		setNestedI18nValue(messages, strings.Split(entry.Key, "."), entry.Value)
 	}
-	content, err := renderAnyTemplate(tmpl, data)
+	content, err := json.MarshalIndent(messages, "", "  ")
 	if err != nil {
 		return err
 	}
-	var formatted bytes.Buffer
-	if err := json.Indent(&formatted, content, "", "  "); err == nil {
-		content = formatted.Bytes()
-	}
 	return r.writeGeneratedFile(path, append(content, '\n'), result)
+}
+
+func setNestedI18nValue(target map[string]any, path []string, value string) {
+	if len(path) == 0 {
+		return
+	}
+	current := target
+	for _, segment := range path[:len(path)-1] {
+		next, ok := current[segment]
+		if !ok {
+			child := map[string]any{}
+			current[segment] = child
+			current = child
+			continue
+		}
+		child, ok := next.(map[string]any)
+		if !ok {
+			child = map[string]any{}
+			current[segment] = child
+		}
+		current = child
+	}
+	current[path[len(path)-1]] = value
 }
 
 func (r *Runner) copyFrontendGeneratedLangs(baseDir string, result *Result) error {
@@ -554,6 +590,111 @@ func frontendDialogComponent(field string) string {
 	default:
 		return "Input"
 	}
+}
+
+func (r *Runner) frontendDialogComponent(plan resourcePlan, field string) string {
+	if r.frontendRelationForField(plan, field) != nil {
+		return "Select"
+	}
+	return frontendDialogComponent(field)
+}
+
+func (r *Runner) frontendFilterComponent(plan resourcePlan, filter config.FrontendFilter) string {
+	if r.frontendRelationForField(plan, filter.Field) != nil {
+		return "Select"
+	}
+	return strings.TrimSpace(filter.Component)
+}
+
+func (r *Runner) frontendRelationForField(plan resourcePlan, field string) *config.FrontendRelationSpec {
+	if plan.Resource.Frontend == nil {
+		return nil
+	}
+	normalizedField := simpleFieldName(field)
+	if plan.Resource.Frontend.Form != nil {
+		for i := range plan.Resource.Frontend.Form.Fields {
+			item := &plan.Resource.Frontend.Form.Fields[i]
+			if simpleFieldName(item.Field) == normalizedField && item.Relation != nil {
+				return item.Relation
+			}
+		}
+	}
+	if plan.Resource.Frontend.List != nil {
+		for i := range plan.Resource.Frontend.List.Columns {
+			item := &plan.Resource.Frontend.List.Columns[i]
+			if simpleFieldName(item.Field) == normalizedField && item.Relation != nil {
+				return item.Relation
+			}
+		}
+	}
+	return nil
+}
+
+func frontendResourceFieldName(resource string) string {
+	parts := strings.Split(strings.TrimSpace(resource), "_")
+	for i := range parts {
+		part := strings.TrimSpace(parts[i])
+		if part == "" {
+			continue
+		}
+		parts[i] = strings.ToUpper(part[:1]) + part[1:]
+	}
+	return strings.Join(parts, "")
+}
+
+func (r *Runner) frontendEnumOptionsProps(plan resourcePlan, fieldName string) string {
+	enumValues, ok := r.frontendEnumValues(plan, fieldName)
+	if !ok || len(enumValues) == 0 {
+		return ""
+	}
+	resourceKey := lowerFirst(plan.ResourceField)
+	simpleField := simpleFieldName(fieldName)
+	lines := make([]string, 0, len(enumValues)+1)
+	lines = append(lines, "          options: [")
+	for _, value := range enumValues {
+		lines = append(lines, fmt.Sprintf("            { label: t('enum.%s.%s.%s'), value: '%s' },", resourceKey, simpleField, value, value))
+	}
+	lines = append(lines, "          ],")
+	return strings.Join(lines, "\n")
+}
+
+func (r *Runner) frontendEnumValues(plan resourcePlan, fieldName string) ([]string, bool) {
+	sourceDir, err := r.frontendExampleLangsDir()
+	if err != nil {
+		return nil, false
+	}
+	enumPath := filepath.Join(sourceDir, "en-US", "enum.json")
+	content, err := os.ReadFile(enumPath)
+	if err != nil {
+		return nil, false
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return nil, false
+	}
+	resourceKey := lowerFirst(plan.ResourceField)
+	resourceValue, ok := payload[resourceKey]
+	if !ok {
+		return nil, false
+	}
+	resourceMap, ok := resourceValue.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	fieldValue, ok := resourceMap[simpleFieldName(fieldName)]
+	if !ok {
+		return nil, false
+	}
+	fieldMap, ok := fieldValue.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	values := make([]string, 0, len(fieldMap))
+	for key := range fieldMap {
+		values = append(values, key)
+	}
+	slices.Sort(values)
+	return values, true
 }
 
 func frontendI18nValue(lang, field, enTitle, cnTitle string, schemaField *entschema.Field) string {

@@ -77,6 +77,11 @@ export function buildFormOptions(t: (key: string, ...args: any[]) => string): Vb
         component: '{{ .Component }}',
         fieldName: '{{ .FieldName }}',
         label: t('{{ $.I18nPrefix }}.{{ .LabelKey }}'),
+{{- if .ExtraProps }}
+        componentProps: {
+{{ .ExtraProps }}
+        },
+{{- end }}
       },
 {{- end }}
     ],

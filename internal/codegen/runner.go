@@ -272,6 +272,8 @@ func (r *Runner) Generate(target string) (Result, error) {
 		return r.generateFrontendProviderFiles()
 	case "frontend-page":
 		return r.generateFrontendPageFiles()
+	case "frontend-host-page":
+		return r.generateFrontendHostPageFiles()
 	case "module-entry":
 		return r.generateModuleEntryFile()
 	case "module":
@@ -299,7 +301,7 @@ func (r *Runner) generateAll() (Result, error) {
 
 func (r *Runner) generateModule() (Result, error) {
 	var result Result
-	parts := []string{"service", "repo", "register", "bootstrap", "module-entry", "frontend-meta", "frontend-provider", "frontend-page"}
+	parts := []string{"service", "repo", "register", "bootstrap", "module-entry", "frontend-meta", "frontend-provider", "frontend-page", "frontend-host-page"}
 	for _, part := range parts {
 		partResult, err := r.Generate(part)
 		if err != nil {
