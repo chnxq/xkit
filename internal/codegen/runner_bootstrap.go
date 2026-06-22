@@ -213,6 +213,17 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 		return result, err
 	}
 
+	if r.isModuleMode() {
+		moduleRuntimeContent, err := renderTemplate(codegentemplate.ModuleRuntimeExt, r.templateBase())
+		if err != nil {
+			return result, err
+		}
+		moduleRuntimePath := filepath.Join(r.layout.BootstrapRoot, "module_runtime_ext.go")
+		if err := r.writeExtensionFile(moduleRuntimePath, moduleRuntimeContent, &result); err != nil {
+			return result, err
+		}
+	}
+
 	entHooksContent, err := renderAnyTemplate(codegentemplate.BootstrapEntClientExt, data)
 	if err != nil {
 		return result, err

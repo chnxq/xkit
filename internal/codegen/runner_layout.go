@@ -84,7 +84,7 @@ func (r *Runner) frontendModuleRoot() string {
 		"web-antd",
 		"src",
 		"modules",
-		strings.TrimSpace(r.options.ModuleName),
+		r.frontendModuleDirName(),
 	)
 }
 
@@ -135,7 +135,7 @@ func (r *Runner) frontendGeneratedLangRoot() string {
 func (r *Runner) frontendGeneratedAPIImportPath() string {
 	if r.isModuleMode() {
 		moduleName := strings.TrimSpace(r.options.ModuleName)
-		return "#/modules/" + moduleName + "/api/generated/" + moduleName + "/service/v1"
+		return "#/modules/" + r.frontendModuleDirName() + "/api/generated/" + moduleName + "/service/v1"
 	}
 	return "#/api/generated/" + r.templateBase().Frontend + "/service/v1"
 }
@@ -162,4 +162,15 @@ func (r *Runner) frontendLegacyGeneratedAPIRoot() string {
 		return ""
 	}
 	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "api", "generated", strings.TrimSpace(r.options.ModuleName))
+}
+
+func (r *Runner) frontendModuleDirName() string {
+	moduleName := strings.TrimSpace(r.options.ModuleName)
+	if moduleName == "" {
+		return ""
+	}
+	if strings.HasSuffix(moduleName, "-ui") {
+		return moduleName
+	}
+	return moduleName + "-ui"
 }

@@ -35,6 +35,9 @@ var BootstrapGeneratedDataProviders string
 //go:embed bootstrap_hooks_ext.tmpl
 var BootstrapHooksExt string
 
+//go:embed module_runtime_ext.tmpl
+var ModuleRuntimeExt string
+
 //go:embed bootstrap_ent_client.tmpl
 var BootstrapEntClient string
 

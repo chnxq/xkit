@@ -812,8 +812,19 @@ func typeScriptOutputRoot(typeScriptRoot, fileName, service string) string {
 }
 
 func moduleTypeScriptOutputRoot(typeScriptRoot, moduleName string) string {
-	moduleName = strings.TrimSpace(moduleName)
+	moduleName = frontendModuleDirName(moduleName)
 	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "modules", moduleName, "api", "generated")
+}
+
+func frontendModuleDirName(moduleName string) string {
+	moduleName = strings.TrimSpace(moduleName)
+	if moduleName == "" {
+		return ""
+	}
+	if strings.HasSuffix(moduleName, "-ui") {
+		return moduleName
+	}
+	return moduleName + "-ui"
 }
 
 func bufRelativeOutputPath(apiRoot, outputRoot string) string {
