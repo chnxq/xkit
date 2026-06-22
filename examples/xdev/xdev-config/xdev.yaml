@@ -61,6 +61,7 @@ resources:
     operations:
       create: true
       delete: true
+      export: true
       get: true
       list: true
       count: true
@@ -123,6 +124,7 @@ resources:
     operations:
       create: true
       delete: true
+      export: true
       get: true
       list: true
       count: true
@@ -174,6 +176,7 @@ resources:
     operations:
       create: true
       delete: true
+      export: true
       get: true
       list: true
       count: true

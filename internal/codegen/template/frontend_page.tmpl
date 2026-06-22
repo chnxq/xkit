@@ -173,6 +173,12 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
       width: 150,
     },
   ],
+{{- if .ExportEnabled }}
+  exportConfig: {
+    filename: '{{ .ExportFilename }}',
+    type: 'csv',
+  },
+{{- end }}
   height: 'auto',
   keepSource: true,
   pagerConfig: {},
@@ -200,6 +206,9 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
   stripe: true,
   toolbarConfig: {
     custom: true,
+{{- if .ExportEnabled }}
+    export: true,
+{{- end }}
     refresh: true,
     slots: {
       toolPrefix: 'toolPrefix',

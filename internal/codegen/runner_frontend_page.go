@@ -25,6 +25,8 @@ type frontendPageTemplateData struct {
 	GridClassName      string
 	PageTitleKey       string
 	PageModuleNameKey  string
+	ExportEnabled      bool
+	ExportFilename     string
 	RelationRuntimes   []frontendRelationRuntime
 	EnumRuntimes       []frontendEnumRuntime
 }
@@ -121,9 +123,26 @@ func (r *Runner) frontendPageData(plan resourcePlan) frontendPageTemplateData {
 		GridClassName:      "generated-" + frontendSnakeCase(resourceField) + "-grid",
 		PageTitleKey:       pageTitleKey,
 		PageModuleNameKey:  pageModuleNameKey,
+		ExportEnabled:      plan.Resource.Operations["export"],
+		ExportFilename:     r.frontendExportFilename(plan),
 		RelationRuntimes:   r.frontendRelationRuntimes(plan),
 		EnumRuntimes:       r.frontendEnumRuntimes(plan),
 	}
+}
+
+func (r *Runner) frontendExportFilename(plan resourcePlan) string {
+	if !r.isModuleMode() {
+		return strings.ReplaceAll(strings.TrimSpace(plan.Resource.Name), "_", "-")
+	}
+	moduleName := strings.TrimSpace(r.options.ModuleName)
+	resourceName := strings.ReplaceAll(strings.TrimSpace(plan.Resource.Name), "_", "-")
+	if moduleName == "" {
+		return resourceName
+	}
+	if resourceName == "" {
+		return moduleName
+	}
+	return moduleName + "-" + resourceName
 }
 
 func frontendModuleRelativeImport(viewPath, targetPath string) string {
