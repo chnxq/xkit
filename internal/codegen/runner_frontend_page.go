@@ -3,6 +3,7 @@ package codegen
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	codegentemplate "github.com/chnxq/xkit/internal/codegen/template"
@@ -27,6 +28,7 @@ type frontendPageTemplateData struct {
 	PageModuleNameKey  string
 	ExportEnabled      bool
 	ExportFilename     string
+	ProviderFuncs      []string
 	RelationRuntimes   []frontendRelationRuntime
 	EnumRuntimes       []frontendEnumRuntime
 }
@@ -125,9 +127,25 @@ func (r *Runner) frontendPageData(plan resourcePlan) frontendPageTemplateData {
 		PageModuleNameKey:  pageModuleNameKey,
 		ExportEnabled:      plan.Resource.Operations["export"],
 		ExportFilename:     r.frontendExportFilename(plan),
+		ProviderFuncs:      r.frontendProviderFuncs(plan),
 		RelationRuntimes:   r.frontendRelationRuntimes(plan),
 		EnumRuntimes:       r.frontendEnumRuntimes(plan),
 	}
+}
+
+func (r *Runner) frontendProviderFuncs(plan resourcePlan) []string {
+	funcs := []string{
+		"create" + plan.ResourceField,
+		"delete" + plan.ResourceField,
+		"get" + plan.ResourceField + "ById",
+		"list" + plan.ResourceField + "Page",
+		"update" + plan.ResourceField,
+	}
+	for _, runtime := range r.frontendRelationRuntimes(plan) {
+		funcs = append(funcs, runtime.FuncName)
+	}
+	slices.Sort(funcs)
+	return funcs
 }
 
 func (r *Runner) frontendExportFilename(plan resourcePlan) string {

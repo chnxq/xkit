@@ -3,34 +3,19 @@
 // generated at: {{ .Generated.GeneratedAt }}
 
 import type { AdminFilterCondition, AdminSorting } from '#/api/admin/paging';
-
 import type {
-  {{ .ListResponseType }},
-  {{ .EntityType }},
-{{- if .HasGet }}
-  {{ .GetResponseType }},
-{{- end }}
-{{- if .HasCreate }}
-  {{ .CreateRequestType }},
-{{- end }}
-{{- if .HasUpdate }}
-  {{ .UpdateRequestType }},
-{{- end }}
-{{- range .ExtraTypeImports }}
+{{- range .TypeImports }}
   {{ . }},
 {{- end }}
 } from '{{ .GeneratedAPIImportPath }}';
 
-import {
-  createDefaultTransport,
-  {{ .CreateClientFunc }},
-{{- range .ExtraClientFuncs }}
-  {{ . }},
-{{- end }}
-} from '{{ .GeneratedAPIImportPath }}';
-
-import { requestClient } from '#/api/request';
 import { getAdminList, toAdminTotal, toPagingRequest } from '#/api/admin/paging';
+import { requestClient } from '#/api/request';
+import {
+{{- range .ClientFuncs }}
+  {{ . }},
+{{- end }}
+} from '{{ .GeneratedAPIImportPath }}';
 
 export type {{ .FrontendEntityType }} = {{ .EntityType }};
 export type {{ .FrontendSaveInputType }} = Partial<{{ .EntityType }}>;
@@ -66,7 +51,7 @@ function createRequestTransport() {
         method: init?.method || 'GET',
         responseReturn: 'body',
       });
-      return new Response(JSON.stringify(response), {
+      return Response.json(response, {
         headers: { 'Content-Type': 'application/json' },
         status: 200,
       });

@@ -3,6 +3,7 @@ package codegen
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	codegentemplate "github.com/chnxq/xkit/internal/codegen/template"
@@ -13,7 +14,7 @@ type frontendProviderTemplateData struct {
 	templateBase
 	GeneratedAPIImportPath string
 	CreateClientFunc       string
-	ListPath              string
+	ListPath               string
 	EntityType             string
 	ListResponseType       string
 	GetResponseType        string
@@ -35,8 +36,8 @@ type frontendProviderTemplateData struct {
 	HasDelete              bool
 	FilterFields           []frontendProviderFilterField
 	RelationOptions        []frontendRelationOptionData
-	ExtraTypeImports       []string
-	ExtraClientFuncs       []string
+	TypeImports            []string
+	ClientFuncs            []string
 }
 
 type frontendProviderFilterField struct {
@@ -110,7 +111,7 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 	resourceField := plan.ResourceField
 
 	relationOptions := r.frontendProviderRelationOptions(plan)
-	extraTypeImports, extraClientFuncs := frontendProviderExtraImports(relationOptions)
+	typeImports, clientFuncs := r.frontendProviderImports(plan, relationOptions)
 
 	return frontendProviderTemplateData{
 		templateBase:           r.templateBase(),
@@ -138,8 +139,8 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 		HasDelete:              true,
 		FilterFields:           r.frontendProviderFilterFields(plan),
 		RelationOptions:        relationOptions,
-		ExtraTypeImports:       extraTypeImports,
-		ExtraClientFuncs:       extraClientFuncs,
+		TypeImports:            typeImports,
+		ClientFuncs:            clientFuncs,
 	}
 }
 
@@ -298,24 +299,51 @@ func (r *Runner) findPlanByResourceName(name string) (resourcePlan, bool) {
 	return resourcePlan{}, false
 }
 
-func frontendProviderExtraImports(items []frontendRelationOptionData) ([]string, []string) {
+func (r *Runner) frontendProviderImports(plan resourcePlan, items []frontendRelationOptionData) ([]string, []string) {
 	typeSeen := map[string]struct{}{}
 	funcSeen := map[string]struct{}{}
 	var typeImports []string
 	var clientFuncs []string
-	for _, item := range items {
-		if _, ok := typeSeen[item.ItemType]; !ok {
-			typeSeen[item.ItemType] = struct{}{}
-			typeImports = append(typeImports, item.ItemType)
+
+	addType := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
 		}
-		if _, ok := typeSeen[item.RelatedListResult]; !ok {
-			typeSeen[item.RelatedListResult] = struct{}{}
-			typeImports = append(typeImports, item.RelatedListResult)
+		if _, ok := typeSeen[name]; ok {
+			return
 		}
-		if _, ok := funcSeen[item.RelatedClientFunc]; !ok {
-			funcSeen[item.RelatedClientFunc] = struct{}{}
-			clientFuncs = append(clientFuncs, item.RelatedClientFunc)
-		}
+		typeSeen[name] = struct{}{}
+		typeImports = append(typeImports, name)
 	}
+
+	addFunc := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if _, ok := funcSeen[name]; ok {
+			return
+		}
+		funcSeen[name] = struct{}{}
+		clientFuncs = append(clientFuncs, name)
+	}
+
+	serviceName := strings.TrimSpace(plan.Binding.ServiceName)
+	addType(plan.DTOTypeOrDefault())
+	addType(serviceName + "CreateRequest")
+	addType(serviceName + "GetResponse")
+	addType(serviceName + "ListResponse")
+	addType(serviceName + "UpdateRequest")
+	addFunc("createDefaultTransport")
+	addFunc("create" + serviceName + "Client")
+
+	for _, item := range items {
+		addType(item.ItemType)
+		addType(item.RelatedListResult)
+		addFunc(item.RelatedClientFunc)
+	}
+	slices.Sort(typeImports)
+	slices.Sort(clientFuncs)
 	return typeImports, clientFuncs
 }

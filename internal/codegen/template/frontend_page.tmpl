@@ -1,29 +1,21 @@
 <!-- {{ .HeaderComment }} -->
 <script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
-import type { VxeTableGridOptions } from '#/adapter/vxe-table';
-import type { {{ .EntityType }} } from '{{ .ProviderImportPath }}';
 
-import { computed, nextTick, reactive, ref{{- if .RelationRuntimes }}, onMounted, unref{{- end }} } from 'vue';
+import type { {{ .EntityType }} } from '{{ .ProviderImportPath }}';
+import type { VxeTableGridOptions } from '#/adapter/vxe-table';
+
+import { computed, nextTick, {{- if .RelationRuntimes }} onMounted,{{- end }} reactive, ref{{- if .RelationRuntimes }}, unref{{- end }} } from 'vue';
 
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
+
 import { Button, Form, message, Modal, Popconfirm, Space } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import AdminGeneratedForm from '#/components/admin-generated-form/index.vue';
 import { $t } from '#/locales';
 
-import {
-  {{ .CreateFuncName }},
-  {{ .DeleteFuncName }},
-  {{ .GetFuncName }},
-  {{ .ListFuncName }},
-  {{ .UpdateFuncName }},
-{{- range .RelationRuntimes }}
-  {{ .FuncName }},
-{{- end }}
-} from '{{ .ProviderImportPath }}';
 import {
   buildFormOptions as buildGeneratedDialogFormOptions,
   buildListGridColumns as buildGeneratedListGridColumns,
@@ -32,6 +24,11 @@ import {
   defaultSortField,
   i18nPrefix,
 } from '{{ .MetaImportPath }}';
+import {
+{{- range .ProviderFuncs }}
+  {{ . }},
+{{- end }}
+} from '{{ .ProviderImportPath }}';
 {{- if .DefineOptionsName }}
 
 defineOptions({ name: '{{ .DefineOptionsName }}' });
@@ -54,6 +51,9 @@ const modalTitle = computed(() =>
 
 const generatedFormOptions = buildGeneratedSearchFormOptions($t);
 const generatedDialogFormOptions = buildGeneratedDialogFormOptions($t);
+const formFieldNames = (generatedDialogFormOptions.schema || []).map(
+  (item) => item.fieldName,
+);
 {{- range .RelationRuntimes }}
 const {{ .OptionsVarName }} = ref<Array<{ label: string; value: number | string }>>([]);
 const {{ .OptionsMapVarName }} = computed(() =>
@@ -116,14 +116,16 @@ const formOptions: VbenFormProps = {
 {{- if .RelationRuntimes }}
     switch (item.fieldName) {
 {{- range .RelationRuntimes }}
-      case '{{ .FieldName }}':
+      case '{{ .FieldName }}': {
         return {{ .SearchPatchFuncName }}(item);
+      }
 {{- end }}
-      default:
+      default: {
         return {
           ...item,
           formItemClass: 'md:col-span-1',
         };
+      }
     }
 {{- else }}
     return {
@@ -140,13 +142,15 @@ const dialogFormSchema = computed(() =>
 {{- if .RelationRuntimes }}
     switch (item.fieldName) {
 {{- range .RelationRuntimes }}
-      case '{{ .FieldName }}':
+      case '{{ .FieldName }}': {
         return {{ .DialogPatchFuncName }}(item);
+      }
 {{- end }}
-      default:
+      default: {
         return {
           ...item,
         };
+      }
     }
 {{- else }}
     return {
@@ -218,13 +222,13 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
 };
 
 function resetFormModel() {
-  for (const key of Object.keys(formModel)) {
-    delete formModel[key];
+  for (const key of formFieldNames) {
+    formModel[key] = undefined;
   }
 }
 
 function toBackendSortField(sortField: string) {
-  return sortField.replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);
+  return sortField.replaceAll(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);
 }
 
 async function openCreateModal() {
@@ -277,7 +281,7 @@ async function handleDelete(record: {{ .EntityType }}) {
 {{- range .RelationRuntimes }}
 
 function {{ .ResolveFuncName }}(value: number | string | undefined) {
-  if (value == null) {
+  if (value === null || value === undefined) {
     return '';
   }
   return {{ .OptionsMapVarName }}.value.get(value) ?? value;
@@ -298,7 +302,7 @@ async function loadRelationOptions() {
   optionLoading.value = true;
   try {
 {{- range .RelationRuntimes }}
-  {{ .OptionsVarName }}.value = await {{ .FuncName }}();
+    {{ .OptionsVarName }}.value = await {{ .FuncName }}();
 {{- end }}
   } finally {
     optionLoading.value = false;
