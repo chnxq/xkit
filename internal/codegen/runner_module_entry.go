@@ -31,6 +31,7 @@ func (r *Runner) generateModuleEntryFile() (Result, error) {
 		PackageName:  filepath.Base(r.layout.ModuleRoot),
 		ModuleName:   strings.TrimSpace(r.options.ModuleName),
 		Imports: []importSpec{
+			{Path: "context"},
 			{Path: "github.com/chnxq/xkitpkg/app"},
 			{Alias: "httptransport", Path: "github.com/chnxq/xkitpkg/transport/http"},
 			{Path: "google.golang.org/grpc"},

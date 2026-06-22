@@ -77,11 +77,10 @@ func (r *Runner) generateFrontendMetaFiles() (Result, error) {
 		return Result{}, err
 	}
 
-	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
-	if err != nil {
-		return Result{}, err
+	baseDir := r.frontendGeneratedMetaRoot()
+	if baseDir == "" {
+		return Result{}, fmt.Errorf("resolve frontend meta root failed")
 	}
-	baseDir := filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "views", "generated", r.templateBase().Frontend)
 
 	var result Result
 
@@ -111,7 +110,11 @@ func (r *Runner) generateFrontendMetaFiles() (Result, error) {
 		if err != nil {
 			return result, err
 		}
-		metaPath := filepath.Join(baseDir, filepath.FromSlash(plan.Resource.Frontend.ViewPath+".meta.ts"))
+		metaRelPath := filepath.FromSlash(plan.Resource.Frontend.ViewPath + ".meta.ts")
+		if r.isModuleMode() {
+			metaRelPath = filepath.Base(filepath.FromSlash(plan.Resource.Frontend.ViewPath)) + ".meta.ts"
+		}
+		metaPath := filepath.Join(baseDir, metaRelPath)
 		if err := r.writeGeneratedFile(metaPath, metaContent, &result); err != nil {
 			return result, err
 		}
@@ -155,7 +158,21 @@ func (r *Runner) removeModuleFrontendSharedOutputs(baseDir string) error {
 			return err
 		}
 	}
-	return removeObsoleteGeneratedDir(filepath.Join(baseDir, "langs"), r.options.DryRun)
+	dirs := []string{
+		r.frontendGeneratedLangRoot(),
+		r.frontendLegacyGeneratedRoot(),
+		r.frontendLegacyHostViewRoot(),
+		r.frontendLegacyGeneratedAPIRoot(),
+	}
+	for _, dir := range dirs {
+		if strings.TrimSpace(dir) == "" {
+			continue
+		}
+		if err := removeObsoleteGeneratedDir(dir, r.options.DryRun); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *Runner) frontendMetaData(plan resourcePlan) frontendMetaTemplateData {
@@ -409,6 +426,13 @@ func (r *Runner) copyFrontendGeneratedLangs(baseDir string, result *Result) erro
 	if err != nil {
 		return err
 	}
+	langRoot := filepath.Join(baseDir, "langs")
+	if r.isModuleMode() {
+		langRoot = r.frontendGeneratedLangRoot()
+		if langRoot == "" {
+			langRoot = filepath.Join(baseDir, "langs")
+		}
+	}
 	entries, err := os.ReadDir(sourceDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -434,7 +458,7 @@ func (r *Runner) copyFrontendGeneratedLangs(baseDir string, result *Result) erro
 			if err != nil {
 				return err
 			}
-			targetPath := filepath.Join(baseDir, "langs", entry.Name(), file.Name())
+			targetPath := filepath.Join(langRoot, entry.Name(), file.Name())
 			if err := r.writeGeneratedFile(targetPath, content, result); err != nil {
 				return err
 			}

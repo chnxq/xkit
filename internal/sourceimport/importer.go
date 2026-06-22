@@ -432,7 +432,7 @@ func copyModuleAPIRootFiles(sourceRoot, targetRoot, module, service, typeScriptR
 			}
 			rewritten = rewriteModuleBufOpenAPIOutput(rewritten)
 			rewritten = rewriteModuleBufTypeScriptClean(rewritten, name)
-			content = rewriteBufTypeScriptOutput(rewritten, targetRoot, typeScriptRoot, name, service)
+			content = rewriteModuleBufTypeScriptOutput(rewritten, targetRoot, typeScriptRoot, name, moduleName)
 			alwaysCorrect = true
 		case strings.Contains(strings.ToLower(name), "openapi"):
 			content = rewriteModuleBufOpenAPIOutput(content)
@@ -671,6 +671,34 @@ func rewriteBufTypeScriptOutput(content []byte, apiRoot, typeScriptRoot, fileNam
 	return []byte(strings.Join(lines, ""))
 }
 
+func rewriteModuleBufTypeScriptOutput(content []byte, apiRoot, typeScriptRoot, fileName, moduleName string) []byte {
+	lines := strings.SplitAfter(string(content), "\n")
+	typeScriptPlugin := false
+	changed := false
+	for index, line := range lines {
+		if matches := yamlPluginPattern.FindStringSubmatch(line); len(matches) == 4 {
+			typeScriptPlugin = isTypeScriptPlugin(matches[2])
+			continue
+		}
+		if !typeScriptPlugin {
+			continue
+		}
+		if matches := yamlOutPattern.FindStringSubmatch(line); len(matches) == 4 {
+			outputRoot := moduleTypeScriptOutputRoot(typeScriptRoot, moduleName)
+			rewritten := matches[1] + bufRelativeOutputPath(apiRoot, outputRoot) + matches[3]
+			if rewritten != line {
+				lines[index] = rewritten
+				changed = true
+			}
+			typeScriptPlugin = false
+		}
+	}
+	if !changed {
+		return content
+	}
+	return []byte(strings.Join(lines, ""))
+}
+
 func rewriteModuleBufGoPackages(content []byte, module string, services map[string]xproto.Service) ([]byte, error) {
 	module = strings.TrimSpace(module)
 	if module == "" {
@@ -781,6 +809,11 @@ func typeScriptOutputRoot(typeScriptRoot, fileName, service string) string {
 	}
 
 	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "api", "generated")
+}
+
+func moduleTypeScriptOutputRoot(typeScriptRoot, moduleName string) string {
+	moduleName = strings.TrimSpace(moduleName)
+	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "modules", moduleName, "api", "generated")
 }
 
 func bufRelativeOutputPath(apiRoot, outputRoot string) string {

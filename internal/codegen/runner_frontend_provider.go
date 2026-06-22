@@ -1,6 +1,7 @@
 package codegen
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -62,11 +63,10 @@ func (r *Runner) generateFrontendProviderFiles() (Result, error) {
 		return Result{}, err
 	}
 
-	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
-	if err != nil {
-		return Result{}, err
+	baseDir := r.frontendGeneratedProviderRoot()
+	if baseDir == "" {
+		return Result{}, fmt.Errorf("resolve frontend provider root failed")
 	}
-	baseDir := filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "views", "generated", r.templateBase().Frontend)
 
 	var result Result
 	for _, plan := range plans {
@@ -80,7 +80,11 @@ func (r *Runner) generateFrontendProviderFiles() (Result, error) {
 			return result, err
 		}
 
-		targetPath := filepath.Join(baseDir, filepath.FromSlash(plan.Resource.Frontend.ViewPath+".provider.ts"))
+		providerRelPath := filepath.FromSlash(plan.Resource.Frontend.ViewPath + ".provider.ts")
+		if r.isModuleMode() {
+			providerRelPath = filepath.Base(filepath.FromSlash(plan.Resource.Frontend.ViewPath)) + ".provider.ts"
+		}
+		targetPath := filepath.Join(baseDir, providerRelPath)
 		if err := r.writeGeneratedFile(targetPath, content, &result); err != nil {
 			return result, err
 		}
@@ -110,7 +114,7 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 
 	return frontendProviderTemplateData{
 		templateBase:           r.templateBase(),
-		GeneratedAPIImportPath: "#/api/generated/" + r.templateBase().Frontend + "/service/v1",
+		GeneratedAPIImportPath: r.frontendGeneratedAPIImportPath(),
 		CreateClientFunc:       "create" + serviceName + "Client",
 		ListPath:               r.frontendProviderListPath(plan),
 		EntityType:             entityType,

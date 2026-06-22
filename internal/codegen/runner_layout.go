@@ -72,3 +72,94 @@ func (r *Runner) templateBase() templateBase {
 		Shared:   r.sharedModuleImport(),
 	}
 }
+
+func (r *Runner) frontendModuleRoot() string {
+	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
+	if err != nil || !r.isModuleMode() {
+		return ""
+	}
+	return filepath.Join(
+		typeScriptRoot,
+		"apps",
+		"web-antd",
+		"src",
+		"modules",
+		strings.TrimSpace(r.options.ModuleName),
+	)
+}
+
+func (r *Runner) frontendGeneratedMetaRoot() string {
+	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
+	if err != nil {
+		return ""
+	}
+	if r.isModuleMode() {
+		return filepath.Join(r.frontendModuleRoot(), "meta")
+	}
+	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "views", "generated", r.templateBase().Frontend)
+}
+
+func (r *Runner) frontendGeneratedProviderRoot() string {
+	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
+	if err != nil {
+		return ""
+	}
+	if r.isModuleMode() {
+		return filepath.Join(r.frontendModuleRoot(), "provider")
+	}
+	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "views", "generated", r.templateBase().Frontend)
+}
+
+func (r *Runner) frontendGeneratedPageRoot() string {
+	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
+	if err != nil {
+		return ""
+	}
+	if r.isModuleMode() {
+		return filepath.Join(r.frontendModuleRoot(), "views")
+	}
+	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "views", "generated", r.templateBase().Frontend)
+}
+
+func (r *Runner) frontendGeneratedLangRoot() string {
+	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
+	if err != nil {
+		return ""
+	}
+	if r.isModuleMode() {
+		return filepath.Join(r.frontendModuleRoot(), "langs")
+	}
+	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "views", "generated", r.templateBase().Frontend, "langs")
+}
+
+func (r *Runner) frontendGeneratedAPIImportPath() string {
+	if r.isModuleMode() {
+		moduleName := strings.TrimSpace(r.options.ModuleName)
+		return "#/modules/" + moduleName + "/api/generated/" + moduleName + "/service/v1"
+	}
+	return "#/api/generated/" + r.templateBase().Frontend + "/service/v1"
+}
+
+func (r *Runner) frontendLegacyGeneratedRoot() string {
+	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
+	if err != nil || !r.isModuleMode() {
+		return ""
+	}
+	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "views", "generated", strings.TrimSpace(r.options.ModuleName))
+}
+
+func (r *Runner) frontendLegacyHostViewRoot() string {
+	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
+	if err != nil || !r.isModuleMode() {
+		return ""
+	}
+	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "views", strings.TrimSpace(r.options.ModuleName))
+}
+
+func (r *Runner) frontendLegacyGeneratedAPIRoot() string {
+	typeScriptRoot, err := resolveTypeScriptRoot(r.project.Root, r.options.TypeScriptRoot)
+	if err != nil || !r.isModuleMode() {
+		return ""
+	}
+	return filepath.Join(typeScriptRoot, "apps", "web-antd", "src", "api", "generated", strings.TrimSpace(r.options.ModuleName))
+}
