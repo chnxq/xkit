@@ -2,6 +2,10 @@
   "menu": {
     "xdev": {
       "moduleName": "Device Management",
+      "deviceGroup": "Device Groups",
+      "deviceGroupDevice": "Device Group Devices",
+      "deviceGroupUser": "Device Group Users",
+      "deviceGroupOrgUnit": "Device Group Org Units",
       "deviceModelType": "Device Types",
       "deviceModel": "Device Models",
       "device": "Devices"

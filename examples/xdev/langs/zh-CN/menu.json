@@ -2,6 +2,10 @@
   "menu": {
     "xdev": {
       "moduleName": "设备管理",
+      "deviceGroup": "设备组",
+      "deviceGroupDevice": "设备组设备关联",
+      "deviceGroupUser": "设备组用户关联",
+      "deviceGroupOrgUnit": "设备组组织单元关联",
       "deviceModelType": "设备类型",
       "deviceModel": "设备型号",
       "device": "设备信息"

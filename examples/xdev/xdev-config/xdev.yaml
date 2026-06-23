@@ -186,3 +186,270 @@ resources:
       repo_crud: true
       rest_register: true
       grpc_register: true
+
+  - name: device_group
+    proto_service: xdev.service.v1.DeviceGroupService
+    entity: DeviceGroup
+    dto_import: xdev/api/gen/xdev/service/v1
+    dto_type: DeviceGroup
+    tenant_scope: tenant_scoped
+    repo_interface: DeviceGroupRepo
+    tree:
+      parent_field: parent_id
+      path_field: path
+      children_field: children
+      list_method: ListTree
+    frontend:
+      view_path: device-group/device-group
+      i18n_prefix: page.deviceGroup
+      list:
+        columns:
+          - [groupName, Group Name, 设备组名称, 180]
+          - [type, Group Type, 设备组类型, 140]
+          - [parentId, Parent ID, 父级设备组ID, 120]
+          - [path, Group Path, 设备组路径, 220]
+          - [useStatus, Use Status, 设备组用途编码, 160]
+          - [status, Status, 启用状态, 120]
+          - [sortOrder, Sort Order, 排序, 100]
+          - [visible, Visible, 显示, 100]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [groupName, Input, Group Name, 设备组名称]
+          - [type, Select, Group Type, 设备组类型]
+          - [parentId, InputNumber, Parent ID, 父级设备组ID]
+          - [useStatus, Input, Use Status, 设备组用途编码]
+          - [status, Switch, Status, 启用状态]
+      form:
+        fields:
+          - [groupName, Group Name, 设备组名称]
+          - [type, Select, Group Type, 设备组类型]
+          - [parentId, InputNumber, Parent ID, 父级设备组ID]
+          - [path, Group Path, 设备组路径]
+          - [isLeafNode, Switch, Leaf Node, 叶子节点]
+          - [useStatus, Use Status, 设备组用途编码]
+          - [descript, Description, 设备组描述信息]
+          - [sortOrder, InputNumber, Sort Order, 排序]
+          - [visible, Switch, Visible, 显示]
+          - [status, Switch, Status, 启用状态]
+    filters:
+      allow:
+        - id
+        - group_name
+        - type
+        - parent_id
+        - path
+        - is_leaf_node
+        - use_status
+        - descript
+        - sort_order
+        - visible
+        - status
+        - tenant_id
+        - created_by
+        - updated_by
+        - created_at
+        - updated_at
+        - deleted_at
+    operations:
+      create: true
+      delete: true
+      export: true
+      get: true
+      list: true
+      count: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+
+  - name: device_group_device
+    proto_service: xdev.service.v1.DeviceGroupDeviceService
+    entity: DeviceGroupDevice
+    dto_import: xdev/api/gen/xdev/service/v1
+    dto_type: DeviceGroupDevice
+    tenant_scope: tenant_scoped
+    repo_interface: DeviceGroupDeviceRepo
+    frontend:
+      view_path: device-group-device-rel/device-group-device-rel
+      i18n_prefix: page.deviceGroupDeviceRel
+      list:
+        columns:
+          - field: groupId
+            en: Group ID
+            cn: 设备组
+            width: 160
+            relation:
+              resource: device_group
+              label_field: groupName
+              value_field: id
+          - field: deviceId
+            en: Device ID
+            cn: 设备
+            width: 160
+            relation:
+              resource: device
+              label_field: name
+              value_field: id
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [groupId, InputNumber, Group ID, 设备组ID]
+          - [deviceId, InputNumber, Device ID, 设备ID]
+      form:
+        fields:
+          - field: groupId
+            en: Group ID
+            cn: 设备组
+            relation:
+              resource: device_group
+              label_field: groupName
+              value_field: id
+          - field: deviceId
+            en: Device ID
+            cn: 设备
+            relation:
+              resource: device
+              label_field: name
+              value_field: id
+    filters:
+      allow:
+        - id
+        - group_id
+        - device_id
+        - tenant_id
+        - created_by
+        - created_at
+        - updated_at
+        - deleted_at
+    operations:
+      create: true
+      delete: true
+      export: true
+      get: true
+      list: true
+      count: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+
+  - name: device_group_user
+    proto_service: xdev.service.v1.DeviceGroupUserService
+    entity: DeviceGroupUser
+    dto_import: xdev/api/gen/xdev/service/v1
+    dto_type: DeviceGroupUser
+    tenant_scope: tenant_scoped
+    repo_interface: DeviceGroupUserRepo
+    frontend:
+      view_path: device-group-user/device-group-user
+      i18n_prefix: page.deviceGroupUser
+      list:
+        columns:
+          - field: groupId
+            en: Group ID
+            cn: 设备组
+            width: 160
+            relation:
+              resource: device_group
+              label_field: groupName
+              value_field: id
+          - [userId, User ID, 用户ID, 160]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [groupId, InputNumber, Group ID, 设备组ID]
+          - [userId, InputNumber, User ID, 用户ID]
+      form:
+        fields:
+          - field: groupId
+            en: Group ID
+            cn: 设备组
+            relation:
+              resource: device_group
+              label_field: groupName
+              value_field: id
+          - [userId, InputNumber, User ID, 用户ID]
+    filters:
+      allow:
+        - id
+        - group_id
+        - user_id
+        - tenant_id
+        - created_by
+        - created_at
+        - updated_at
+        - deleted_at
+    operations:
+      create: true
+      delete: true
+      export: true
+      get: true
+      list: true
+      count: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+
+  - name: device_group_org_unit
+    proto_service: xdev.service.v1.DeviceGroupOrgUnitService
+    entity: DeviceGroupOrgUnit
+    dto_import: xdev/api/gen/xdev/service/v1
+    dto_type: DeviceGroupOrgUnit
+    tenant_scope: tenant_scoped
+    repo_interface: DeviceGroupOrgUnitRepo
+    frontend:
+      view_path: device-group-org-unit/device-group-org-unit
+      i18n_prefix: page.deviceGroupOrgUnit
+      list:
+        columns:
+          - field: groupId
+            en: Group ID
+            cn: 设备组
+            width: 160
+            relation:
+              resource: device_group
+              label_field: groupName
+              value_field: id
+          - [orgUnitId, Org Unit ID, 组织单元ID, 160]
+          - [createdAt, Created At, 创建时间, 170]
+        filters:
+          - [groupId, InputNumber, Group ID, 设备组ID]
+          - [orgUnitId, InputNumber, Org Unit ID, 组织单元ID]
+      form:
+        fields:
+          - field: groupId
+            en: Group ID
+            cn: 设备组
+            relation:
+              resource: device_group
+              label_field: groupName
+              value_field: id
+          - [orgUnitId, InputNumber, Org Unit ID, 组织单元ID]
+    filters:
+      allow:
+        - id
+        - group_id
+        - org_unit_id
+        - tenant_id
+        - created_by
+        - created_at
+        - updated_at
+        - deleted_at
+    operations:
+      create: true
+      delete: true
+      export: true
+      get: true
+      list: true
+      count: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true

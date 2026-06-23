@@ -11,7 +11,7 @@ import (
 	"github.com/chnxq/x-crud/entgo/mixin"
 )
 
-// DeviceModelType maps to dev_model_type.
+// DeviceModelType maps to xdev_dev_model_type.
 type DeviceModelType struct {
 	ent.Schema
 }
@@ -19,7 +19,7 @@ type DeviceModelType struct {
 func (DeviceModelType) Annotations() []schema.Annotation {
 	return []schema.Annotation{
 		entsql.Annotation{
-			Table:     "dev_model_type",
+			Table:     "xdev_dev_model_type",
 			Charset:   "utf8mb4",
 			Collation: "utf8mb4_bin",
 		},

@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package xdev.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "pagination/v1/pagination.proto";
+
+// 设备组服务
+service DeviceGroupService {
+  // 查询设备组列表
+  rpc List(pagination.PagingRequest) returns (DeviceGroupServiceListResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-groups"};
+  }
+
+  // 查询设备组树
+  rpc ListTree(pagination.PagingRequest) returns (DeviceGroupServiceListResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-groups/tree"};
+  }
+
+  // 统计设备组数量
+  rpc Count(pagination.PagingRequest) returns (DeviceGroupServiceCountResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-groups/count"};
+  }
+
+  // 查询设备组详情
+  rpc Get(DeviceGroupServiceGetRequest) returns (DeviceGroupServiceGetResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-groups/{id}"};
+  }
+
+  // 创建设备组
+  rpc Create(DeviceGroupServiceCreateRequest) returns (DeviceGroupServiceCreateResponse) {
+    option (google.api.http) = {
+      post: "/xdev/v1/device-groups"
+      body: "*"
+    };
+  }
+
+  // 更新设备组
+  rpc Update(DeviceGroupServiceUpdateRequest) returns (DeviceGroupServiceUpdateResponse) {
+    option (google.api.http) = {
+      put: "/xdev/v1/device-groups/{id}"
+      body: "*"
+    };
+  }
+
+  // 删除设备组
+  rpc Delete(DeviceGroupServiceDeleteRequest) returns (DeviceGroupServiceDeleteResponse) {
+    option (google.api.http) = {delete: "/xdev/v1/device-groups/{id}"};
+  }
+}
+
+// 设备组
+message DeviceGroup {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    FUNCTION = 1;
+    NETWORK = 2;
+    USER = 3;
+    DEPARTMENT = 4;
+  }
+
+  optional uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备组ID"}
+  ];
+  optional string group_name = 2 [
+    json_name = "groupName",
+    (gnostic.openapi.v3.property) = {description: "设备组名称"}
+  ];
+  optional Type type = 3 [
+    json_name = "type",
+    (gnostic.openapi.v3.property) = {description: "设备组类型"}
+  ];
+  optional uint32 parent_id = 4 [
+    json_name = "parentId",
+    (gnostic.openapi.v3.property) = {description: "父级设备组ID"}
+  ];
+  optional string path = 5 [
+    json_name = "path",
+    (gnostic.openapi.v3.property) = {description: "设备组路径"}
+  ];
+  optional bool is_leaf_node = 6 [
+    json_name = "isLeafNode",
+    (gnostic.openapi.v3.property) = {description: "是否叶子节点"}
+  ];
+  optional string use_status = 7 [
+    json_name = "useStatus",
+    (gnostic.openapi.v3.property) = {description: "设备组用途编码"}
+  ];
+  optional string descript = 8 [
+    json_name = "descript",
+    (gnostic.openapi.v3.property) = {description: "设备组描述信息"}
+  ];
+  optional uint32 sort_order = 9 [
+    json_name = "sortOrder",
+    (gnostic.openapi.v3.property) = {description: "排序"}
+  ];
+  optional bool visible = 10 [
+    json_name = "visible",
+    (gnostic.openapi.v3.property) = {description: "是否显示"}
+  ];
+  optional bool status = 11 [
+    json_name = "status",
+    (gnostic.openapi.v3.property) = {description: "启用状态"}
+  ];
+  optional uint32 tenant_id = 20 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  repeated DeviceGroup children = 30 [
+    json_name = "children",
+    (gnostic.openapi.v3.property) = {description: "子设备组"}
+  ];
+  optional uint64 created_by = 100 [
+    json_name = "createdBy",
+    (gnostic.openapi.v3.property) = {description: "创建者"}
+  ];
+  optional uint64 updated_by = 101 [
+    json_name = "updatedBy",
+    (gnostic.openapi.v3.property) = {description: "更新者"}
+  ];
+  optional google.protobuf.Timestamp created_at = 200 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "创建时间"}
+  ];
+  optional google.protobuf.Timestamp updated_at = 201 [
+    json_name = "updatedAt",
+    (gnostic.openapi.v3.property) = {description: "最后更新时间"}
+  ];
+  optional google.protobuf.Timestamp deleted_at = 202 [
+    json_name = "deletedAt",
+    (gnostic.openapi.v3.property) = {description: "删除时间"}
+  ];
+}
+
+// 设备组列表响应
+message DeviceGroupServiceListResponse {
+  repeated DeviceGroup items = 1;
+  uint64 total = 2;
+}
+
+// 设备组数量响应
+message DeviceGroupServiceCountResponse {
+  uint64 count = 1;
+}
+
+// 设备组详情请求
+message DeviceGroupServiceGetRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备组ID"}
+  ];
+  optional google.protobuf.FieldMask view_mask = 100 [
+    json_name = "viewMask",
+    (gnostic.openapi.v3.property) = {description: "返回字段掩码"}
+  ];
+}
+
+// 设备组详情响应
+message DeviceGroupServiceGetResponse {
+  DeviceGroup data = 1;
+}
+
+// 创建设备组请求
+message DeviceGroupServiceCreateRequest {
+  DeviceGroup data = 1 [json_name = "data"];
+}
+
+// 创建设备组响应
+message DeviceGroupServiceCreateResponse {}
+
+// 更新设备组请求
+message DeviceGroupServiceUpdateRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备组ID"}
+  ];
+  DeviceGroup data = 2 [json_name = "data"];
+  google.protobuf.FieldMask update_mask = 3 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新字段掩码"}
+  ];
+  optional bool allow_missing = 4 [
+    json_name = "allowMissing",
+    (gnostic.openapi.v3.property) = {description: "资源不存在时是否允许创建"}
+  ];
+}
+
+// 更新设备组响应
+message DeviceGroupServiceUpdateResponse {}
+
+// 删除设备组请求
+message DeviceGroupServiceDeleteRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备组ID"}
+  ];
+}
+
+// 删除设备组响应
+message DeviceGroupServiceDeleteResponse {}

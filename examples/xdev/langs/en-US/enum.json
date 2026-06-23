@@ -16,5 +16,13 @@
       "NETWORK": "Network Device",
       "OTHER": "Other"
     }
+  },
+  "deviceGroup": {
+    "type": {
+      "FUNCTION": "Function",
+      "NETWORK": "Network",
+      "USER": "User",
+      "DEPARTMENT": "Org Unit"
+    }
   }
 }

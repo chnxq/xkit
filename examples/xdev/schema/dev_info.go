@@ -11,7 +11,7 @@ import (
 	"github.com/chnxq/x-crud/entgo/mixin"
 )
 
-// Device maps to dev_info.
+// Device maps to xdev_dev_info.
 type Device struct {
 	ent.Schema
 }
@@ -19,7 +19,7 @@ type Device struct {
 func (Device) Annotations() []schema.Annotation {
 	return []schema.Annotation{
 		entsql.Annotation{
-			Table:     "dev_info",
+			Table:     "xdev_dev_info",
 			Charset:   "utf8mb4",
 			Collation: "utf8mb4_bin",
 		},
@@ -82,6 +82,7 @@ func (Device) Edges() []ent.Edge {
 			Field("model_id").
 			Unique().
 			Required(),
+		edge.To("group_relations", DeviceGroupDevice.Type),
 	}
 }
 

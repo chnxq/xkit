@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package xdev.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "pagination/v1/pagination.proto";
+
+// 组织单元设备组关联服务
+service DeviceGroupOrgUnitService {
+  // 查询组织单元设备组关联列表
+  rpc List(pagination.PagingRequest) returns (DeviceGroupOrgUnitServiceListResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-group-org-units"};
+  }
+
+  // 统计组织单元设备组关联数量
+  rpc Count(pagination.PagingRequest) returns (DeviceGroupOrgUnitServiceCountResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-group-org-units/count"};
+  }
+
+  // 查询组织单元设备组关联详情
+  rpc Get(DeviceGroupOrgUnitServiceGetRequest) returns (DeviceGroupOrgUnitServiceGetResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-group-org-units/{id}"};
+  }
+
+  // 创建组织单元设备组关联
+  rpc Create(DeviceGroupOrgUnitServiceCreateRequest) returns (DeviceGroupOrgUnitServiceCreateResponse) {
+    option (google.api.http) = {
+      post: "/xdev/v1/device-group-org-units"
+      body: "*"
+    };
+  }
+
+  // 更新组织单元设备组关联
+  rpc Update(DeviceGroupOrgUnitServiceUpdateRequest) returns (DeviceGroupOrgUnitServiceUpdateResponse) {
+    option (google.api.http) = {
+      put: "/xdev/v1/device-group-org-units/{id}"
+      body: "*"
+    };
+  }
+
+  // 删除组织单元设备组关联
+  rpc Delete(DeviceGroupOrgUnitServiceDeleteRequest) returns (DeviceGroupOrgUnitServiceDeleteResponse) {
+    option (google.api.http) = {delete: "/xdev/v1/device-group-org-units/{id}"};
+  }
+}
+
+// 组织单元设备组关联
+message DeviceGroupOrgUnit {
+  optional uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "关联ID"}
+  ];
+  optional uint32 group_id = 2 [
+    json_name = "groupId",
+    (gnostic.openapi.v3.property) = {description: "设备组ID"}
+  ];
+  optional uint32 org_unit_id = 3 [
+    json_name = "orgUnitId",
+    (gnostic.openapi.v3.property) = {description: "组织单元ID"}
+  ];
+  optional uint32 tenant_id = 20 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+  optional uint64 created_by = 100 [
+    json_name = "createdBy",
+    (gnostic.openapi.v3.property) = {description: "创建者"}
+  ];
+  optional google.protobuf.Timestamp created_at = 200 [
+    json_name = "createdAt",
+    (gnostic.openapi.v3.property) = {description: "创建时间"}
+  ];
+  optional google.protobuf.Timestamp updated_at = 201 [
+    json_name = "updatedAt",
+    (gnostic.openapi.v3.property) = {description: "最后更新时间"}
+  ];
+  optional google.protobuf.Timestamp deleted_at = 202 [
+    json_name = "deletedAt",
+    (gnostic.openapi.v3.property) = {description: "删除时间"}
+  ];
+}
+
+message DeviceGroupOrgUnitServiceListResponse {
+  repeated DeviceGroupOrgUnit items = 1;
+  uint64 total = 2;
+}
+
+message DeviceGroupOrgUnitServiceCountResponse {
+  uint64 count = 1;
+}
+
+message DeviceGroupOrgUnitServiceGetRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "关联ID"}
+  ];
+  optional google.protobuf.FieldMask view_mask = 100 [
+    json_name = "viewMask",
+    (gnostic.openapi.v3.property) = {description: "返回字段掩码"}
+  ];
+}
+
+message DeviceGroupOrgUnitServiceGetResponse {
+  DeviceGroupOrgUnit data = 1;
+}
+
+message DeviceGroupOrgUnitServiceCreateRequest {
+  DeviceGroupOrgUnit data = 1 [json_name = "data"];
+}
+
+message DeviceGroupOrgUnitServiceCreateResponse {}
+
+message DeviceGroupOrgUnitServiceUpdateRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "关联ID"}
+  ];
+  DeviceGroupOrgUnit data = 2 [json_name = "data"];
+  google.protobuf.FieldMask update_mask = 3 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新字段掩码"}
+  ];
+  optional bool allow_missing = 4 [
+    json_name = "allowMissing",
+    (gnostic.openapi.v3.property) = {description: "资源不存在时是否允许创建"}
+  ];
+}
+
+message DeviceGroupOrgUnitServiceUpdateResponse {}
+
+message DeviceGroupOrgUnitServiceDeleteRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "关联ID"}
+  ];
+}
+
+message DeviceGroupOrgUnitServiceDeleteResponse {}
