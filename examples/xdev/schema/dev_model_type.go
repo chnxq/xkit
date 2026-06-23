@@ -71,9 +71,9 @@ func (DeviceModelType) Edges() []ent.Edge {
 func (DeviceModelType) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("created_by").
-			StorageKey("idx_dev_model_type_created_by"),
+			StorageKey("idx_xdev_dev_model_type_created_by"),
 		index.Fields("tenant_id", "model_type_value").
 			Unique().
-			StorageKey("idx_dev_model_type_tenant_value"),
+			StorageKey("idx_xdev_dev_model_type_tenant_value"),
 	}
 }

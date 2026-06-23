@@ -9,9 +9,36 @@ import (
 )
 
 type Config struct {
-	Service   string     `yaml:"service"`
-	Module    string     `yaml:"module"`
-	Resources []Resource `yaml:"resources"`
+	Service    string            `yaml:"service"`
+	Module     string            `yaml:"module"`
+	HostModule *HostModuleConfig `yaml:"host_module,omitempty"`
+	Resources  []Resource        `yaml:"resources"`
+}
+
+type HostModuleConfig struct {
+	Resources *HostModuleResourcesConfig `yaml:"resources,omitempty"`
+}
+
+type HostModuleResourcesConfig struct {
+	Menus []HostModuleMenuConfig `yaml:"menus,omitempty"`
+}
+
+type HostModuleMenuConfig struct {
+	Name      string                 `yaml:"name,omitempty"`
+	Path      string                 `yaml:"path,omitempty"`
+	Component string                 `yaml:"component,omitempty"`
+	Redirect  string                 `yaml:"redirect,omitempty"`
+	Type      string                 `yaml:"type,omitempty"`
+	Meta      HostModuleMenuMeta     `yaml:"meta,omitempty"`
+	Children  []HostModuleMenuConfig `yaml:"children,omitempty"`
+}
+
+type HostModuleMenuMeta struct {
+	Authority       []string `yaml:"authority,omitempty"`
+	Icon            string   `yaml:"icon,omitempty"`
+	Link            string   `yaml:"link,omitempty"`
+	OpenInNewWindow *bool    `yaml:"open_in_new_window,omitempty"`
+	Title           string   `yaml:"title,omitempty"`
 }
 
 type Resource struct {
@@ -81,9 +108,12 @@ type FrontendColumn struct {
 }
 
 type FrontendRelationSpec struct {
-	Resource   string `yaml:"resource,omitempty"`
-	LabelField string `yaml:"label_field,omitempty"`
-	ValueField string `yaml:"value_field,omitempty"`
+	Resource     string `yaml:"resource,omitempty"`
+	ResourceType string `yaml:"resource_type,omitempty"`
+	DTOImport    string `yaml:"dto_import,omitempty"`
+	ServiceName  string `yaml:"service_name,omitempty"`
+	LabelField   string `yaml:"label_field,omitempty"`
+	ValueField   string `yaml:"value_field,omitempty"`
 }
 
 type FrontendFilter struct {
@@ -135,6 +165,9 @@ func (c *FrontendColumn) UnmarshalYAML(value *yaml.Node) error {
 		c.TitleKey = strings.TrimSpace(c.TitleKey)
 		if c.Relation != nil {
 			c.Relation.Resource = strings.TrimSpace(c.Relation.Resource)
+			c.Relation.ResourceType = strings.TrimSpace(c.Relation.ResourceType)
+			c.Relation.DTOImport = strings.TrimSpace(c.Relation.DTOImport)
+			c.Relation.ServiceName = strings.TrimSpace(c.Relation.ServiceName)
 			c.Relation.LabelField = strings.TrimSpace(c.Relation.LabelField)
 			c.Relation.ValueField = strings.TrimSpace(c.Relation.ValueField)
 		}

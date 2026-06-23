@@ -478,6 +478,154 @@ The following module-generation behavior is now real and verified:
    - `go test ./internal/codegen`
    - `go test ./modules/xdev/...`
 
+## 7.5 Module Runtime Boundary
+
+The pilot uncovered an important generation-boundary mistake:
+
+- `modules/<module>/bootstrap/module_runtime_ext.go` was originally used as a
+  handwritten runtime file
+- later `xkit gen module` regenerated it as an empty stub
+- that overwrite removed real menu/resource sync logic from `xdev`
+
+This must not happen again.
+
+The boundary is now:
+
+- `module_runtime_ext.go` is a create-once handwritten extension file
+- `xkit gen module` may create it when missing
+- `xkit gen module` must not rewrite it once it exists
+
+The reason is practical rather than stylistic:
+
+- module menu trees
+- module-specific resource sync supplements
+- module-specific default seed logic
+
+often need host-aware business decisions that are not yet fully modeled in
+config. Those decisions need a safe handwritten landing zone.
+
+The first hardening step is already implemented in the pilot:
+
+- module-mode bootstrap generation now creates `module_runtime_ext.go` with
+  skip-if-exists semantics instead of treating it like a refreshable extension
+  file
+
+## 7.6 Generated Runtime Files For Future Module Resources
+
+Protecting `module_runtime_ext.go` is only the short-term safety fix.
+
+The longer-term generation model should move machine-derived module runtime
+content out of `_ext.go` and into explicit generated files under
+`modules/<module>/bootstrap/`.
+
+Recommended generated files:
+
+- `generated_module_resources.gen.go`
+- `generated_module_seed.gen.go`
+
+Suggested ownership split:
+
+- `generated_module_resources.gen.go`
+  - generated from module config
+  - contains declarative menu/resource trees
+  - may expose helpers such as `GeneratedModuleMenuResources()`
+- `generated_module_seed.gen.go`
+  - generated from module config when default seed declarations exist
+  - contains only machine-derived default seed data wiring
+- `module_runtime_ext.go`
+  - handwritten supplement only
+  - may call generated helpers and add exceptional behavior
+
+This gives module runtime code the same structure already used elsewhere in the
+project:
+
+- generated `*.gen.go` for mechanical output
+- handwritten `*_ext.go` for durable local behavior
+
+## 7.7 Why Menus Were Lost During The Pilot
+
+The `xdev` pilot already demonstrated the failure mode clearly.
+
+Earlier `xdev` history contained a handwritten
+`bootstrap/module_runtime_ext.go` with:
+
+- `SyncModuleResources(...)`
+- real `syncer.UpsertMenus(...)` calls
+- the full `xdev` menu tree
+
+Later regeneration replaced that file with an empty generated stub. After that:
+
+- module startup still logged `Resource Sync Started/Completed`
+- but no module menus were actually upserted
+- so `sys_menu` did not contain `xdev` resources
+
+This is exactly why generated module resources must move to dedicated
+`*.gen.go` files and why `_ext.go` must stay protected.
+
+## 7.8 Proposed Config Model For Module Resources
+
+The next implementation stage should not handwrite menu trees forever.
+
+Instead, `xkit` should add an explicit module-resource config section and use
+it to generate `generated_module_resources.gen.go`.
+
+Recommended shape:
+
+```yaml
+module:
+  name: xdev
+  resources:
+    menus:
+      - name: XdevRoot
+        path: /xdev
+        component: BasicLayout
+        redirect: /xdev/device-model-type
+        type: catalog
+        meta:
+          title: 设备管理
+          icon: lucide:cpu
+          authority:
+            - xdev:dir
+        children:
+          - name: XdevDeviceModelType
+            path: /xdev/device-model-type
+            component: /xdev/device-model-type/index
+            type: menu
+            meta:
+              title: 设备类型
+              icon: lucide:folder-tree
+              authority:
+                - xdev:device-model-type:view
+                - xdev:device-model-type:create
+                - xdev:device-model-type:edit
+                - xdev:device-model-type:delete
+                - xdev:device-model-type:export
+```
+
+Important constraints:
+
+- this is a module-level config section, not a frontend-meta workaround
+- it targets host resource sync, not UI form rendering
+- it should map directly onto `admin/shared/modulehost.MenuResource`
+- it should remain optional so existing modules can still rely on handwritten
+  `module_runtime_ext.go`
+
+## 7.9 Proposed Config Model For Module Default Seed
+
+Module default seed should follow the same rule:
+
+- no more ad hoc machine-generated seed logic inside `module_runtime_ext.go`
+- future machine-derived seed content belongs in
+  `generated_module_seed.gen.go`
+
+This can be staged:
+
+1. first support generated menus/resources
+2. then add optional module seed declarations
+
+Until that exists, `SeedModuleDefaultData(...)` remains a handwritten hook and
+should stay empty unless a module truly owns concrete default records.
+
 ## 8. Recommended Pilot Implementation
 
 Use `xdev` / `device` as the first pilot.

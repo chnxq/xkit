@@ -214,12 +214,15 @@ func (r *Runner) generateBootstrapFiles() (Result, error) {
 	}
 
 	if r.isModuleMode() {
+		if err := r.generateModuleResourcesFile(&result); err != nil {
+			return result, err
+		}
 		moduleRuntimeContent, err := renderTemplate(codegentemplate.ModuleRuntimeExt, r.templateBase())
 		if err != nil {
 			return result, err
 		}
 		moduleRuntimePath := filepath.Join(r.layout.BootstrapRoot, "module_runtime_ext.go")
-		if err := r.writeExtensionFile(moduleRuntimePath, moduleRuntimeContent, &result); err != nil {
+		if err := r.writeFile(moduleRuntimePath, moduleRuntimeContent, &result, true); err != nil {
 			return result, err
 		}
 	}

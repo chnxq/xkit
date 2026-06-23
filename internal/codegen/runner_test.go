@@ -2095,6 +2095,239 @@ func TestFrontendColumnsUseUnifiedRuntimeForEnumSlot(t *testing.T) {
 	}
 }
 
+func TestFrontendProviderTemplateUsesTreeMode(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plan := resourcePlan{
+		ResourceField: "DeviceGroup",
+		Binding: binding.ServiceBinding{
+			ServiceName: "DeviceGroupService",
+		},
+		Resource: config.Resource{
+			Name:          "device_group",
+			Entity:        "DeviceGroup",
+			DTOType:       "DeviceGroup",
+			ProtoService:  "xdev.service.v1.DeviceGroupService",
+			RepoInterface: "DeviceGroupRepo",
+			Operations: config.OperationFlags{
+				"list":   true,
+				"get":    true,
+				"create": true,
+				"update": true,
+				"delete": true,
+			},
+			Tree: &config.TreeConfig{
+				ParentField:   "parent_id",
+				ChildrenField: "children",
+				ListMethod:    "ListTree",
+			},
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath: "device-group/device-group",
+				List: &config.FrontendListConfig{
+					Filters: []config.FrontendFilter{
+						{Field: "groupName", Component: "Input"},
+						{Field: "status", Component: "Switch"},
+					},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "group_name", Kind: "String"},
+				{Name: "parent_id", Kind: "Uint32"},
+				{Name: "status", Kind: "Bool"},
+			},
+		},
+	}
+
+	content, err := renderAnyTemplate(codegentemplate.FrontendProvider, runner.frontendProviderData(plan))
+	if err != nil {
+		t.Fatalf("render frontend provider: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "page: 1") || !strings.Contains(got, "pageSize: 200") {
+		t.Fatalf("tree provider should use fixed tree paging defaults:\n%s", got)
+	}
+	if !strings.Contains(got, "/device-groups/tree") {
+		t.Fatalf("tree provider should call tree list endpoint:\n%s", got)
+	}
+	if !strings.Contains(got, "function flattenTree") {
+		t.Fatalf("tree provider should generate flattenTree helper:\n%s", got)
+	}
+	if strings.Contains(got, "sorting: params.sorting") {
+		t.Fatalf("tree provider should not forward arbitrary sorting in tree mode:\n%s", got)
+	}
+	if !strings.Contains(got, "field: 'status'") || !strings.Contains(got, "op: 'EQ'") {
+		t.Fatalf("tree provider should use EQ for bool filters:\n%s", got)
+	}
+}
+
+func TestFrontendPageTemplateUsesTreeMode(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plan := resourcePlan{
+		ResourceField: "DeviceGroup",
+		Resource: config.Resource{
+			Name: "device_group",
+			Tree: &config.TreeConfig{
+				ParentField:   "parent_id",
+				ChildrenField: "children",
+				ListMethod:    "ListTree",
+			},
+			Operations: config.OperationFlags{
+				"export": true,
+			},
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath:   "device-group/device-group",
+				I18nPrefix: "page.deviceGroup",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{
+						{Field: "groupName", TreeNode: true},
+						{Field: "parentId"},
+					},
+					Filters: []config.FrontendFilter{
+						{Field: "groupName", Component: "Input"},
+					},
+				},
+				Form: &config.FrontendDialogConfig{
+					Fields: []config.FrontendColumn{
+						{Field: "groupName"},
+						{Field: "parentId"},
+						{Field: "isLeafNode"},
+						{Field: "visible"},
+						{Field: "status"},
+					},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "parent_id", Kind: "Uint32"},
+				{Name: "is_leaf_node", Kind: "Bool"},
+				{Name: "visible", Kind: "Bool"},
+				{Name: "status", Kind: "Bool"},
+			},
+		},
+	}
+
+	metaContent, err := renderAnyTemplate(codegentemplate.FrontendViewMeta, runner.frontendMetaData(plan))
+	if err != nil {
+		t.Fatalf("render frontend meta: %v", err)
+	}
+	meta := string(metaContent)
+	if !strings.Contains(meta, "fieldName: 'isLeafNode'") || !strings.Contains(meta, "fieldName: 'visible'") || !strings.Contains(meta, "fieldName: 'status'") {
+		t.Fatalf("tree meta should include bool dialog fields:\n%s", meta)
+	}
+	if !strings.Contains(meta, "fieldName: 'parentId'") || !strings.Contains(meta, "component: 'Input'") {
+		t.Fatalf("tree meta should still emit raw parentId field for page patching:\n%s", meta)
+	}
+	if strings.Count(meta, "component: 'Switch'") < 3 {
+		t.Fatalf("tree meta should render bool dialog fields as Switch:\n%s", meta)
+	}
+
+	content, err := renderAnyTemplate(codegentemplate.FrontendPage, runner.frontendPageData(plan))
+	if err != nil {
+		t.Fatalf("render frontend page: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "component: 'TreeSelect'") {
+		t.Fatalf("tree page should patch parent field to TreeSelect:\n%s", got)
+	}
+	if !strings.Contains(got, "treeConfig: {") || !strings.Contains(got, "transform: false") {
+		t.Fatalf("tree page should enable tree grid config:\n%s", got)
+	}
+	if !strings.Contains(got, "pagerConfig: {\n    enabled: false,") {
+		t.Fatalf("tree page should disable pager:\n%s", got)
+	}
+	if !strings.Contains(got, "treeItems.value = result.items;") {
+		t.Fatalf("tree page should retain tree result for parent options:\n%s", got)
+	}
+	if !strings.Contains(got, "buildParentTreeOptions") {
+		t.Fatalf("tree page should generate parent tree options helper:\n%s", got)
+	}
+}
+
+func TestFrontendProviderTemplateSupportsHostRelationImports(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plan := resourcePlan{
+		ResourceField: "DeviceGroupUser",
+		Binding: binding.ServiceBinding{
+			ServiceName: "DeviceGroupUserService",
+		},
+		Resource: config.Resource{
+			Name:          "device_group_user",
+			Entity:        "DeviceGroupUser",
+			DTOType:       "DeviceGroupUser",
+			ProtoService:  "xdev.service.v1.DeviceGroupUserService",
+			RepoInterface: "DeviceGroupUserRepo",
+			Operations: config.OperationFlags{
+				"list":   true,
+				"get":    true,
+				"create": true,
+				"update": true,
+				"delete": true,
+			},
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath: "device-group-user/device-group-user",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{
+						{
+							Field: "userId",
+							Relation: &config.FrontendRelationSpec{
+								Resource:     "user",
+								ResourceType: "User",
+								DTOImport:    "#/api/generated/admin/service/v1",
+								ServiceName:  "UserService",
+								LabelField:   "username",
+								ValueField:   "id",
+							},
+						},
+					},
+				},
+				Form: &config.FrontendDialogConfig{
+					Fields: []config.FrontendColumn{
+						{
+							Field: "userId",
+							Relation: &config.FrontendRelationSpec{
+								Resource:     "user",
+								ResourceType: "User",
+								DTOImport:    "#/api/generated/admin/service/v1",
+								ServiceName:  "UserService",
+								LabelField:   "username",
+								ValueField:   "id",
+							},
+						},
+					},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "user_id", Kind: "Uint32"},
+			},
+		},
+	}
+
+	content, err := renderAnyTemplate(codegentemplate.FrontendProvider, runner.frontendProviderData(plan))
+	if err != nil {
+		t.Fatalf("render frontend provider: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "UserServiceListResponse") || !strings.Contains(got, "User,") {
+		t.Fatalf("host relation provider should import host DTO types:\n%s", got)
+	}
+	if !strings.Contains(got, "createUserServiceClient") {
+		t.Fatalf("host relation provider should import host client factory:\n%s", got)
+	}
+	if !strings.Contains(got, "const relationClient = createUserServiceClient(createRequestTransport());") {
+		t.Fatalf("host relation provider should create host relation client:\n%s", got)
+	}
+}
+
 func TestWriteGeneratedFileSkipsTimestampOnlyChanges(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "internal", "service", "user_service.gen.go")
@@ -2197,6 +2430,214 @@ func TestWriteExtensionFileSkipsTimestampAndLineEndingOnlyChanges(t *testing.T) 
 	got := readFile(t, path)
 	if got != string(existing) {
 		t.Fatalf("extension file should keep original content when only header timestamp and line endings change, got:\n%s", got)
+	}
+}
+
+func TestModuleBootstrapRuntimeExtIsCreateOnce(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/admin\n\ngo 1.26.0\n")
+	moduleRoot := filepath.Join(root, "modules", "xdev")
+	writeFile(t, filepath.Join(moduleRoot, "api", "protos", "admin", "v1", "i_device.proto"), `syntax = "proto3";
+
+package admin.service.v1;
+
+service DeviceService {
+  rpc List (ListDeviceRequest) returns (ListDeviceResponse) {}
+}`)
+	writeFile(t, filepath.Join(moduleRoot, "api", "gen", "admin", "v1", "i_device_grpc.pb.go"), `package admin
+
+type DeviceServiceServer interface {
+	mustEmbedUnimplementedDeviceServiceServer()
+}
+
+var DeviceService_ServiceDesc = struct{
+	ServiceName string
+}{
+	ServiceName: "admin.service.v1.DeviceService",
+}
+`)
+	writeFile(t, filepath.Join(moduleRoot, "api", "gen", "admin", "v1", "i_device_http.pb.go"), "package admin\ntype DeviceServiceHTTPServer interface{}\n")
+	writeFile(t, filepath.Join(moduleRoot, "data", "schema", "device.go"), `package schema
+
+import "entgo.io/ent"
+
+type Device struct { ent.Schema }
+`)
+
+	cfg := config.Config{
+		Service: "admin",
+		Module:  "example.com/admin/modules/xdev",
+		Resources: []config.Resource{
+			{
+				Name:          "device",
+				Entity:        "Device",
+				ProtoService:  "admin.service.v1.DeviceService",
+				DTOImport:     "example.com/admin/modules/xdev/api/gen/device/v1",
+				DTOType:       "Device",
+				RepoInterface: "DeviceRepo",
+				Generate: config.GenerateFlags{
+					ServiceStub:  true,
+					RestRegister: true,
+					GRPCRegister: true,
+				},
+			},
+		},
+	}
+
+	runner, err := NewModuleRunner(project.Info{
+		Root:   root,
+		Module: "example.com/admin",
+	}, cfg, Options{
+		Version:    "test-version",
+		ModuleName: "xdev",
+		ModuleRoot: moduleRoot,
+	})
+	if err != nil {
+		t.Fatalf("new module runner: %v", err)
+	}
+
+	if _, err := runner.Generate("bootstrap"); err != nil {
+		t.Fatalf("generate bootstrap first pass: %v", err)
+	}
+
+	runtimePath := filepath.Join(moduleRoot, "bootstrap", "module_runtime_ext.go")
+	custom := `package bootstrap
+
+func sentinel() string { return "keep-me" }
+`
+	if err := os.WriteFile(runtimePath, []byte(custom), 0o644); err != nil {
+		t.Fatalf("overwrite runtime ext: %v", err)
+	}
+
+	if _, err := runner.Generate("bootstrap"); err != nil {
+		t.Fatalf("generate bootstrap second pass: %v", err)
+	}
+
+	got := readFile(t, runtimePath)
+	if got != custom {
+		t.Fatalf("module_runtime_ext.go should be create-once, got:\n%s", got)
+	}
+}
+
+func TestModuleBootstrapGeneratesModuleResourcesFromConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	moduleRoot := filepath.Join(root, "modules", "xdev")
+
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/admin\n\ngo 1.26.0\n")
+	writeFile(t, filepath.Join(moduleRoot, "api", "protos", "admin", "v1", "i_device.proto"), `syntax = "proto3";
+
+package admin.service.v1;
+
+service DeviceService {
+  rpc List (ListDeviceRequest) returns (ListDeviceResponse) {}
+}`)
+	writeFile(t, filepath.Join(moduleRoot, "api", "gen", "admin", "v1", "i_device_grpc.pb.go"), `package admin
+
+type DeviceServiceServer interface {
+	mustEmbedUnimplementedDeviceServiceServer()
+}
+
+var DeviceService_ServiceDesc = struct{
+	ServiceName string
+}{
+	ServiceName: "admin.service.v1.DeviceService",
+}
+`)
+	writeFile(t, filepath.Join(moduleRoot, "api", "gen", "admin", "v1", "i_device_http.pb.go"), "package admin\ntype DeviceServiceHTTPServer interface{}\n")
+	writeFile(t, filepath.Join(moduleRoot, "data", "schema", "device.go"), `package schema
+
+import "entgo.io/ent"
+
+type Device struct { ent.Schema }
+`)
+
+	cfg := config.Config{
+		Service: "admin",
+		Module:  "example.com/admin/modules/xdev",
+		HostModule: &config.HostModuleConfig{
+			Resources: &config.HostModuleResourcesConfig{
+				Menus: []config.HostModuleMenuConfig{
+					{
+						Name:      "XdevRoot",
+						Path:      "/xdev",
+						Component: "BasicLayout",
+						Redirect:  "/xdev/device",
+						Type:      "catalog",
+						Meta: config.HostModuleMenuMeta{
+							Title:     "设备管理",
+							Icon:      "lucide:cpu",
+							Authority: []string{"xdev:dir"},
+						},
+						Children: []config.HostModuleMenuConfig{
+							{
+								Name:      "XdevDevice",
+								Path:      "/xdev/device",
+								Component: "/xdev/device/index",
+								Type:      "menu",
+								Meta: config.HostModuleMenuMeta{
+									Title:     "设备信息",
+									Icon:      "lucide:hard-drive",
+									Authority: []string{"xdev:device:view"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Resources: []config.Resource{
+			{
+				Name:          "device",
+				Entity:        "Device",
+				ProtoService:  "admin.service.v1.DeviceService",
+				DTOImport:     "example.com/admin/modules/xdev/api/gen/device/v1",
+				DTOType:       "Device",
+				RepoInterface: "DeviceRepo",
+				Generate: config.GenerateFlags{
+					ServiceStub:  true,
+					RestRegister: true,
+					GRPCRegister: true,
+				},
+			},
+		},
+	}
+
+	runner, err := NewModuleRunner(project.Info{
+		Root:   root,
+		Module: "example.com/admin",
+	}, cfg, Options{
+		Version:    "test-version",
+		ModuleName: "xdev",
+		ModuleRoot: moduleRoot,
+	})
+	if err != nil {
+		t.Fatalf("new module runner: %v", err)
+	}
+
+	if _, err := runner.Generate("bootstrap"); err != nil {
+		t.Fatalf("generate bootstrap: %v", err)
+	}
+
+	generatedPath := filepath.Join(moduleRoot, "bootstrap", "generated_module_resources.gen.go")
+	generated := readFile(t, generatedPath)
+	if !strings.Contains(generated, "func GeneratedSyncModuleResources") {
+		t.Fatalf("generated module resources missing sync function:\n%s", generated)
+	}
+	if !strings.Contains(generated, `Title: generatedModuleStringPtr("设备管理")`) {
+		t.Fatalf("generated module resources missing root title:\n%s", generated)
+	}
+	if !strings.Contains(generated, `Title: generatedModuleStringPtr("设备信息")`) {
+		t.Fatalf("generated module resources missing child title:\n%s", generated)
+	}
+
+	runtimePath := filepath.Join(moduleRoot, "bootstrap", "module_runtime_ext.go")
+	runtime := readFile(t, runtimePath)
+	if !strings.Contains(runtime, "return GeneratedSyncModuleResources(ctx, syncer)") {
+		t.Fatalf("module runtime ext should delegate to generated sync:\n%s", runtime)
 	}
 }
 

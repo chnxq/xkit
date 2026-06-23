@@ -89,18 +89,18 @@ func (Device) Edges() []ent.Edge {
 func (Device) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("created_by").
-			StorageKey("idx_dev_info_created_by"),
+			StorageKey("idx_xdev_dev_info_created_by"),
 		index.Fields("updated_by").
-			StorageKey("idx_dev_info_updated_by"),
+			StorageKey("idx_xdev_dev_info_updated_by"),
 		index.Fields("deleted_at").
-			StorageKey("idx_dev_info_deleted_at"),
+			StorageKey("idx_xdev_dev_info_deleted_at"),
 		index.Fields("id", "device_code", "model_id").
-			StorageKey("inx_dev_info"),
+			StorageKey("idx_xdev_dev_info_lookup"),
 		index.Fields("tenant_id", "device_code").
-			StorageKey("idx_dev_info_tenant_device_code"),
+			StorageKey("idx_xdev_dev_info_tenant_device_code"),
 		index.Fields("tenant_id", "model_id").
-			StorageKey("idx_dev_info_tenant_model_id"),
+			StorageKey("idx_xdev_dev_info_tenant_model_id"),
 		index.Fields("tenant_id", "use_status").
-			StorageKey("idx_dev_info_tenant_use_status"),
+			StorageKey("idx_xdev_dev_info_tenant_use_status"),
 	}
 }

@@ -15,6 +15,7 @@ type frontendProviderTemplateData struct {
 	GeneratedAPIImportPath string
 	CreateClientFunc       string
 	ListPath               string
+	TreeListPath           string
 	EntityType             string
 	ListResponseType       string
 	GetResponseType        string
@@ -30,6 +31,9 @@ type frontendProviderTemplateData struct {
 	UpdateFuncName         string
 	DeleteFuncName         string
 	UpdateMask             string
+	TreeEnabled            bool
+	TreeChildrenField      string
+	TreeParentField        string
 	HasGet                 bool
 	HasCreate              bool
 	HasUpdate              bool
@@ -49,13 +53,14 @@ type frontendProviderFilterField struct {
 }
 
 type frontendRelationOptionData struct {
-	FuncName           string
-	ResultType         string
-	ItemType           string
-	RelatedClientFunc  string
-	RelatedListResult  string
-	LabelField         string
-	ValueField         string
+	FuncName          string
+	ResultType        string
+	ItemType          string
+	RelatedClientFunc string
+	RelatedListResult string
+	LabelField        string
+	ValueField        string
+	ImportPath        string
 }
 
 func (r *Runner) generateFrontendProviderFiles() (Result, error) {
@@ -118,6 +123,7 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 		GeneratedAPIImportPath: r.frontendGeneratedAPIImportPath(),
 		CreateClientFunc:       "create" + serviceName + "Client",
 		ListPath:               r.frontendProviderListPath(plan),
+		TreeListPath:           r.frontendProviderTreeListPath(plan),
 		EntityType:             entityType,
 		ListResponseType:       serviceName + "ListResponse",
 		GetResponseType:        serviceName + "GetResponse",
@@ -133,6 +139,9 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 		UpdateFuncName:         "update" + resourceField,
 		DeleteFuncName:         "delete" + resourceField,
 		UpdateMask:             r.frontendProviderUpdateMask(plan),
+		TreeEnabled:            plan.Resource.Tree != nil,
+		TreeChildrenField:      r.frontendTreeChildrenField(plan),
+		TreeParentField:        r.frontendTreeParentField(plan),
 		HasGet:                 true,
 		HasCreate:              true,
 		HasUpdate:              true,
@@ -142,6 +151,28 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 		TypeImports:            typeImports,
 		ClientFuncs:            clientFuncs,
 	}
+}
+
+func (r *Runner) frontendProviderTreeListPath(plan resourcePlan) string {
+	if plan.Resource.Tree == nil {
+		return ""
+	}
+	listPath := r.frontendProviderListPath(plan)
+	return strings.TrimRight(listPath, "/") + "/tree"
+}
+
+func (r *Runner) frontendTreeChildrenField(plan resourcePlan) string {
+	if plan.Resource.Tree == nil || strings.TrimSpace(plan.Resource.Tree.ChildrenField) == "" {
+		return "children"
+	}
+	return simpleFieldName(strings.TrimSpace(plan.Resource.Tree.ChildrenField))
+}
+
+func (r *Runner) frontendTreeParentField(plan resourcePlan) string {
+	if plan.Resource.Tree == nil || strings.TrimSpace(plan.Resource.Tree.ParentField) == "" {
+		return "parentId"
+	}
+	return lowerFirst(toPascal(strings.TrimSpace(plan.Resource.Tree.ParentField)))
 }
 
 func (r *Runner) frontendProviderListPath(plan resourcePlan) string {
@@ -197,42 +228,16 @@ func (r *Runner) frontendProviderFilterFields(plan resourcePlan) []frontendProvi
 	items := make([]frontendProviderFilterField, 0, len(filters))
 	for _, filter := range filters {
 		fieldName := simpleFieldName(filter.Field)
+		runtime := r.frontendFieldRuntime(plan, filter.Field)
 		items = append(items, frontendProviderFilterField{
 			FieldName:    fieldName,
 			SchemaField:  frontendSnakeCase(fieldName),
-			Type:         frontendProviderFilterType(filter.Component),
-			Operator:     frontendProviderFilterOperator(filter.Component),
-			UseCleanText: frontendProviderNeedsCleanText(filter.Component),
+			Type:         runtime.FilterValueType,
+			Operator:     runtime.FilterOperator,
+			UseCleanText: runtime.UseCleanText,
 		})
 	}
 	return items
-}
-
-func frontendProviderFilterType(component string) string {
-	switch strings.TrimSpace(component) {
-	case "InputNumber":
-		return "number"
-	default:
-		return "string"
-	}
-}
-
-func frontendProviderFilterOperator(component string) string {
-	switch strings.TrimSpace(component) {
-	case "InputNumber":
-		return "EQ"
-	default:
-		return "CONTAINS"
-	}
-}
-
-func frontendProviderNeedsCleanText(component string) bool {
-	switch strings.TrimSpace(component) {
-	case "Input":
-		return true
-	default:
-		return false
-	}
 }
 
 func (r *Runner) frontendProviderRelationOptions(plan resourcePlan) []frontendRelationOptionData {
@@ -252,21 +257,39 @@ func (r *Runner) frontendProviderRelationOptions(plan resourcePlan) []frontendRe
 		}
 		resourceNames[resourceName] = struct{}{}
 
-		relatedPlan, ok := r.findPlanByResourceName(resourceName)
-		if !ok {
+		if relatedPlan, ok := r.findPlanByResourceName(resourceName); ok {
+			relatedServiceName := strings.TrimSpace(relatedPlan.Binding.ServiceName)
+			relatedEntityType := relatedPlan.DTOTypeOrDefault()
+			resourceField := relatedPlan.ResourceField
+			items = append(items, frontendRelationOptionData{
+				FuncName:          "list" + resourceField + "Options",
+				ResultType:        "Admin" + resourceField + "Option",
+				ItemType:          relatedEntityType,
+				RelatedClientFunc: "create" + relatedServiceName + "Client",
+				RelatedListResult: relatedServiceName + "ListResponse",
+				LabelField:        strings.TrimSpace(spec.LabelField),
+				ValueField:        strings.TrimSpace(spec.ValueField),
+				ImportPath:        r.frontendGeneratedAPIImportPath(),
+			})
 			return
 		}
-		relatedServiceName := strings.TrimSpace(relatedPlan.Binding.ServiceName)
-		relatedEntityType := relatedPlan.DTOTypeOrDefault()
-		resourceField := relatedPlan.ResourceField
+
+		dtoImport := strings.TrimSpace(spec.DTOImport)
+		serviceName := strings.TrimSpace(spec.ServiceName)
+		resourceType := strings.TrimSpace(spec.ResourceType)
+		if dtoImport == "" || serviceName == "" || resourceType == "" {
+			return
+		}
+		resourceField := frontendResourceFieldName(resourceName)
 		items = append(items, frontendRelationOptionData{
 			FuncName:          "list" + resourceField + "Options",
 			ResultType:        "Admin" + resourceField + "Option",
-			ItemType:          relatedEntityType,
-			RelatedClientFunc: "create" + relatedServiceName + "Client",
-			RelatedListResult: relatedServiceName + "ListResponse",
+			ItemType:          resourceType,
+			RelatedClientFunc: "create" + serviceName + "Client",
+			RelatedListResult: serviceName + "ListResponse",
 			LabelField:        strings.TrimSpace(spec.LabelField),
 			ValueField:        strings.TrimSpace(spec.ValueField),
+			ImportPath:        dtoImport,
 		})
 	}
 
@@ -339,9 +362,11 @@ func (r *Runner) frontendProviderImports(plan resourcePlan, items []frontendRela
 	addFunc("create" + serviceName + "Client")
 
 	for _, item := range items {
-		addType(item.ItemType)
-		addType(item.RelatedListResult)
-		addFunc(item.RelatedClientFunc)
+		if item.ImportPath == r.frontendGeneratedAPIImportPath() {
+			addType(item.ItemType)
+			addType(item.RelatedListResult)
+			addFunc(item.RelatedClientFunc)
+		}
 	}
 	slices.Sort(typeImports)
 	slices.Sort(clientFuncs)

@@ -135,6 +135,36 @@ type bootstrapTemplateData struct {
 	GenerateGetAppCtx bool
 }
 
+type moduleResourcesTemplateData struct {
+	templateBase
+	ModuleHostImport string
+	HasMenus         bool
+	Menus            []moduleMenuResourceData
+}
+
+type moduleMenuResourceData struct {
+	Name      string
+	Path      string
+	Component string
+	Redirect  string
+	Type      string
+	Meta      moduleMenuMetaData
+	Children  []moduleMenuResourceData
+}
+
+type moduleMenuMetaData struct {
+	Authority       []string
+	HasAuthority    bool
+	Icon            string
+	HasIcon         bool
+	Link            string
+	HasLink         bool
+	OpenInNewWindow *bool
+	HasOpenInNew    bool
+	Title           string
+	HasTitle        bool
+}
+
 type bootstrapResourceData struct {
 	FieldName       string
 	RepoVar         string

@@ -8,6 +8,11 @@ import type {
   {{ . }},
 {{- end }}
 } from '{{ .GeneratedAPIImportPath }}';
+{{- range .RelationOptions }}
+{{- if ne .ImportPath $.GeneratedAPIImportPath }}
+import type { {{ .ItemType }}, {{ .RelatedListResult }} } from '{{ .ImportPath }}';
+{{- end }}
+{{- end }}
 
 import { getAdminList, toAdminTotal, toPagingRequest } from '#/api/admin/paging';
 import { requestClient } from '#/api/request';
@@ -16,6 +21,11 @@ import {
   {{ . }},
 {{- end }}
 } from '{{ .GeneratedAPIImportPath }}';
+{{- range .RelationOptions }}
+{{- if ne .ImportPath $.GeneratedAPIImportPath }}
+import { {{ .RelatedClientFunc }} } from '{{ .ImportPath }}';
+{{- end }}
+{{- end }}
 
 export type {{ .FrontendEntityType }} = {{ .EntityType }};
 export type {{ .FrontendSaveInputType }} = Partial<{{ .EntityType }}>;
@@ -91,10 +101,42 @@ function buildConditions(params: {{ .FrontendListParamsType }} = {}): AdminFilte
 {{- end }}
   return conditions;
 }
+{{- if .TreeEnabled }}
+
+function flattenTree(items: {{ .EntityType }}[] = []): {{ .EntityType }}[] {
+  const result: {{ .EntityType }}[] = [];
+  const visit = (nodes: {{ .EntityType }}[]) => {
+    for (const node of nodes) {
+      result.push(node);
+      const children = (node.{{ .TreeChildrenField }} ?? []) as {{ .EntityType }}[];
+      if (children.length > 0) {
+        visit(children);
+      }
+    }
+  };
+  visit(items);
+  return result;
+}
+{{- end }}
 
 export async function {{ .ListFuncName }}(
   params: {{ .FrontendListParamsType }} = {},
 ): Promise<{{ .FrontendListResultType }}> {
+{{- if .TreeEnabled }}
+  const response = await getAdminList<{{ .ListResponseType }}>(
+    '{{ .TreeListPath }}',
+    toPagingRequest({
+      conditions: buildConditions(params),
+      page: 1,
+      pageSize: 200,
+    }),
+  );
+  const items = response.items ?? [];
+  return {
+    items,
+    total: flattenTree(items).length,
+  };
+{{- else }}
   const response = await getAdminList<{{ .ListResponseType }}>(
     '{{ .ListPath }}',
     toPagingRequest({
@@ -109,6 +151,7 @@ export async function {{ .ListFuncName }}(
     items: response.items ?? [],
     total: toAdminTotal(response.total),
   };
+{{- end }}
 }
 {{- if .HasGet }}
 

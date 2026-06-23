@@ -28,6 +28,9 @@ type frontendPageTemplateData struct {
 	PageModuleNameKey  string
 	ExportEnabled      bool
 	ExportFilename     string
+	TreeEnabled        bool
+	TreeChildrenField  string
+	TreeParentField    string
 	ProviderFuncs      []string
 	RelationRuntimes   []frontendRelationRuntime
 	EnumRuntimes       []frontendEnumRuntime
@@ -127,6 +130,9 @@ func (r *Runner) frontendPageData(plan resourcePlan) frontendPageTemplateData {
 		PageModuleNameKey:  pageModuleNameKey,
 		ExportEnabled:      plan.Resource.Operations["export"],
 		ExportFilename:     r.frontendExportFilename(plan),
+		TreeEnabled:        plan.Resource.Tree != nil,
+		TreeChildrenField:  r.frontendTreeChildrenField(plan),
+		TreeParentField:    r.frontendTreeParentField(plan),
 		ProviderFuncs:      r.frontendProviderFuncs(plan),
 		RelationRuntimes:   r.frontendRelationRuntimes(plan),
 		EnumRuntimes:       r.frontendEnumRuntimes(plan),

@@ -74,10 +74,10 @@ func (DeviceModel) Edges() []ent.Edge {
 func (DeviceModel) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("model_type_id").
-			StorageKey("inx_dev_model_model_type_id"),
+			StorageKey("idx_xdev_dev_model_model_type_id"),
 		index.Fields("created_by").
-			StorageKey("idx_dev_model_created_by"),
+			StorageKey("idx_xdev_dev_model_created_by"),
 		index.Fields("tenant_id", "model_name").
-			StorageKey("idx_dev_model_tenant_model_name"),
+			StorageKey("idx_xdev_dev_model_tenant_model_name"),
 	}
 }

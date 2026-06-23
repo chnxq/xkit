@@ -13,8 +13,7 @@ import (
 // SyncModuleResources declares module-owned resources.
 // Keep this file for handwritten module menu/resource synchronization.
 func SyncModuleResources(ctx context.Context, syncer modulehost.ResourceSyncer) error {
-	_, _ = ctx, syncer
-	return nil
+	return GeneratedSyncModuleResources(ctx, syncer)
 }
 
 // SeedModuleDefaultData declares module-owned default seed behavior.

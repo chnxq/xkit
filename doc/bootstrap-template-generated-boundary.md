@@ -111,6 +111,25 @@ The following files are reserved for later handwritten changes and are created o
 - `internal/data/bootstrap/resources.go`
 - `configs/*.yaml`
 
+For host-module mode, the same rule applies to module bootstrap handwritten
+extension files:
+
+- `modules/<module>/bootstrap/module_runtime_ext.go`
+
+That file is a create-once handwritten runtime hook. It must not be refreshed
+by later `xkit gen module` runs.
+
+Future machine-derived module bootstrap content should be written into explicit
+generated files such as:
+
+- `modules/<module>/bootstrap/generated_module_resources.gen.go`
+- `modules/<module>/bootstrap/generated_module_seed.gen.go`
+
+This keeps `_ext.go` aligned with the normal ownership rule:
+
+- `*.gen.go` is mechanical output
+- `*_ext.go` is durable handwritten supplement
+
 `internal/bootstrap/hooks.go` is for extra transport servers or lifecycle additions.
 
 `internal/bootstrap/generated_hooks_ext.go` is for handwritten `GeneratedData` / `GeneratedServices` bootstrap hooks that must survive repeated `xkit gen bootstrap` runs.

@@ -1,6 +1,9 @@
 <!-- {{ .HeaderComment }} -->
 <script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
+{{- if .TreeEnabled }}
+import type { TreeSelectProps } from 'ant-design-vue';
+{{- end }}
 
 import type { {{ .EntityType }} } from '{{ .ProviderImportPath }}';
 import type { VxeTableGridOptions } from '#/adapter/vxe-table';
@@ -54,10 +57,20 @@ const generatedDialogFormOptions = buildGeneratedDialogFormOptions($t);
 const formFieldNames = (generatedDialogFormOptions.schema || []).map(
   (item) => item.fieldName,
 );
+{{- if .TreeEnabled }}
+const treeItems = ref<{{ .EntityType }}[]>([]);
+{{- end }}
 {{- range .RelationRuntimes }}
 const {{ .OptionsVarName }} = ref<Array<{ label: string; value: number | string }>>([]);
 const {{ .OptionsMapVarName }} = computed(() =>
   new Map({{ .OptionsVarName }}.value.map((item) => [item.value, item.label])),
+);
+{{- end }}
+{{- if .TreeEnabled }}
+type TreeOption = TreeSelectProps['treeData'][number];
+
+const parentTreeOptions = computed<TreeOption[]>(() =>
+  buildParentTreeOptions(treeItems.value, editingId.value),
 );
 {{- end }}
 {{- range .EnumRuntimes }}
@@ -68,14 +81,15 @@ const {{ .TextMapVarName }} = computed(() => ({
 }));
 {{- end }}
 
-{{- if .RelationRuntimes }}
+{{- if or .RelationRuntimes .TreeEnabled }}
 function resolveComponentProps(item: any) {
   if (typeof item.componentProps === 'function') {
     return item.componentProps({});
   }
   return item.componentProps || {};
 }
-
+{{- end }}
+{{- if .RelationRuntimes }}
 {{- range .RelationRuntimes }}
 function {{ .SearchPatchFuncName }}(item: any) {
   return {
@@ -139,6 +153,23 @@ const formOptions: VbenFormProps = {
 
 const dialogFormSchema = computed(() =>
   (generatedDialogFormOptions.schema || []).map((item): any => {
+{{- if .TreeEnabled }}
+    if (item.fieldName === '{{ .TreeParentField }}') {
+      return {
+        ...item,
+        component: 'TreeSelect',
+        componentProps: {
+          ...resolveComponentProps(item),
+          allowClear: true,
+          placeholder: $t(`${i18nPrefix}.select{{- if eq .TreeParentField "parentId" -}}ParentId{{- else -}}{{ upperFirst .TreeParentField }}{{- end -}}`) || resolveComponentProps(item).placeholder,
+          showSearch: true,
+          treeData: parentTreeOptions.value,
+          treeDefaultExpandAll: true,
+          treeNodeFilterProp: 'label',
+        },
+      };
+    }
+{{- end }}
 {{- if .RelationRuntimes }}
     switch (item.fieldName) {
 {{- range .RelationRuntimes }}
@@ -185,13 +216,28 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
 {{- end }}
   height: 'auto',
   keepSource: true,
+{{- if .TreeEnabled }}
+  pagerConfig: {
+    enabled: false,
+  },
+{{- else }}
   pagerConfig: {},
+{{- end }}
   proxyConfig: {
     ajax: {
       query: async (
         { page, sort }: { page: any; sort: any },
         formValues: Record<string, any>,
       ) => {
+{{- if .TreeEnabled }}
+        const result = await {{ .ListFuncName }}({
+          ...formValues,
+          page: 1,
+          pageSize: 200,
+        });
+        treeItems.value = result.items;
+        return result;
+{{- else }}
         const sortField = String(sort.field || defaultSortField);
         const direction = sort.order === 'asc' ? 'ASC' : defaultSortDirection;
         return await {{ .ListFuncName }}({
@@ -200,9 +246,14 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
           pageSize: page.pageSize,
           sorting: [{ direction, field: toBackendSortField(sortField) }],
         });
+{{- end }}
       },
     },
+{{- if .TreeEnabled }}
+    sort: false,
+{{- else }}
     sort: true,
+{{- end }}
   },
   rowConfig: {
     isHover: true,
@@ -219,6 +270,13 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
     },
     zoom: true,
   },
+{{- if .TreeEnabled }}
+  treeConfig: {
+    line: true,
+    rowField: 'id',
+    transform: false,
+  },
+{{- end }}
 };
 
 function resetFormModel() {
@@ -226,6 +284,34 @@ function resetFormModel() {
     formModel[key] = undefined;
   }
 }
+{{- if .TreeEnabled }}
+
+function buildParentTreeOptions(
+  items: {{ .EntityType }}[],
+  excludeId?: number,
+): TreeOption[] {
+  return items.flatMap((item) => {
+    if (item.id === undefined) {
+      return [];
+    }
+    if (excludeId !== undefined && item.id === excludeId) {
+      return [];
+    }
+    const children = buildParentTreeOptions(
+      (item.{{ .TreeChildrenField }} ?? []) as {{ .EntityType }}[],
+      excludeId,
+    );
+    return [
+      {
+        children: children.length > 0 ? children : undefined,
+        key: item.id,
+        label: item.name ?? item.groupName ?? `#${item.id}`,
+        value: item.id,
+      },
+    ];
+  });
+}
+{{- end }}
 
 function toBackendSortField(sortField: string) {
   return sortField.replaceAll(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);

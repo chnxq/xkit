@@ -56,13 +56,21 @@ type frontendDialogField struct {
 var frontendExampleLangsDirForTest func(*Runner) (string, error)
 
 type frontendFieldRuntime struct {
-	FieldName string
-	Relation  *frontendFieldRelationRuntime
-	Enum      *frontendFieldEnumRuntime
+	FieldName       string
+	Relation        *frontendFieldRelationRuntime
+	Enum            *frontendFieldEnumRuntime
+	SchemaKind      string
+	IsBool          bool
+	IsTreeParent    bool
+	DialogComponent string
+	FilterComponent string
+	FilterOperator  string
+	FilterValueType string
+	UseCleanText    bool
 }
 
 type frontendFieldRelationRuntime struct {
-	ResourceField string
+	ResourceField  string
 	PlaceholderKey string
 }
 
@@ -639,15 +647,17 @@ func frontendDialogComponent(field string) string {
 }
 
 func (r *Runner) frontendDialogComponent(plan resourcePlan, field string) string {
-	if r.frontendFieldRuntime(plan, field).Relation != nil {
-		return "Select"
+	runtime := r.frontendFieldRuntime(plan, field)
+	if strings.TrimSpace(runtime.DialogComponent) != "" {
+		return runtime.DialogComponent
 	}
 	return frontendDialogComponent(field)
 }
 
 func (r *Runner) frontendFilterComponent(plan resourcePlan, filter config.FrontendFilter) string {
-	if r.frontendFieldRuntime(plan, filter.Field).Relation != nil {
-		return "Select"
+	runtime := r.frontendFieldRuntime(plan, filter.Field)
+	if strings.TrimSpace(runtime.FilterComponent) != "" {
+		return runtime.FilterComponent
 	}
 	return strings.TrimSpace(filter.Component)
 }
@@ -655,6 +665,12 @@ func (r *Runner) frontendFilterComponent(plan resourcePlan, filter config.Fronte
 func (r *Runner) frontendFieldRuntime(plan resourcePlan, field string) frontendFieldRuntime {
 	fieldName := simpleFieldName(field)
 	runtime := frontendFieldRuntime{FieldName: fieldName}
+	schemaField := r.frontendSchemaField(plan, field)
+	if schemaField != nil {
+		runtime.SchemaKind = strings.TrimSpace(schemaField.Kind)
+		runtime.IsBool = strings.TrimSpace(schemaField.Kind) == "Bool"
+	}
+	runtime.IsTreeParent = plan.Resource.Tree != nil && fieldName == r.frontendTreeParentField(plan)
 
 	if relation := r.frontendRelationForField(plan, field); relation != nil {
 		runtime.Relation = &frontendFieldRelationRuntime{
@@ -670,7 +686,86 @@ func (r *Runner) frontendFieldRuntime(plan resourcePlan, field string) frontendF
 		}
 	}
 
+	runtime.DialogComponent = r.frontendRuntimeDialogComponent(fieldName, runtime)
+	runtime.FilterComponent = r.frontendRuntimeFilterComponent(fieldName, runtime)
+	runtime.FilterOperator = frontendRuntimeFilterOperator(runtime.FilterComponent, runtime)
+	runtime.FilterValueType = frontendRuntimeFilterValueType(runtime.FilterComponent, runtime)
+	runtime.UseCleanText = frontendRuntimeNeedsCleanText(runtime.FilterComponent, runtime)
+
 	return runtime
+}
+
+func (r *Runner) frontendRuntimeDialogComponent(fieldName string, runtime frontendFieldRuntime) string {
+	switch {
+	case runtime.Relation != nil:
+		if runtime.IsTreeParent {
+			return "TreeSelect"
+		}
+		return "Select"
+	case runtime.IsBool:
+		return "Switch"
+	case runtime.Enum != nil:
+		return "Select"
+	default:
+		return frontendDialogComponent(fieldName)
+	}
+}
+
+func (r *Runner) frontendRuntimeFilterComponent(fieldName string, runtime frontendFieldRuntime) string {
+	switch {
+	case runtime.Relation != nil:
+		return "Select"
+	case runtime.IsBool:
+		return "Switch"
+	case runtime.Enum != nil:
+		return "Select"
+	default:
+		_ = fieldName
+		return "Input"
+	}
+}
+
+func frontendRuntimeFilterValueType(component string, runtime frontendFieldRuntime) string {
+	switch component {
+	case "InputNumber":
+		return "number"
+	case "Switch":
+		if runtime.IsBool {
+			return "boolean"
+		}
+		return "string"
+	default:
+		return "string"
+	}
+}
+
+func frontendRuntimeFilterOperator(component string, runtime frontendFieldRuntime) string {
+	switch component {
+	case "InputNumber":
+		return "EQ"
+	case "Switch":
+		if runtime.IsBool {
+			return "EQ"
+		}
+		return "CONTAINS"
+	case "Select":
+		if runtime.Enum != nil || runtime.Relation != nil {
+			return "EQ"
+		}
+		return "CONTAINS"
+	default:
+		return "CONTAINS"
+	}
+}
+
+func frontendRuntimeNeedsCleanText(component string, runtime frontendFieldRuntime) bool {
+	switch component {
+	case "Input":
+		return true
+	default:
+		_ = runtime
+		return false
+	}
 }
 
 func (r *Runner) frontendRelationForField(plan resourcePlan, field string) *config.FrontendRelationSpec {

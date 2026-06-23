@@ -38,6 +38,9 @@ var BootstrapHooksExt string
 //go:embed module_runtime_ext.tmpl
 var ModuleRuntimeExt string
 
+//go:embed module_generated_resources.tmpl
+var ModuleGeneratedResources string
+
 //go:embed bootstrap_ent_client.tmpl
 var BootstrapEntClient string
 
