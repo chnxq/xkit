@@ -70,7 +70,7 @@ resources:
   - name: device
     proto_service: xdev.service.v1.DeviceService
     entity: Device
-    dto_import: admin/modules/xdev/api/gen/xdev/service/v1
+    dto_import: xdev/api/gen/xdev/service/v1
     dto_type: Device
     tenant_scope: tenant_scoped
     repo_interface: DeviceRepo
@@ -109,7 +109,6 @@ resources:
           - [deviceCode, Device Code, 设备编码]
           - [name, Name, 设备名称]
           - field: modelId
-            component: Select
             en: Model ID
             cn: 设备型号
             relation:
@@ -117,10 +116,7 @@ resources:
               label_field: modelName
               value_field: id
           - [serialNumber, Serial Number, 设备序列号]
-          - field: useStatus
-            component: Select
-            en: Use Status
-            cn: 使用状态
+          - [useStatus, Use Status, 使用状态]
     filters:
       allow:
         - id
@@ -152,7 +148,7 @@ resources:
   - name: device_model
     proto_service: xdev.service.v1.DeviceModelService
     entity: DeviceModel
-    dto_import: admin/modules/xdev/api/gen/xdev/service/v1
+    dto_import: xdev/api/gen/xdev/service/v1
     dto_type: DeviceModel
     tenant_scope: tenant_scoped
     repo_interface: DeviceModelRepo
@@ -187,7 +183,6 @@ resources:
         fields:
           - [modelName, Model Name, 型号]
           - field: modelTypeId
-            component: Select
             en: Model Type ID
             cn: 型号分类
             relation:
@@ -223,7 +218,7 @@ resources:
   - name: device_model_type
     proto_service: xdev.service.v1.DeviceModelTypeService
     entity: DeviceModelType
-    dto_import: admin/modules/xdev/api/gen/xdev/service/v1
+    dto_import: xdev/api/gen/xdev/service/v1
     dto_type: DeviceModelType
     tenant_scope: tenant_scoped
     repo_interface: DeviceModelTypeRepo
@@ -275,7 +270,7 @@ resources:
   - name: device_group
     proto_service: xdev.service.v1.DeviceGroupService
     entity: DeviceGroup
-    dto_import: admin/modules/xdev/api/gen/xdev/service/v1
+    dto_import: xdev/api/gen/xdev/service/v1
     dto_type: DeviceGroup
     tenant_scope: tenant_scoped
     repo_interface: DeviceGroupRepo
@@ -339,7 +334,7 @@ resources:
             en: Parent ID
             cn: 父级设备组
           - field: useStatus
-            component: Select
+            component: Input
             en: Use Status
             cn: 设备组用途
           - field: status
@@ -367,7 +362,6 @@ resources:
             en: Leaf Node
             cn: 叶子节点
           - field: useStatus
-            component: Select
             en: Use Status
             cn: 设备组用途
           - field: descript
@@ -421,7 +415,7 @@ resources:
   - name: device_group_device
     proto_service: xdev.service.v1.DeviceGroupDeviceService
     entity: DeviceGroupDevice
-    dto_import: admin/modules/xdev/api/gen/xdev/service/v1
+    dto_import: xdev/api/gen/xdev/service/v1
     dto_type: DeviceGroupDevice
     tenant_scope: tenant_scoped
     repo_interface: DeviceGroupDeviceRepo
@@ -467,7 +461,6 @@ resources:
       form:
         fields:
           - field: groupId
-            component: Select
             en: Group ID
             cn: 设备组
             relation:
@@ -475,7 +468,6 @@ resources:
               label_field: groupName
               value_field: id
           - field: deviceId
-            component: Select
             en: Device ID
             cn: 设备
             relation:
@@ -509,7 +501,7 @@ resources:
   - name: device_group_user
     proto_service: xdev.service.v1.DeviceGroupUserService
     entity: DeviceGroupUser
-    dto_import: admin/modules/xdev/api/gen/xdev/service/v1
+    dto_import: xdev/api/gen/xdev/service/v1
     dto_type: DeviceGroupUser
     tenant_scope: tenant_scoped
     repo_interface: DeviceGroupUserRepo
@@ -561,7 +553,6 @@ resources:
       form:
         fields:
           - field: groupId
-            component: Select
             en: Group ID
             cn: 设备组
             relation:
@@ -569,7 +560,6 @@ resources:
               label_field: groupName
               value_field: id
           - field: userId
-            component: Select
             en: User ID
             cn: 用户
             relation:
@@ -606,7 +596,7 @@ resources:
   - name: device_group_org_unit
     proto_service: xdev.service.v1.DeviceGroupOrgUnitService
     entity: DeviceGroupOrgUnit
-    dto_import: admin/modules/xdev/api/gen/xdev/service/v1
+    dto_import: xdev/api/gen/xdev/service/v1
     dto_type: DeviceGroupOrgUnit
     tenant_scope: tenant_scoped
     repo_interface: DeviceGroupOrgUnitRepo
@@ -658,7 +648,6 @@ resources:
       form:
         fields:
           - field: groupId
-            component: Select
             en: Group ID
             cn: 设备组
             relation:
@@ -666,7 +655,6 @@ resources:
               label_field: groupName
               value_field: id
           - field: orgUnitId
-            component: Select
             en: Org Unit ID
             cn: 组织单元
             relation:
