@@ -157,13 +157,20 @@ function Sync-CanonicalConfig {
         throw "Canonical config not found: $CanonicalPath"
     }
 
+    # CanonicalPath must point at the reviewed target-config baseline.
+    # Do not default back to <module>-config here, otherwise newer module-only
+    # settings such as host_module.resources.menus will be overwritten.
     $content = Get-Content -LiteralPath $CanonicalPath -Raw -Encoding utf8
     $content = [System.Text.RegularExpressions.Regex]::Replace(
         $content,
         '(?m)^module:\s*.+$',
         "module: $TargetModule"
     )
-    $content = $content.Replace("$ModuleName/api/gen/", "$TargetModule/api/gen/")
+    $content = [System.Text.RegularExpressions.Regex]::Replace(
+        $content,
+        "(?m)(dto_import:\\s*)$([regex]::Escape($ModuleName))/api/gen/",
+        "`$1$TargetModule/api/gen/"
+    )
 
     $targetDir = Split-Path -Parent $TargetPath
     if (-not (Test-Path -LiteralPath $targetDir)) {
@@ -171,6 +178,41 @@ function Sync-CanonicalConfig {
     }
 
     [System.IO.File]::WriteAllText($TargetPath, $content, [System.Text.UTF8Encoding]::new($false))
+}
+
+function Ensure-TargetConfig {
+    param(
+        [string]$CanonicalPath,
+        [string]$TargetPath,
+        [string]$TargetModule
+    )
+
+    if (Test-Path -LiteralPath $TargetPath) {
+        Write-Host "Keep existing target config: $TargetPath"
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $CanonicalPath)) {
+        throw "Canonical config not found: $CanonicalPath"
+    }
+
+    Write-Host "Initialize target config from canonical config: $CanonicalPath"
+    Sync-CanonicalConfig `
+        -CanonicalPath $CanonicalPath `
+        -TargetPath $TargetPath `
+        -TargetModule $TargetModule
+}
+
+function New-InitConfigPath {
+    param(
+        [string]$ModuleName
+    )
+
+    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) "xkit-generate-module"
+    if (-not (Test-Path -LiteralPath $tempRoot)) {
+        New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+    }
+    return Join-Path $tempRoot "$ModuleName.init.yaml"
 }
 
 $InteractiveMode = Test-InteractiveSession
@@ -211,7 +253,7 @@ $CanonicalConfigPath = Resolve-InputValue `
     -Name "CanonicalConfigPath" `
     -Value $CanonicalConfigPath `
     -DefaultValue (Join-Path $SourceRoot "$ModuleName-config\$ModuleName.yaml") `
-    -Hint "canonical config source copied onto TargetConfig after init module"
+    -Hint "canonical reviewed module config used to initialize target-config when missing"
 
 $ConfigPath = Resolve-InputValue `
     -Name "ConfigPath" `
@@ -219,6 +261,7 @@ $ConfigPath = Resolve-InputValue `
     -DefaultValue (Join-Path $SourceRoot "$ModuleName-target-config\$ModuleName.yaml") `
     -Hint "effective module generation config; future generation should always use this file"
 
+$InitConfigPath = New-InitConfigPath -ModuleName $ModuleName
 $FrontendApiRoot = Join-Path $TypeScriptRoot "apps\web-antd\src\api\generated\$ServiceName"
 
 Show-ExecutionSummary `
@@ -248,7 +291,7 @@ try {
                 --module-name $ModuleName `
                 --module-root $ModuleRoot `
                 --service $ServiceName `
-                --config $ConfigPath `
+                --config $InitConfigPath `
                 --typescript-project $TypeScriptRoot `
                 --force `
                 --dry-run
@@ -261,13 +304,13 @@ try {
             --module-name $ModuleName `
             --module-root $ModuleRoot `
             --service $ServiceName `
-            --config $ConfigPath `
+            --config $InitConfigPath `
             --typescript-project $TypeScriptRoot `
             --force
     }
 
-    Invoke-Step "Apply canonical module config" {
-        Sync-CanonicalConfig `
+    Invoke-Step "Ensure target module config" {
+        Ensure-TargetConfig `
             -CanonicalPath $CanonicalConfigPath `
             -TargetPath $ConfigPath `
             -TargetModule ("admin/modules/" + $ModuleName)
@@ -340,5 +383,6 @@ try {
     }
 }
 finally {
+    Remove-Item -LiteralPath $InitConfigPath -ErrorAction SilentlyContinue
     Pop-Location
 }
