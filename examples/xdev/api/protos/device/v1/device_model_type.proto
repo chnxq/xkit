@@ -57,10 +57,6 @@ message DeviceModelType {
     json_name = "modelTypeName",
     (gnostic.openapi.v3.property) = {description: "型号分类名称"}
   ];
-  optional string model_type_value = 3 [
-    json_name = "modelTypeValue",
-    (gnostic.openapi.v3.property) = {description: "型号分类值"}
-  ];
   optional string use_case = 4 [
     json_name = "useCase",
     (gnostic.openapi.v3.property) = {description: "型号用途"}

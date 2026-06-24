@@ -35,15 +35,10 @@ func (DeviceModelType) Fields() []ent.Field {
 			Nillable().
 			MaxLen(100).
 			Comment("型号分类名"),
-		field.String("model_type_value").
-			Optional().
-			Nillable().
-			MaxLen(30).
-			Comment("型号分类值"),
 		field.String("use_case").
 			Optional().
 			Nillable().
-			MaxLen(20).
+			MaxLen(200).
 			Comment("型号用途"),
 		field.String("type_desc").
 			Optional().
@@ -72,8 +67,5 @@ func (DeviceModelType) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("created_by").
 			StorageKey("idx_xdev_dev_model_type_created_by"),
-		index.Fields("tenant_id", "model_type_value").
-			Unique().
-			StorageKey("idx_xdev_dev_model_type_tenant_value"),
 	}
 }

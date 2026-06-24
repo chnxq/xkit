@@ -47,11 +47,6 @@ func (DeviceGroup) Fields() []ent.Field {
 		field.Bool("is_leaf_node").
 			Default(false).
 			Comment("叶子节点"),
-		field.String("use_status").
-			Optional().
-			Nillable().
-			MaxLen(64).
-			Comment("设备组用途编码"),
 		field.String("descript").
 			Optional().
 			Nillable().
@@ -103,7 +98,5 @@ func (DeviceGroup) Indexes() []ent.Index {
 			StorageKey("idx_xdev_dev_group_tenant_type"),
 		index.Fields("tenant_id", "status").
 			StorageKey("idx_xdev_dev_group_tenant_status"),
-		index.Fields("tenant_id", "use_status").
-			StorageKey("idx_xdev_dev_group_tenant_use_status"),
 	}
 }

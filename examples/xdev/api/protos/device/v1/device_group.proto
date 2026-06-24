@@ -91,10 +91,6 @@ message DeviceGroup {
     json_name = "isLeafNode",
     (gnostic.openapi.v3.property) = {description: "是否叶子节点"}
   ];
-  optional string use_status = 7 [
-    json_name = "useStatus",
-    (gnostic.openapi.v3.property) = {description: "设备组用途编码"}
-  ];
   optional string descript = 8 [
     json_name = "descript",
     (gnostic.openapi.v3.property) = {description: "设备组描述信息"}

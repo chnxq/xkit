@@ -2249,6 +2249,57 @@ func TestFrontendPageTemplateUsesTreeMode(t *testing.T) {
 	}
 }
 
+func TestFrontendPageTemplateRendersTreeTitleIconWhenIconFieldExists(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plan := resourcePlan{
+		ResourceField: "DeviceGroup",
+		Resource: config.Resource{
+			Name: "device_group",
+			Tree: &config.TreeConfig{
+				ParentField:   "parent_id",
+				ChildrenField: "children",
+				ListMethod:    "ListTree",
+			},
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath:   "device-group/device-group",
+				I18nPrefix: "page.deviceGroup",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{
+						{Field: "groupName", TreeNode: true},
+						{Field: "icon"},
+					},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "icon", Kind: "String"},
+				{Name: "parent_id", Kind: "Uint32"},
+			},
+		},
+	}
+
+	content, err := renderAnyTemplate(codegentemplate.FrontendPage, runner.frontendPageData(plan))
+	if err != nil {
+		t.Fatalf("render frontend page: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "const gridColumns = generatedColumns.map") {
+		t.Fatalf("tree page should patch generated columns for title icon rendering:\n%s", got)
+	}
+	if !strings.Contains(got, "default: 'treeTitle'") {
+		t.Fatalf("tree page should bind first tree title column to treeTitle slot:\n%s", got)
+	}
+	if !strings.Contains(got, "<template #treeTitle") || !strings.Contains(got, ":icon=\"row.icon\"") {
+		t.Fatalf("tree page should render icon + title slot when icon field exists:\n%s", got)
+	}
+	if !strings.Contains(got, "{{ row.groupName }}") {
+		t.Fatalf("tree page should render configured tree title field text:\n%s", got)
+	}
+}
+
 func TestFrontendProviderTemplateSupportsHostRelationImports(t *testing.T) {
 	t.Parallel()
 

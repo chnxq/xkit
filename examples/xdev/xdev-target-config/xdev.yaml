@@ -228,18 +228,15 @@ resources:
       list:
         columns:
           - [modelTypeName, Model Type Name, 型号分类名, 220]
-          - [modelTypeValue, Model Type Value, 型号分类值, 180]
           - [useCase, Use Case, 型号用途, 140]
           - [typeDesc, Description, 描述, 220]
           - [createdAt, Created At, 创建时间, 170]
         filters:
           - [modelTypeName, Input, Model Type Name, 型号分类名]
-          - [modelTypeValue, Input, Model Type Value, 型号分类值]
           - [useCase, Input, Use Case, 型号用途]
       form:
         fields:
           - [modelTypeName, Model Type Name, 型号分类名]
-          - [modelTypeValue, Model Type Value, 型号分类值]
           - [useCase, Use Case, 型号用途]
           - [typeDesc, Description, 描述]
     filters:

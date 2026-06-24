@@ -31,6 +31,9 @@ type frontendPageTemplateData struct {
 	TreeEnabled        bool
 	TreeChildrenField  string
 	TreeParentField    string
+	TreeTitleField     string
+	TreeIconField      string
+	TreeIconEnabled    bool
 	ProviderFuncs      []string
 	RelationRuntimes   []frontendRelationRuntime
 	EnumRuntimes       []frontendEnumRuntime
@@ -133,6 +136,9 @@ func (r *Runner) frontendPageData(plan resourcePlan) frontendPageTemplateData {
 		TreeEnabled:        plan.Resource.Tree != nil,
 		TreeChildrenField:  r.frontendTreeChildrenField(plan),
 		TreeParentField:    r.frontendTreeParentField(plan),
+		TreeTitleField:     r.frontendTreeTitleField(plan),
+		TreeIconField:      r.frontendTreeIconField(plan),
+		TreeIconEnabled:    r.frontendTreeIconField(plan) != "" && r.frontendTreeTitleField(plan) != "",
 		ProviderFuncs:      r.frontendProviderFuncs(plan),
 		RelationRuntimes:   r.frontendRelationRuntimes(plan),
 		EnumRuntimes:       r.frontendEnumRuntimes(plan),
@@ -184,6 +190,37 @@ func frontendModuleRelativeImport(viewPath, targetPath string) string {
 		return rel
 	}
 	return "./" + rel
+}
+
+func (r *Runner) frontendTreeTitleField(plan resourcePlan) string {
+	if plan.Resource.Frontend == nil || plan.Resource.Frontend.List == nil {
+		return ""
+	}
+	for _, column := range plan.Resource.Frontend.List.Columns {
+		field := strings.TrimSpace(column.Field)
+		if field == "" {
+			continue
+		}
+		if column.TreeNode {
+			return field
+		}
+	}
+	for _, column := range plan.Resource.Frontend.List.Columns {
+		field := strings.TrimSpace(column.Field)
+		if field != "" {
+			return field
+		}
+	}
+	return ""
+}
+
+func (r *Runner) frontendTreeIconField(plan resourcePlan) string {
+	for _, field := range plan.Schema.Fields {
+		if strings.EqualFold(strings.TrimSpace(field.Name), "icon") {
+			return "icon"
+		}
+	}
+	return ""
 }
 
 func (r *Runner) frontendRelationRuntimes(plan resourcePlan) []frontendRelationRuntime {

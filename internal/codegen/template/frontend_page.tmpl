@@ -1,4 +1,6 @@
 <!-- {{ .HeaderComment }} -->
+<!-- xkit version: {{ .Generated.Version }} -->
+<!-- generated at: {{ .Generated.GeneratedAt }} -->
 <script lang="ts" setup>
 import type { VbenFormProps } from '@vben/common-ui';
 {{- if .TreeEnabled }}
@@ -192,6 +194,22 @@ const dialogFormSchema = computed(() =>
 );
 
 const generatedColumns = buildGeneratedListGridColumns($t) ?? [];
+{{- if .TreeIconEnabled }}
+const gridColumns = generatedColumns.map((column: any, index: number) => {
+  if (index === 0 || column?.field === '{{ .TreeTitleField }}') {
+    return {
+      ...column,
+      slots: {
+        ...(column?.slots || {}),
+        default: 'treeTitle',
+      },
+    };
+  }
+  return column;
+});
+{{- else }}
+const gridColumns = generatedColumns;
+{{- end }}
 
 const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
   border: false,
@@ -199,7 +217,7 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
     resizable: true,
   },
   columns: [
-    ...generatedColumns,
+    ...gridColumns,
     {
       field: 'action',
       fixed: 'right',
@@ -420,6 +438,19 @@ onMounted(() => {
           {{ "{{" }} $t('common.create') {{ "}}" }}
         </Button>
       </template>
+{{- if .TreeIconEnabled }}
+
+      <template #treeTitle="{ row }">
+        <div class="flex items-center gap-2">
+          <IconifyIcon
+            v-if="row.{{ .TreeIconField }}"
+            :icon="row.{{ .TreeIconField }}"
+            class="text-[16px] text-muted-foreground"
+          />
+          <span>{{ "{{" }} row.{{ .TreeTitleField }} {{ "}}" }}</span>
+        </div>
+      </template>
+{{- end }}
 
       <template #action="{ row }">
         <Space>

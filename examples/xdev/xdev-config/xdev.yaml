@@ -228,25 +228,21 @@ resources:
       list:
         columns:
           - [modelTypeName, Model Type Name, 型号分类名, 220]
-          - [modelTypeValue, Model Type Value, 型号分类值, 180]
           - [useCase, Use Case, 型号用途, 140]
           - [typeDesc, Description, 描述, 220]
           - [createdAt, Created At, 创建时间, 170]
         filters:
           - [modelTypeName, Input, Model Type Name, 型号分类名]
-          - [modelTypeValue, Input, Model Type Value, 型号分类值]
           - [useCase, Input, Use Case, 型号用途]
       form:
         fields:
           - [modelTypeName, Model Type Name, 型号分类名]
-          - [modelTypeValue, Model Type Value, 型号分类值]
           - [useCase, Use Case, 型号用途]
           - [typeDesc, Description, 描述]
     filters:
       allow:
         - id
         - model_type_name
-        - model_type_value
         - use_case
         - tenant_id
         - created_by
@@ -300,10 +296,6 @@ resources:
             en: Group Path
             cn: 设备组路径
             width: 220
-          - field: useStatus
-            en: Use Status
-            cn: 设备组用途
-            width: 160
           - field: status
             en: Status
             cn: 状态
@@ -333,10 +325,6 @@ resources:
             component: InputNumber
             en: Parent ID
             cn: 父级设备组
-          - field: useStatus
-            component: Input
-            en: Use Status
-            cn: 设备组用途
           - field: status
             component: Switch
             en: Status
@@ -361,9 +349,6 @@ resources:
             component: Switch
             en: Leaf Node
             cn: 叶子节点
-          - field: useStatus
-            en: Use Status
-            cn: 设备组用途
           - field: descript
             en: Description
             cn: 描述
@@ -387,7 +372,6 @@ resources:
         - parent_id
         - path
         - is_leaf_node
-        - use_status
         - descript
         - sort_order
         - visible
