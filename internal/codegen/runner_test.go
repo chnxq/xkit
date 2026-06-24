@@ -2300,6 +2300,55 @@ func TestFrontendPageTemplateRendersTreeTitleIconWhenIconFieldExists(t *testing.
 	}
 }
 
+func TestFrontendMetaUsesEnumSelectForSwitchStatusField(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plan := resourcePlan{
+		ResourceField: "DeviceGroup",
+		Resource: config.Resource{
+			Name: "device_group",
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath:   "device-group/device-group",
+				I18nPrefix: "page.deviceGroup",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{
+						{Field: "status"},
+					},
+					Filters: []config.FrontendFilter{
+						{Field: "status", Component: "Switch"},
+					},
+				},
+				Form: &config.FrontendDialogConfig{
+					Fields: []config.FrontendColumn{
+						{Field: "status"},
+					},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "status", Kind: "Enum"},
+			},
+		},
+	}
+
+	metaContent, err := renderAnyTemplate(codegentemplate.FrontendViewMeta, runner.frontendMetaData(plan))
+	if err != nil {
+		t.Fatalf("render frontend meta: %v", err)
+	}
+	got := string(metaContent)
+	if !strings.Contains(got, "fieldName: 'status'") {
+		t.Fatalf("status field should exist in generated meta:\n%s", got)
+	}
+	if !strings.Contains(got, "component: 'Select'") {
+		t.Fatalf("switch status field should render as Select like admin menu:\n%s", got)
+	}
+	if !strings.Contains(got, "enum.deviceGroup.status.ON") || !strings.Contains(got, "enum.deviceGroup.status.OFF") {
+		t.Fatalf("switch status field should use ON/OFF enum options:\n%s", got)
+	}
+}
+
 func TestFrontendProviderTemplateSupportsHostRelationImports(t *testing.T) {
 	t.Parallel()
 

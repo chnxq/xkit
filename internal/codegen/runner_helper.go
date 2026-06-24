@@ -28,6 +28,42 @@ func (r *Runner) sharedModuleImport() string {
 	return filepath.ToSlash(filepath.Join(r.project.Module, "shared", "modulex"))
 }
 
+func (r *Runner) normalizeConfiguredImportPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+
+	path = strings.ReplaceAll(path, "{{module}}", r.layout.ModuleImport)
+	path = filepath.ToSlash(path)
+
+	if !r.isModuleMode() {
+		return path
+	}
+
+	projectModule := strings.TrimSuffix(filepath.ToSlash(r.project.Module), "/")
+	layoutModule := strings.TrimSuffix(filepath.ToSlash(r.layout.ModuleImport), "/")
+
+	switch {
+	case path == projectModule:
+		return layoutModule
+	case strings.HasPrefix(path, projectModule+"/api/gen/"):
+		return strings.Replace(path, projectModule+"/api/gen/", layoutModule+"/api/gen/", 1)
+	case strings.HasPrefix(path, projectModule+"/data/"):
+		return strings.Replace(path, projectModule+"/data/", layoutModule+"/data/", 1)
+	case strings.HasPrefix(path, projectModule+"/service/"):
+		return strings.Replace(path, projectModule+"/service/", layoutModule+"/service/", 1)
+	case strings.HasPrefix(path, projectModule+"/server/"):
+		return strings.Replace(path, projectModule+"/server/", layoutModule+"/server/", 1)
+	case strings.HasPrefix(path, projectModule+"/bootstrap/"):
+		return strings.Replace(path, projectModule+"/bootstrap/", layoutModule+"/bootstrap/", 1)
+	case strings.HasPrefix(path, projectModule+"/shared/modulex"):
+		return r.sharedModuleImport()
+	}
+
+	return path
+}
+
 func (r *Runner) ensureModuleSharedExtFile(result *Result, needsIdentity bool) error {
 	if !r.isModuleMode() {
 		return nil

@@ -18,6 +18,10 @@
     }
   },
   "deviceGroup": {
+    "status": {
+      "ON": "启用",
+      "OFF": "停用"
+    },
     "type": {
       "FUNCTION": "功能",
       "NETWORK": "网络",

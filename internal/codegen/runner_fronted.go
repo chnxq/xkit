@@ -821,6 +821,10 @@ func (r *Runner) frontendEnumOptionsProps(plan resourcePlan, fieldName string) s
 }
 
 func (r *Runner) frontendEnumValues(plan resourcePlan, fieldName string) ([]string, bool) {
+	if simpleFieldName(fieldName) == "status" {
+		return []string{"ON", "OFF"}, true
+	}
+
 	sourceDir, err := r.frontendExampleLangsDir()
 	if err != nil {
 		return nil, false

@@ -87,6 +87,7 @@
       "selectFilterType": "Select Group Type",
       "filterParentId": "Parent Group ID",
       "searchFilterParentId": "Search Parent Group ID",
+      "selectParentId": "Select Parent Group",
       "filterStatus": "Status",
       "selectFilterStatus": "Select Status",
       "selectType": "Select Group Type"

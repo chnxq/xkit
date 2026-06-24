@@ -280,8 +280,8 @@ func (r *Runner) serviceConfiguredImports(plan resourcePlan) []importSpec {
 		if path == "" {
 			continue
 		}
-		path = strings.ReplaceAll(path, "{{module}}", r.project.Module)
-		imports = append(imports, importSpec{Alias: strings.TrimSpace(importConfig.Alias), Path: filepath.ToSlash(path)})
+		path = r.normalizeConfiguredImportPath(path)
+		imports = append(imports, importSpec{Alias: strings.TrimSpace(importConfig.Alias), Path: path})
 	}
 	for _, methodConfig := range plan.Resource.ServiceMethods {
 		for _, importConfig := range methodConfig.Imports {
@@ -289,8 +289,8 @@ func (r *Runner) serviceConfiguredImports(plan resourcePlan) []importSpec {
 			if path == "" {
 				continue
 			}
-			path = strings.ReplaceAll(path, "{{module}}", r.project.Module)
-			imports = append(imports, importSpec{Alias: strings.TrimSpace(importConfig.Alias), Path: filepath.ToSlash(path)})
+			path = r.normalizeConfiguredImportPath(path)
+			imports = append(imports, importSpec{Alias: strings.TrimSpace(importConfig.Alias), Path: path})
 		}
 	}
 	return imports

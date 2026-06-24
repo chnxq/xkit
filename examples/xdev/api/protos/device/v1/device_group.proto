@@ -83,10 +83,8 @@ message DeviceGroup {
     json_name = "parentId",
     (gnostic.openapi.v3.property) = {description: "父级设备组ID"}
   ];
-  optional string path = 5 [
-    json_name = "path",
-    (gnostic.openapi.v3.property) = {description: "设备组路径"}
-  ];
+  reserved 5;
+  reserved "path";
   optional bool is_leaf_node = 6 [
     json_name = "isLeafNode",
     (gnostic.openapi.v3.property) = {description: "是否叶子节点"}

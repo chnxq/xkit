@@ -345,15 +345,6 @@ try {
         }
     }
 
-    Invoke-Step "Prepare dependencies before Ent generation" {
-        Push-Location $HostProject
-        try {
-            go mod tidy
-        } finally {
-            Pop-Location
-        }
-    }
-
     Invoke-Step "Generate Ent code" {
         Push-Location $ModuleRoot
         try {
@@ -380,6 +371,15 @@ try {
             --module-root $ModuleRoot `
             --config $ConfigPath `
             --typescript-project $TypeScriptRoot
+    }
+
+    Invoke-Step "Prepare dependencies after code generation" {
+        Push-Location $HostProject
+        try {
+            go mod tidy
+        } finally {
+            Pop-Location
+        }
     }
 }
 finally {

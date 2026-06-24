@@ -18,6 +18,10 @@
     }
   },
   "deviceGroup": {
+    "status": {
+      "ON": "Enabled",
+      "OFF": "Disabled"
+    },
     "type": {
       "FUNCTION": "Function",
       "NETWORK": "Network",

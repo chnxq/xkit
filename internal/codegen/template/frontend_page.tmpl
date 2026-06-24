@@ -194,15 +194,18 @@ const dialogFormSchema = computed(() =>
 );
 
 const generatedColumns = buildGeneratedListGridColumns($t) ?? [];
-{{- if .TreeIconEnabled }}
+{{- if .TreeEnabled }}
 const gridColumns = generatedColumns.map((column: any, index: number) => {
   if (index === 0 || column?.field === '{{ .TreeTitleField }}') {
     return {
       ...column,
+      treeNode: true,
+{{- if .TreeIconEnabled }}
       slots: {
         ...(column?.slots || {}),
         default: 'treeTitle',
       },
+{{- end }}
     };
   }
   return column;

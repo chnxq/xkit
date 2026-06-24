@@ -271,6 +271,282 @@ resources:
     dto_type: DeviceGroup
     tenant_scope: tenant_scoped
     repo_interface: DeviceGroupRepo
+    service_methods:
+      ListTree:
+        imports:
+          - alias: v1
+            path: github.com/chnxq/x-crud/api/gen/pagination/v1
+          - path: fmt
+        body: |
+          if {{param.req}} == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+
+          noPaging := true
+          listReq := &v1.PagingRequest{
+          	FilteringType: &v1.PagingRequest_FilterExpr{
+          		FilterExpr: {{param.req}}.GetFilterExpr(),
+          	},
+          	NoPaging: &noPaging,
+          }
+          result, err := s.{{repoField}}.List({{ctx}}, listReq)
+          if err != nil {
+          	return nil, err
+          }
+          if result == nil || len(result.Items) == 0 {
+          	return &devicev1.DeviceGroupServiceListResponse{}, nil
+          }
+
+          index := make(map[uint32]*devicev1.DeviceGroup, len(result.Items))
+          roots := make([]*devicev1.DeviceGroup, 0, len(result.Items))
+          for _, item := range result.Items {
+          	if item == nil {
+          		continue
+          	}
+          	item.Children = nil
+          	if item.Id != nil {
+          		index[item.GetId()] = item
+          	}
+          }
+          for _, item := range result.Items {
+          	if item == nil {
+          		continue
+          	}
+          	parentID := item.GetParentId()
+          	if parentID == 0 {
+          		roots = append(roots, item)
+          		continue
+          	}
+          	parent, ok := index[parentID]
+          	if !ok {
+          		roots = append(roots, item)
+          		continue
+          	}
+          	parent.Children = append(parent.Children, item)
+          }
+
+          return &devicev1.DeviceGroupServiceListResponse{
+          	Items: roots,
+          	Total: uint64(len(result.Items)),
+          }, nil
+    repo_methods:
+      Create:
+        imports:
+          - alias: devicegroup
+            path: 'admin/modules/xdev/data/devicegroup'
+          - alias: modulex
+            path: 'admin/shared/modulex'
+          - alias: entCrud
+            path: github.com/chnxq/x-crud/entgo
+          - path: fmt
+        body: |
+          if req == nil || req.Data == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+
+          tx, err := r.entClient.Client().Tx(ctx)
+          if err != nil {
+          	r.log.Errorf("begin device_group transaction failed: %s", err.Error())
+          	return nil, err
+          }
+          committed := false
+          defer func() {
+          	if !committed {
+          		_ = tx.Rollback()
+          	}
+          }()
+
+          now, viewer := r.generatedAuditContext(ctx)
+          builder := tx.DeviceGroup.Create()
+          builder.SetNillableGroupName(req.Data.GroupName)
+          builder.SetType(devicegroup.Type(req.Data.GetType().String()))
+          builder.SetIsLeafNode(true)
+          builder.SetNillableDescript(req.Data.Descript)
+          builder.SetNillableVisible(req.Data.Visible)
+          tenantID, err := modulex.ResolveCreateTenantID(ctx, req.Data.TenantId)
+          if err != nil {
+          	return nil, err
+          }
+          builder.SetNillableTenantID(tenantID)
+          builder.SetStatus(devicegroup.Status(req.Data.GetStatus().String()))
+          builder.SetNillableSortOrder(req.Data.SortOrder)
+          builder.SetNillableParentID(req.Data.ParentId)
+          builder.SetCreatedBy(uint32(viewer.UserID()))
+          builder.SetCreatedAt(now)
+
+          entity, err := builder.Save(ctx)
+          if err != nil {
+          	r.log.Errorf("insert device_group failed: %s", err.Error())
+          	return nil, err
+          }
+
+          var parentPath string
+          if entity.ParentID != nil {
+          	parentEntity, err := tx.DeviceGroup.Query().
+          		Where(devicegroup.IDEQ(*entity.ParentID)).
+          		Select(devicegroup.FieldPath).
+          		Only(ctx)
+          	if err != nil {
+          		return nil, err
+          	}
+          	if parentEntity.Path != nil {
+          		parentPath = *parentEntity.Path
+          	}
+          }
+          if err := tx.DeviceGroup.UpdateOneID(entity.ID).
+          	SetPath(entCrud.ComputeTreePath(parentPath, entity.ID)).
+          	Exec(ctx); err != nil {
+          	return nil, err
+          }
+          if entity.ParentID != nil {
+          	if err := tx.DeviceGroup.UpdateOneID(*entity.ParentID).
+          		SetIsLeafNode(false).
+          		Exec(ctx); err != nil {
+          		return nil, err
+          	}
+          }
+
+          if err := tx.Commit(); err != nil {
+          	r.log.Errorf("commit device_group create failed: %s", err.Error())
+          	return nil, err
+          }
+          committed = true
+          return nil, nil
+      Update:
+        imports:
+          - alias: devicegroup
+            path: 'admin/modules/xdev/data/devicegroup'
+          - alias: modulex
+            path: 'admin/shared/modulex'
+          - alias: entCrud
+            path: github.com/chnxq/x-crud/entgo
+          - path: fmt
+        body: |
+          if req == nil || req.Data == nil {
+          	return nil, fmt.Errorf("invalid parameter")
+          }
+
+          current, err := r.entClient.Client().DeviceGroup.Query().Where(devicegroup.IDEQ(req.GetId())).Only(ctx)
+          if err != nil {
+          	r.log.Errorf("get device_group before update failed: %s", err.Error())
+          	return nil, err
+          }
+          if err := modulex.EnsureTenantAccessible(ctx, current.TenantID); err != nil {
+          	return nil, err
+          }
+
+          tx, err := r.entClient.Client().Tx(ctx)
+          if err != nil {
+          	r.log.Errorf("begin device_group transaction failed: %s", err.Error())
+          	return nil, err
+          }
+          committed := false
+          defer func() {
+          	if !committed {
+          		_ = tx.Rollback()
+          	}
+          }()
+
+          now, viewer := r.generatedAuditContext(ctx)
+          builder := tx.DeviceGroup.UpdateOneID(req.GetId())
+          if req.Data.GroupName != nil {
+          	builder.SetNillableGroupName(req.Data.GroupName)
+          } else if req.GetUpdateMask() != nil && deviceGroupFieldMaskContains(req.GetUpdateMask().GetPaths(), "group_name", "groupName") {
+          	builder.ClearGroupName()
+          }
+          builder.SetType(devicegroup.Type(req.Data.GetType().String()))
+          builder.SetIsLeafNode(req.Data.GetIsLeafNode())
+          if req.Data.Descript != nil {
+          	builder.SetNillableDescript(req.Data.Descript)
+          } else if req.GetUpdateMask() != nil && deviceGroupFieldMaskContains(req.GetUpdateMask().GetPaths(), "descript") {
+          	builder.ClearDescript()
+          }
+          if req.Data.Visible != nil {
+          	builder.SetNillableVisible(req.Data.Visible)
+          } else if req.GetUpdateMask() != nil && deviceGroupFieldMaskContains(req.GetUpdateMask().GetPaths(), "visible") {
+          	builder.ClearVisible()
+          }
+          builder.SetStatus(devicegroup.Status(req.Data.GetStatus().String()))
+          if req.Data.SortOrder != nil {
+          	builder.SetNillableSortOrder(req.Data.SortOrder)
+          } else if req.GetUpdateMask() != nil && deviceGroupFieldMaskContains(req.GetUpdateMask().GetPaths(), "sort_order", "sortOrder") {
+          	builder.ClearSortOrder()
+          }
+          if req.Data.ParentId != nil {
+          	builder.SetNillableParentID(req.Data.ParentId)
+          } else if req.GetUpdateMask() != nil && deviceGroupFieldMaskContains(req.GetUpdateMask().GetPaths(), "parent_id", "parentId") {
+          	builder.ClearParentID()
+          }
+          builder.SetUpdatedBy(uint32(viewer.UserID()))
+          builder.SetUpdatedAt(now)
+
+          entity, err := builder.Save(ctx)
+          if err != nil {
+          	r.log.Errorf("update device_group failed: %s", err.Error())
+          	return nil, err
+          }
+
+          var parentPath string
+          if entity.ParentID != nil {
+          	parentEntity, err := tx.DeviceGroup.Query().
+          		Where(devicegroup.IDEQ(*entity.ParentID)).
+          		Select(devicegroup.FieldPath).
+          		Only(ctx)
+          	if err != nil {
+          		return nil, err
+          	}
+          	if parentEntity.Path != nil {
+          		parentPath = *parentEntity.Path
+          	}
+          }
+          newPath := entCrud.ComputeTreePath(parentPath, entity.ID)
+          if err := tx.DeviceGroup.UpdateOneID(entity.ID).SetPath(newPath).Exec(ctx); err != nil {
+          	return nil, err
+          }
+
+          children, err := tx.DeviceGroup.Query().
+          	Where(devicegroup.ParentIDEQ(entity.ID)).
+          	All(ctx)
+          if err != nil {
+          	return nil, err
+          }
+          for _, child := range children {
+          	if child == nil {
+          		continue
+          	}
+          	childPath := entCrud.ComputeTreePath(newPath, child.ID)
+          	if err := tx.DeviceGroup.UpdateOneID(child.ID).SetPath(childPath).Exec(ctx); err != nil {
+          		return nil, err
+          	}
+          }
+
+          syncLeaf := func(parentID *uint32) error {
+          	if parentID == nil {
+          		return nil
+          	}
+          	exists, err := tx.DeviceGroup.Query().
+          		Where(devicegroup.ParentIDEQ(*parentID)).
+          		Exist(ctx)
+          	if err != nil {
+          		return err
+          	}
+          	return tx.DeviceGroup.UpdateOneID(*parentID).
+          		SetIsLeafNode(!exists).
+          		Exec(ctx)
+          }
+          if err := syncLeaf(current.ParentID); err != nil {
+          	return nil, err
+          }
+          if err := syncLeaf(entity.ParentID); err != nil {
+          	return nil, err
+          }
+
+          if err := tx.Commit(); err != nil {
+          	r.log.Errorf("commit device_group update failed: %s", err.Error())
+          	return nil, err
+          }
+          committed = true
+          return nil, nil
     tree:
       parent_field: parent_id
       path_field: path
@@ -293,14 +569,6 @@ resources:
             en: Parent ID
             cn: 父级设备组
             width: 120
-          - field: path
-            en: Group Path
-            cn: 设备组路径
-            width: 220
-          - field: useStatus
-            en: Use Status
-            cn: 设备组用途
-            width: 160
           - field: status
             en: Status
             cn: 状态
@@ -330,10 +598,6 @@ resources:
             component: InputNumber
             en: Parent ID
             cn: 父级设备组
-          - field: useStatus
-            component: Input
-            en: Use Status
-            cn: 设备组用途
           - field: status
             component: Switch
             en: Status
@@ -351,16 +615,10 @@ resources:
             component: InputNumber
             en: Parent ID
             cn: 父级设备组
-          - field: path
-            en: Group Path
-            cn: 设备组路径
           - field: isLeafNode
             component: Switch
             en: Leaf Node
             cn: 叶子节点
-          - field: useStatus
-            en: Use Status
-            cn: 设备组用途
           - field: descript
             en: Description
             cn: 描述
@@ -382,9 +640,7 @@ resources:
         - group_name
         - type
         - parent_id
-        - path
         - is_leaf_node
-        - use_status
         - descript
         - sort_order
         - visible
