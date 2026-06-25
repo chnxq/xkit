@@ -8,7 +8,8 @@
       "deviceGroupOrgUnit": "设备组组织单元关联",
       "deviceModelType": "设备类型",
       "deviceModel": "设备型号",
-      "device": "设备信息"
+      "device": "设备信息",
+      "deviceCenter": "设备中心"
     }
   }
 }

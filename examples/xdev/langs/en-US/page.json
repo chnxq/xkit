@@ -90,7 +90,8 @@
       "selectParentId": "Select Parent Group",
       "filterStatus": "Status",
       "selectFilterStatus": "Select Status",
-      "selectType": "Select Group Type"
+      "selectType": "Select Group Type",
+      "binding": "Binding Device"
     },
     "deviceGroupDevice": {
       "moduleName": "Device Group Device",

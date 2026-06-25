@@ -96,7 +96,8 @@
       "searchFilterUseStatus": "使用状态",
       "filterStatus": "状态",
       "selectFilterStatus": "选择状态",
-      "selectType": "选择设备组类型"
+      "selectType": "选择设备组类型",
+      "binding": "绑定设备"
     },
     "deviceGroupDevice": {
       "moduleName": "设备组设备关联",
