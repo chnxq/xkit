@@ -28,6 +28,10 @@ func buildModuleMenuResourceData(cfg config.HostModuleMenuConfig) moduleMenuReso
 	for _, child := range cfg.Children {
 		children = append(children, buildModuleMenuResourceData(child))
 	}
+	title := strings.TrimSpace(cfg.Meta.TitleKey)
+	if title == "" {
+		title = strings.TrimSpace(cfg.Meta.Title)
+	}
 	return moduleMenuResourceData{
 		Name:      strings.TrimSpace(cfg.Name),
 		Path:      strings.TrimSpace(cfg.Path),
@@ -43,8 +47,8 @@ func buildModuleMenuResourceData(cfg config.HostModuleMenuConfig) moduleMenuReso
 			HasLink:         strings.TrimSpace(cfg.Meta.Link) != "",
 			OpenInNewWindow: cfg.Meta.OpenInNewWindow,
 			HasOpenInNew:    cfg.Meta.OpenInNewWindow != nil,
-			Title:           strings.TrimSpace(cfg.Meta.Title),
-			HasTitle:        strings.TrimSpace(cfg.Meta.Title) != "",
+			Title:           title,
+			HasTitle:        title != "",
 		},
 		Children: children,
 	}

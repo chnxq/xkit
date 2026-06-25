@@ -2669,6 +2669,7 @@ type Device struct { ent.Schema }
 						Type:      "catalog",
 						Meta: config.HostModuleMenuMeta{
 							Title:     "设备管理",
+							TitleKey:  "menu.xdev.moduleName",
 							Icon:      "lucide:cpu",
 							Authority: []string{"xdev:dir"},
 						},
@@ -2680,6 +2681,7 @@ type Device struct { ent.Schema }
 								Type:      "menu",
 								Meta: config.HostModuleMenuMeta{
 									Title:     "设备信息",
+									TitleKey:  "menu.xdev.device",
 									Icon:      "lucide:hard-drive",
 									Authority: []string{"xdev:device:view"},
 								},
@@ -2727,10 +2729,10 @@ type Device struct { ent.Schema }
 	if !strings.Contains(generated, "func GeneratedSyncModuleResources") {
 		t.Fatalf("generated module resources missing sync function:\n%s", generated)
 	}
-	if !strings.Contains(generated, `Title: generatedModuleStringPtr("设备管理")`) {
+	if !strings.Contains(generated, `Title: generatedModuleStringPtr("menu.xdev.moduleName")`) {
 		t.Fatalf("generated module resources missing root title:\n%s", generated)
 	}
-	if !strings.Contains(generated, `Title: generatedModuleStringPtr("设备信息")`) {
+	if !strings.Contains(generated, `Title: generatedModuleStringPtr("menu.xdev.device")`) {
 		t.Fatalf("generated module resources missing child title:\n%s", generated)
 	}
 
