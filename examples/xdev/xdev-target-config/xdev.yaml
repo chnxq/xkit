@@ -66,6 +66,28 @@ host_module:
                 - xdev:device-group:edit
                 - xdev:device-group:delete
                 - xdev:device-group:export
+          - name: XdevDeviceCenter
+            path: /xdev/device-center
+            component: /xdev/device-center/index
+            type: menu
+            meta:
+              title: 设备中心
+              icon: lucide:layout-dashboard
+              authority:
+                - xdev:device:view
+                - xdev:device:create
+                - xdev:device:edit
+                - xdev:device:delete
+                - xdev:device:export
+                - xdev:device-group:view
+                - xdev:device-group:create
+                - xdev:device-group:edit
+                - xdev:device-group:delete
+                - xdev:device-group:export
+                - xdev:device-group-device:view
+                - xdev:device-group-device:create
+                - xdev:device-group-device:edit
+                - xdev:device-group-device:delete
 resources:
   - name: device
     proto_service: xdev.service.v1.DeviceService
