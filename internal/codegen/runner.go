@@ -200,6 +200,7 @@ type filterData struct {
 	CastType     string
 	ParseBitSize string
 	TimeField    string
+	SupportsIn   bool
 }
 
 type i18nEntry struct {

@@ -269,11 +269,30 @@ func (r *Runner) frontendColumns(plan resourcePlan) []frontendColumn {
 			Formatter:    frontendFormatter(field),
 			SlotsDefault: slotDefault,
 			TreeNode:     columnCfg.TreeNode,
-			Sortable:     field != "deviceInfo.userAgent",
+			Sortable:     r.frontendColumnSortable(plan, columnCfg, runtime),
 			Width:        width,
 		})
 	}
 	return columns
+}
+
+func (r *Runner) frontendColumnSortable(plan resourcePlan, columnCfg config.FrontendColumn, runtime frontendFieldRuntime) bool {
+	field := strings.TrimSpace(columnCfg.Field)
+	if field == "" || field == "deviceInfo.userAgent" {
+		return false
+	}
+	if runtime.Relation != nil {
+		return false
+	}
+	if r.frontendSchemaField(plan, field) != nil {
+		return true
+	}
+	switch simpleFieldName(field) {
+	case "tenantName", "scope":
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *Runner) frontendDialogFields(plan resourcePlan) []frontendDialogField {

@@ -19,14 +19,19 @@ import { Button, Form, message, Modal, Popconfirm, Space } from 'ant-design-vue'
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import AdminGeneratedForm from '#/components/admin-generated-form/index.vue';
+{{- if not .TreeEnabled }}
+import { normalizeAdminTableSortDirection } from '#/components/admin-table-toolbar/shared';
+{{- end }}
 import { $t } from '#/locales';
 
 import {
   buildFormOptions as buildGeneratedDialogFormOptions,
   buildListGridColumns as buildGeneratedListGridColumns,
   buildSearchFormOptions as buildGeneratedSearchFormOptions,
+{{- if not .TreeEnabled }}
   defaultSortDirection,
   defaultSortField,
+{{- end }}
   i18nPrefix,
 } from '{{ .MetaImportPath }}';
 import {
@@ -69,7 +74,7 @@ const {{ .OptionsMapVarName }} = computed(() =>
 );
 {{- end }}
 {{- if .TreeEnabled }}
-type TreeOption = TreeSelectProps['treeData'][number];
+type TreeOption = NonNullable<TreeSelectProps['treeData']>[number];
 
 const parentTreeOptions = computed<TreeOption[]>(() =>
   buildParentTreeOptions(treeItems.value, editingId.value),
@@ -247,7 +252,11 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
   proxyConfig: {
     ajax: {
       query: async (
+{{- if .TreeEnabled }}
+        {}: { page: any; sort: any },
+{{- else }}
         { page, sort }: { page: any; sort: any },
+{{- end }}
         formValues: Record<string, any>,
       ) => {
 {{- if .TreeEnabled }}
@@ -260,7 +269,8 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
         return result;
 {{- else }}
         const sortField = String(sort.field || defaultSortField);
-        const direction = sort.order === 'asc' ? 'ASC' : defaultSortDirection;
+        const direction =
+          normalizeAdminTableSortDirection(sort.order) ?? defaultSortDirection;
         return await {{ .ListFuncName }}({
           ...formValues,
           page: page.currentPage,
@@ -326,17 +336,17 @@ function buildParentTreeOptions(
       {
         children: children.length > 0 ? children : undefined,
         key: item.id,
-        label: item.name ?? item.groupName ?? `#${item.id}`,
+        label: (item as Record<string, any>).name ?? (item as Record<string, any>).groupName ?? `#${item.id}`,
         value: item.id,
       },
     ];
   });
 }
-{{- end }}
-
+{{- else }}
 function toBackendSortField(sortField: string) {
   return sortField.replaceAll(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);
 }
+{{- end }}
 
 async function openCreateModal() {
   editingId.value = undefined;

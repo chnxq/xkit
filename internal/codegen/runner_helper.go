@@ -625,6 +625,7 @@ func repoFilters(fields []entschema.Field, allowed []string) []filterData {
 			CastType:     filterCastType(field.Kind),
 			ParseBitSize: filterParseBitSize(field.Kind),
 			TimeField:    name,
+			SupportsIn:   kind == "Uint" || kind == "Int",
 		})
 		seen[name] = struct{}{}
 	}

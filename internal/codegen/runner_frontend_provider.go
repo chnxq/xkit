@@ -40,6 +40,7 @@ type frontendProviderTemplateData struct {
 	HasDelete              bool
 	FilterFields           []frontendProviderFilterField
 	RelationOptions        []frontendRelationOptionData
+	NeedsCleanText         bool
 	TypeImports            []string
 	ClientFuncs            []string
 }
@@ -53,14 +54,17 @@ type frontendProviderFilterField struct {
 }
 
 type frontendRelationOptionData struct {
-	FuncName          string
-	ResultType        string
-	ItemType          string
-	RelatedClientFunc string
-	RelatedListResult string
-	LabelField        string
-	ValueField        string
-	ImportPath        string
+	FuncName            string
+	ResultType          string
+	ItemType            string
+	WrapperItemType     string
+	RelatedClientFunc   string
+	RelatedListResult   string
+	LabelField          string
+	ValueField          string
+	ImportPath          string
+	UseAdminListWrapper bool
+	AdminListFunc       string
 }
 
 func (r *Runner) generateFrontendProviderFiles() (Result, error) {
@@ -148,6 +152,7 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 		HasDelete:              true,
 		FilterFields:           r.frontendProviderFilterFields(plan),
 		RelationOptions:        relationOptions,
+		NeedsCleanText:         frontendProviderNeedsCleanText(plan),
 		TypeImports:            typeImports,
 		ClientFuncs:            clientFuncs,
 	}
@@ -281,15 +286,33 @@ func (r *Runner) frontendProviderRelationOptions(plan resourcePlan) []frontendRe
 			return
 		}
 		resourceField := frontendResourceFieldName(resourceName)
+		useAdminListWrapper := dtoImport == "#/api/generated/admin/service/v1"
+		adminListFunc := ""
+		switch serviceName {
+		case "UserService":
+			adminListFunc = "listAdminUsersApi"
+		case "OrgUnitService":
+			adminListFunc = "listAdminOrgUnitsApi"
+		}
+		wrapperItemType := ""
+		switch serviceName {
+		case "UserService":
+			wrapperItemType = "AdminUser"
+		case "OrgUnitService":
+			wrapperItemType = "AdminOrgUnit"
+		}
 		items = append(items, frontendRelationOptionData{
-			FuncName:          "list" + resourceField + "Options",
-			ResultType:        "Admin" + resourceField + "Option",
-			ItemType:          resourceType,
-			RelatedClientFunc: "create" + serviceName + "Client",
-			RelatedListResult: serviceName + "ListResponse",
-			LabelField:        strings.TrimSpace(spec.LabelField),
-			ValueField:        strings.TrimSpace(spec.ValueField),
-			ImportPath:        dtoImport,
+			FuncName:            "list" + resourceField + "Options",
+			ResultType:          "Admin" + resourceField + "Option",
+			ItemType:            resourceType,
+			WrapperItemType:     wrapperItemType,
+			RelatedClientFunc:   "create" + serviceName + "Client",
+			RelatedListResult:   serviceName + "ListResponse",
+			LabelField:          strings.TrimSpace(spec.LabelField),
+			ValueField:          strings.TrimSpace(spec.ValueField),
+			ImportPath:          dtoImport,
+			UseAdminListWrapper: useAdminListWrapper && adminListFunc != "",
+			AdminListFunc:       adminListFunc,
 		})
 	}
 
@@ -362,6 +385,9 @@ func (r *Runner) frontendProviderImports(plan resourcePlan, items []frontendRela
 	addFunc("create" + serviceName + "Client")
 
 	for _, item := range items {
+		if item.UseAdminListWrapper {
+			continue
+		}
 		if item.ImportPath == r.frontendGeneratedAPIImportPath() {
 			addType(item.ItemType)
 			addType(item.RelatedListResult)
@@ -371,4 +397,17 @@ func (r *Runner) frontendProviderImports(plan resourcePlan, items []frontendRela
 	slices.Sort(typeImports)
 	slices.Sort(clientFuncs)
 	return typeImports, clientFuncs
+}
+
+func frontendProviderNeedsCleanText(plan resourcePlan) bool {
+	if plan.Resource.Frontend == nil || plan.Resource.Frontend.List == nil {
+		return false
+	}
+	for _, filter := range normalizedFrontendFilters(plan.Resource.Frontend.List.Filters) {
+		component := strings.TrimSpace(filter.Component)
+		if component == "" || component == "Input" {
+			return true
+		}
+	}
+	return false
 }

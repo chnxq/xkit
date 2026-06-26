@@ -9,12 +9,14 @@ import type {
 {{- end }}
 } from '{{ .GeneratedAPIImportPath }}';
 {{- range .RelationOptions }}
-{{- if ne .ImportPath $.GeneratedAPIImportPath }}
+{{- if .UseAdminListWrapper }}
+import type { {{ .WrapperItemType }} as {{ .ItemType }} } from '#/api/admin/{{- if eq .AdminListFunc "listAdminUsersApi" -}}users{{- else if eq .AdminListFunc "listAdminOrgUnitsApi" -}}org-units{{- end -}}';
+{{- else if ne .ImportPath $.GeneratedAPIImportPath }}
 import type { {{ .ItemType }}, {{ .RelatedListResult }} } from '{{ .ImportPath }}';
 {{- end }}
 {{- end }}
 
-import { getAdminList, toAdminTotal, toPagingRequest } from '#/api/admin/paging';
+import { getAdminList, {{- if not .TreeEnabled }} toAdminTotal, {{- end }} toPagingRequest } from '#/api/admin/paging';
 import { requestClient } from '#/api/request';
 import {
 {{- range .ClientFuncs }}
@@ -22,7 +24,9 @@ import {
 {{- end }}
 } from '{{ .GeneratedAPIImportPath }}';
 {{- range .RelationOptions }}
-{{- if ne .ImportPath $.GeneratedAPIImportPath }}
+{{- if .UseAdminListWrapper }}
+import { {{ .AdminListFunc }} } from '#/api/admin/{{- if eq .AdminListFunc "listAdminUsersApi" -}}users{{- else if eq .AdminListFunc "listAdminOrgUnitsApi" -}}org-units{{- end -}}';
+{{- else if ne .ImportPath $.GeneratedAPIImportPath }}
 import { {{ .RelatedClientFunc }} } from '{{ .ImportPath }}';
 {{- end }}
 {{- end }}
@@ -73,10 +77,12 @@ const transport = createRequestTransport();
 
 const client = {{ .CreateClientFunc }}(transport);
 
+{{- if .NeedsCleanText }}
 function cleanText(value?: string) {
   const text = value?.trim();
   return text || undefined;
 }
+{{- end }}
 
 function buildConditions(params: {{ .FrontendListParamsType }} = {}): AdminFilterCondition[] {
   const conditions: AdminFilterCondition[] = [];
@@ -187,6 +193,13 @@ export async function {{ .DeleteFuncName }}(id: number) {
 {{- range .RelationOptions }}
 
 export async function {{ .FuncName }}(): Promise<{{ .ResultType }}[]> {
+{{- if .UseAdminListWrapper }}
+  const response = await {{ .AdminListFunc }}({
+    page: 1,
+    pageSize: 200,
+    sorting: [{ direction: 'ASC', field: '{{ .ValueField }}' }],
+  });
+{{- else }}
   const relationClient = {{ .RelatedClientFunc }}(createRequestTransport());
   const response = await relationClient.List(
     toPagingRequest({
@@ -194,6 +207,7 @@ export async function {{ .FuncName }}(): Promise<{{ .ResultType }}[]> {
       pageSize: 200,
     }),
   ) as {{ .RelatedListResult }};
+{{- end }}
 
   return (response.items ?? []).map((item) => ({
     label: String(item.{{ .LabelField }} ?? ''),

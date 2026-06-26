@@ -563,7 +563,7 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoSharedFile, "func ensureTenantAccessible(") || !strings.Contains(repoSharedFile, "func viewerTenantID(") {
 		t.Fatalf("repo shared helper file is missing tenant scope helpers")
 	}
-	if !strings.Contains(repoFile, "sortField, sortDirection, err := firstSorting(listReq)") || !strings.Contains(repoFile, "offset, limit, applyPaging, err := resolvePaging(listReq)") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
+	if !strings.Contains(repoFile, "if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
 		t.Fatalf("repo file is missing generated List body")
 	}
 	if !strings.Contains(repoFile, "userRepoCustomList(context.Context, *ent.UserQuery, *paginationv1.PagingRequest) (*paginationv1.PagingRequest, error)") || !strings.Contains(repoFile, "pagingReq, err = custom.userRepoCustomList(ctx, builder, pagingReq)") {
@@ -2135,6 +2135,54 @@ func TestFrontendColumnsUseUnifiedRuntimeForEnumSlot(t *testing.T) {
 	}
 }
 
+func TestFrontendColumnsDisableSortingForRelationDisplayFields(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plan := resourcePlan{
+		ResourceField: "User",
+		Resource: config.Resource{
+			Frontend: &config.FrontendResourceConfig{
+				I18nPrefix: "page.user",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{
+						{
+							Field: "roles",
+							Relation: &config.FrontendRelationSpec{
+								Resource:   "role",
+								LabelField: "name",
+								ValueField: "id",
+							},
+						},
+						{Field: "createdAt"},
+						{Field: "tenantName"},
+					},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "created_at", Kind: "Time"},
+				{Name: "tenant_id", Kind: "Uint32"},
+			},
+		},
+	}
+
+	columns := runner.frontendColumns(plan)
+	if len(columns) != 3 {
+		t.Fatalf("unexpected columns: %+v", columns)
+	}
+	if columns[0].Sortable {
+		t.Fatalf("relation display column should not be sortable: %+v", columns[0])
+	}
+	if !columns[1].Sortable {
+		t.Fatalf("schema-backed createdAt column should stay sortable: %+v", columns[1])
+	}
+	if !columns[2].Sortable {
+		t.Fatalf("tenantName ownership column should stay sortable: %+v", columns[2])
+	}
+}
+
 func TestFrontendProviderTemplateUsesTreeMode(t *testing.T) {
 	t.Parallel()
 
@@ -2460,11 +2508,11 @@ func TestFrontendProviderTemplateSupportsHostRelationImports(t *testing.T) {
 	if !strings.Contains(got, "UserServiceListResponse") || !strings.Contains(got, "User,") {
 		t.Fatalf("host relation provider should import host DTO types:\n%s", got)
 	}
-	if !strings.Contains(got, "createUserServiceClient") {
-		t.Fatalf("host relation provider should import host client factory:\n%s", got)
+	if !strings.Contains(got, "listAdminUsersApi") {
+		t.Fatalf("host relation provider should use host admin list wrapper:\n%s", got)
 	}
-	if !strings.Contains(got, "const relationClient = createUserServiceClient(createRequestTransport());") {
-		t.Fatalf("host relation provider should create host relation client:\n%s", got)
+	if !strings.Contains(got, "import { listAdminUsersApi } from '#/api/admin/users';") {
+		t.Fatalf("host relation provider should import host admin users api wrapper:\n%s", got)
 	}
 }
 

@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-kratos/kratos/v2/errors"
+	xerrors "github.com/chnxq/xkitmod/errors"
 	paginationv1 "github.com/chnxq/x-crud/api/gen/pagination/v1"
 {{- if .NeedsTenantHelpers }}
 	crudviewer "github.com/chnxq/x-crud/viewer"
@@ -214,7 +214,7 @@ func viewerTenantID(ctx context.Context) *uint32 {
 
 {{- if .NeedsTenantHelpers }}
 func forbiddenError(format string, args ...interface{}) error {
-	return errors.New(403, "FORBIDDEN", fmt.Sprintf(format, args...))
+	return xerrors.New(403, "FORBIDDEN", fmt.Sprintf(format, args...))
 }
 {{- end }}
 

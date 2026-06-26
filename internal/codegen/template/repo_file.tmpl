@@ -137,20 +137,50 @@ func (r *{{ .RepoStructName }}) applyGeneratedFilters(builder *ent.{{ .EntOperat
 				builder.Where({{ $.EntPackage }}.{{ .Predicate }}EQ({{ $.EntPackage }}.{{ .Predicate }}(condition.GetValue())))
 			}
 {{else if eq .Kind "Uint"}}
-			if condition.GetOp() == paginationv1.Operator_EQ {
+			switch condition.GetOp() {
+			case paginationv1.Operator_EQ:
 				value, err := strconv.ParseUint(condition.GetValue(), 10, {{ .ParseBitSize }})
 				if err != nil {
 					return fmt.Errorf("invalid {{ .Field }} filter value: %w", err)
 				}
 				builder.Where({{ $.EntPackage }}.{{ .Predicate }}EQ({{ .CastType }}(value)))
+{{- if .SupportsIn }}
+			case paginationv1.Operator_IN:
+				values := make([]{{ .CastType }}, 0, len(condition.GetValues()))
+				for _, raw := range condition.GetValues() {
+					value, err := strconv.ParseUint(raw, 10, {{ .ParseBitSize }})
+					if err != nil {
+						return fmt.Errorf("invalid {{ .Field }} filter value: %w", err)
+					}
+					values = append(values, {{ .CastType }}(value))
+				}
+				if len(values) > 0 {
+					builder.Where({{ $.EntPackage }}.{{ .Predicate }}In(values...))
+				}
+{{- end }}
 			}
 {{else if eq .Kind "Int"}}
-			if condition.GetOp() == paginationv1.Operator_EQ {
+			switch condition.GetOp() {
+			case paginationv1.Operator_EQ:
 				value, err := strconv.ParseInt(condition.GetValue(), 10, {{ .ParseBitSize }})
 				if err != nil {
 					return fmt.Errorf("invalid {{ .Field }} filter value: %w", err)
 				}
 				builder.Where({{ $.EntPackage }}.{{ .Predicate }}EQ({{ .CastType }}(value)))
+{{- if .SupportsIn }}
+			case paginationv1.Operator_IN:
+				values := make([]{{ .CastType }}, 0, len(condition.GetValues()))
+				for _, raw := range condition.GetValues() {
+					value, err := strconv.ParseInt(raw, 10, {{ .ParseBitSize }})
+					if err != nil {
+						return fmt.Errorf("invalid {{ .Field }} filter value: %w", err)
+					}
+					values = append(values, {{ .CastType }}(value))
+				}
+				if len(values) > 0 {
+					builder.Where({{ $.EntPackage }}.{{ .Predicate }}In(values...))
+				}
+{{- end }}
 			}
 {{else if eq .Kind "Time"}}
 			value, err := {{ $.FilterTimeHelperName }}(condition.GetValue(), "{{ .TimeField }}")
@@ -429,7 +459,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		dto = items[0]
 	}
 
-	return dto, nil
+	return &{{ .ResponseType | trimPointer }}{ Data: dto }, nil
 {{else if eq .Kind "list"}}
 	if req == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
@@ -484,25 +514,8 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		listReq.Limit = &limit
 		listReq.Offset = &offset
 	}
-	sortField, sortDirection, err := {{if $.UseSharedModule}}modulex.FirstSorting{{else}}firstSorting{{end}}(listReq)
-	if err != nil {
+	if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {
 		return {{ .ZeroReturn }}, err
-	}
-	if sortField != "" {
-		switch sortDirection {
-		case paginationv1.Sorting_DESC:
-			builder.Order(ent.Desc(sortField))
-		default:
-			builder.Order(ent.Asc(sortField))
-		}
-	}
-	offset, limit, applyPaging, err := {{if $.UseSharedModule}}modulex.ResolvePaging{{else}}resolvePaging{{end}}(listReq)
-	if err != nil {
-		return {{ .ZeroReturn }}, err
-	}
-	if applyPaging {
-		builder.Offset(offset)
-		builder.Limit(limit)
 	}
 	total, err := countBuilder.Count(ctx)
 	if err != nil {
