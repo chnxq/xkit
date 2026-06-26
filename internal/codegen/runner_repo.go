@@ -92,19 +92,25 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 			return result, err
 		}
 	} else {
-		sharedContent, err := renderTemplate(codegentemplate.RepoSharedExt, struct {
-			templateBase
-			NeedsTenantHelpers bool
-		}{
-			templateBase:       r.templateBase(),
-			NeedsTenantHelpers: needsTenantHelpers,
-		})
-		if err != nil {
-			return result, err
-		}
 		sharedPath := filepath.Join(r.internalDir("data", "repo"), "repo_shared_ext.go")
-		if err := r.writeGeneratedFile(sharedPath, sharedContent, &result); err != nil {
-			return result, err
+		if r.hasLegacyRepoSharedHelpers() {
+			if err := r.removeObsoleteGeneratedFile(sharedPath); err != nil {
+				return result, err
+			}
+		} else {
+			sharedContent, err := renderTemplate(codegentemplate.RepoSharedExt, struct {
+				templateBase
+				NeedsTenantHelpers bool
+			}{
+				templateBase:       r.templateBase(),
+				NeedsTenantHelpers: needsTenantHelpers,
+			})
+			if err != nil {
+				return result, err
+			}
+			if err := r.writeGeneratedFile(sharedPath, sharedContent, &result); err != nil {
+				return result, err
+			}
 		}
 	}
 
@@ -146,6 +152,20 @@ func (r *Runner) generateRepoFiles() (Result, error) {
 	}
 
 	return result, nil
+}
+
+func (r *Runner) hasLegacyRepoSharedHelpers() bool {
+	repoRoot := r.internalDir("data", "repo")
+	legacyFiles := []string{
+		"list_sorting_ext.go",
+		"tenant_scope_ext.go",
+	}
+	for _, name := range legacyFiles {
+		if _, err := os.Stat(filepath.Join(repoRoot, name)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func repoNeedsTenantHelpers(plans []resourcePlan) bool {

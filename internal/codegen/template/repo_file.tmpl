@@ -429,12 +429,13 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		dto = items[0]
 	}
 
-	return &{{ .ResponseType | trimPointer }}{Data: dto}, nil
+	return dto, nil
 {{else if eq .Kind "list"}}
 	if req == nil {
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid parameter")
 	}
 	pagingReq := {{ .PagingReqExpr }}
+	var err error
 
 	builder := r.entClient.Client().{{ $.EntityName }}.Query()
 	countBuilder := r.entClient.Client().{{ $.EntityName }}.Query()
@@ -444,6 +445,22 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 		countBuilder.Where({{ $.EntPackage }}.TenantIDEQ(*tenantID))
 	}
 {{- end}}
+	if custom, ok := any(r).(interface {
+		{{ $.RepoStructName }}CustomList(context.Context, *ent.{{ $.EntOperationName }}Query, *paginationv1.PagingRequest) (*paginationv1.PagingRequest, error)
+	}); ok {
+		pagingReq, err = custom.{{ $.RepoStructName }}CustomList(ctx, builder, pagingReq)
+		if err != nil {
+			return {{ .ZeroReturn }}, err
+		}
+	}
+	if custom, ok := any(r).(interface {
+		{{ $.RepoStructName }}CustomList(context.Context, *ent.{{ $.EntOperationName }}Query, *paginationv1.PagingRequest) (*paginationv1.PagingRequest, error)
+	}); ok {
+		pagingReq, err = custom.{{ $.RepoStructName }}CustomList(ctx, countBuilder, pagingReq)
+		if err != nil {
+			return {{ .ZeroReturn }}, err
+		}
+	}
 {{if .UsesFilters}}
 	if err := r.applyGeneratedFilters(builder, pagingReq); err != nil {
 		return {{ .ZeroReturn }}, err
