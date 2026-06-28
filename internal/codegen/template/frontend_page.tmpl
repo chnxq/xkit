@@ -14,6 +14,9 @@ import { computed, nextTick, {{- if .RelationRuntimes }} onMounted,{{- end }} re
 
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
+{{- if .TenantScoped }}
+import { useUserStore } from '@vben/stores';
+{{- end }}
 
 import { Button, Form, message, Modal, Popconfirm, Space } from 'ant-design-vue';
 
@@ -50,12 +53,23 @@ const submitting = ref(false);
 const optionLoading = ref(false);
 {{- end }}
 const editingId = ref<number>();
+{{- if .TenantScoped }}
+const editingReadonly = ref(false);
+const userStore = useUserStore();
+const currentTenantId = computed(() => userStore.userInfo?.tenantId ?? 0);
+{{- end }}
 const formRef = ref();
 const formModel = reactive<Record<string, any>>({});
 
 const modalTitle = computed(() =>
   editingId.value
+{{- if .TenantScoped }}
+    ? editingReadonly.value
+      ? $t('common.detail')
+      : $t(`${i18nPrefix}.editTitle`) || $t('common.edit')
+{{- else }}
     ? $t(`${i18nPrefix}.editTitle`) || $t('common.edit')
+{{- end }}
     : $t(`${i18nPrefix}.createTitle`) || $t('common.create'),
 );
 
@@ -347,9 +361,18 @@ function toBackendSortField(sortField: string) {
   return sortField.replaceAll(/[A-Z]/g, (match) => `_${match.toLowerCase()}`);
 }
 {{- end }}
+{{- if .TenantScoped }}
+
+function canMutateRecord(record: {{ .EntityType }}) {
+  return (record.tenantId ?? 0) === currentTenantId.value;
+}
+{{- end }}
 
 async function openCreateModal() {
   editingId.value = undefined;
+{{- if .TenantScoped }}
+  editingReadonly.value = false;
+{{- end }}
   resetFormModel();
   modalOpen.value = true;
   await nextTick();
@@ -361,6 +384,9 @@ async function openEditModal(record: {{ .EntityType }}) {
     return;
   }
   editingId.value = record.id;
+{{- if .TenantScoped }}
+  editingReadonly.value = !canMutateRecord(record);
+{{- end }}
   const data = await {{ .GetFuncName }}(record.id);
   resetFormModel();
   Object.assign(formModel, data || {});
@@ -370,6 +396,12 @@ async function openEditModal(record: {{ .EntityType }}) {
 }
 
 async function handleSubmit() {
+{{- if .TenantScoped }}
+  if (editingReadonly.value) {
+    modalOpen.value = false;
+    return;
+  }
+{{- end }}
   await formRef.value?.validate();
   submitting.value = true;
   try {
@@ -468,13 +500,13 @@ onMounted(() => {
       <template #action="{ row }">
         <Space>
           <Button size="small" type="link" @click="openEditModal(row)">
-            {{ "{{" }} $t('common.edit') {{ "}}" }}
+            {{ "{{" }} {{- if .TenantScoped }} canMutateRecord(row) ? $t('common.edit') : $t('common.detail') {{- else }} $t('common.edit') {{- end }} {{ "}}" }}
           </Button>
           <Popconfirm
             :title="$t('ui.actionMessage.deleteConfirm', [$t('{{ .PageModuleNameKey }}')])"
             @confirm="handleDelete(row)"
           >
-            <Button danger size="small" type="link">
+            <Button danger size="small" type="link"{{- if .TenantScoped }} :disabled="!canMutateRecord(row)"{{- end }}>
               {{ "{{" }} $t('common.delete') {{ "}}" }}
             </Button>
           </Popconfirm>
@@ -497,6 +529,9 @@ onMounted(() => {
     <Modal
       v-model:open="modalOpen"
       :confirm-loading="submitting"
+      {{- if .TenantScoped }}
+      :ok-button-props="{ disabled: editingReadonly }"
+      {{- end }}
       :title="modalTitle"
       destroy-on-close
       width="720px"

@@ -28,6 +28,7 @@ type frontendPageTemplateData struct {
 	PageModuleNameKey  string
 	ExportEnabled      bool
 	ExportFilename     string
+	TenantScoped       bool
 	TreeEnabled        bool
 	TreeChildrenField  string
 	TreeParentField    string
@@ -133,6 +134,7 @@ func (r *Runner) frontendPageData(plan resourcePlan) frontendPageTemplateData {
 		PageModuleNameKey:  pageModuleNameKey,
 		ExportEnabled:      plan.Resource.Operations["export"],
 		ExportFilename:     r.frontendExportFilename(plan),
+		TenantScoped:       strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped" || hasField(plan.Schema.Fields, "tenant_id"),
 		TreeEnabled:        plan.Resource.Tree != nil,
 		TreeChildrenField:  r.frontendTreeChildrenField(plan),
 		TreeParentField:    r.frontendTreeParentField(plan),

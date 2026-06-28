@@ -2516,6 +2516,57 @@ func TestFrontendProviderTemplateSupportsHostRelationImports(t *testing.T) {
 	}
 }
 
+func TestFrontendPageTemplateRendersReadonlyDetailModeForTenantScopedResource(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plan := resourcePlan{
+		ResourceField: "Device",
+		Resource: config.Resource{
+			Name:          "device",
+			TenantScope:   "tenant_scoped",
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath:   "device/device",
+				I18nPrefix: "page.device",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{
+						{Field: "deviceCode"},
+					},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "tenant_id", Kind: "Uint32"},
+			},
+		},
+	}
+
+	content, err := renderAnyTemplate(codegentemplate.FrontendPage, runner.frontendPageData(plan))
+	if err != nil {
+		t.Fatalf("render frontend page: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "import { useUserStore } from '@vben/stores';") {
+		t.Fatalf("tenant scoped page should import user store:\n%s", got)
+	}
+	if !strings.Contains(got, "const editingReadonly = ref(false);") {
+		t.Fatalf("tenant scoped page should declare editingReadonly:\n%s", got)
+	}
+	if !strings.Contains(got, "function canMutateRecord(record: AdminDevice)") {
+		t.Fatalf("tenant scoped page should generate canMutateRecord helper:\n%s", got)
+	}
+	if !strings.Contains(got, "? $t('common.detail')") {
+		t.Fatalf("tenant scoped page should use detail title/action text:\n%s", got)
+	}
+	if !strings.Contains(got, ":ok-button-props=\"{ disabled: editingReadonly }\"") {
+		t.Fatalf("tenant scoped page should disable modal ok button in readonly mode:\n%s", got)
+	}
+	if !strings.Contains(got, ":disabled=\"!canMutateRecord(row)\"") {
+		t.Fatalf("tenant scoped page should disable destructive action for cross-tenant rows:\n%s", got)
+	}
+}
+
 func TestWriteGeneratedFileSkipsTimestampOnlyChanges(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "internal", "service", "user_service.gen.go")
