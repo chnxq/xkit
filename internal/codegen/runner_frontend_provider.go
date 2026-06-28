@@ -60,11 +60,13 @@ type frontendRelationOptionData struct {
 	WrapperItemType     string
 	RelatedClientFunc   string
 	RelatedListResult   string
+	RelatedListPath     string
 	LabelField          string
 	ValueField          string
 	ImportPath          string
 	UseAdminListWrapper bool
 	AdminListFunc       string
+	TenantScoped        bool
 }
 
 func (r *Runner) generateFrontendProviderFiles() (Result, error) {
@@ -272,9 +274,11 @@ func (r *Runner) frontendProviderRelationOptions(plan resourcePlan) []frontendRe
 				ItemType:          relatedEntityType,
 				RelatedClientFunc: "create" + relatedServiceName + "Client",
 				RelatedListResult: relatedServiceName + "ListResponse",
+				RelatedListPath:   r.frontendProviderListPath(relatedPlan),
 				LabelField:        strings.TrimSpace(spec.LabelField),
 				ValueField:        strings.TrimSpace(spec.ValueField),
 				ImportPath:        r.frontendGeneratedAPIImportPath(),
+				TenantScoped:      strings.TrimSpace(relatedPlan.Resource.TenantScope) == "tenant_scoped" || hasField(relatedPlan.Schema.Fields, "tenant_id"),
 			})
 			return
 		}
@@ -313,6 +317,7 @@ func (r *Runner) frontendProviderRelationOptions(plan resourcePlan) []frontendRe
 			ImportPath:          dtoImport,
 			UseAdminListWrapper: useAdminListWrapper && adminListFunc != "",
 			AdminListFunc:       adminListFunc,
+			TenantScoped:        true,
 		})
 	}
 
@@ -391,7 +396,6 @@ func (r *Runner) frontendProviderImports(plan resourcePlan, items []frontendRela
 		if item.ImportPath == r.frontendGeneratedAPIImportPath() {
 			addType(item.ItemType)
 			addType(item.RelatedListResult)
-			addFunc(item.RelatedClientFunc)
 		}
 	}
 	slices.Sort(typeImports)

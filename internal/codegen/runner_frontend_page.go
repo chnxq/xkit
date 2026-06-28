@@ -44,11 +44,13 @@ type frontendRelationRuntime struct {
 	FieldName           string
 	FuncName            string
 	OptionsVarName      string
+	DialogOptionsVarName string
 	OptionsMapVarName   string
 	PlaceholderKey      string
 	ResolveFuncName     string
 	SearchPatchFuncName string
 	DialogPatchFuncName string
+	TenantScoped        bool
 }
 
 type frontendEnumRuntime struct {
@@ -248,14 +250,23 @@ func (r *Runner) frontendRelationRuntimes(plan resourcePlan) []frontendRelationR
 			FieldName:           fieldName,
 			FuncName:            "list" + relationResourceField + "Options",
 			OptionsVarName:      optionsVar,
+			DialogOptionsVarName: optionsVar + "Dialog",
 			OptionsMapVarName:   optionsVar + "Map",
 			PlaceholderKey:      runtime.Relation.PlaceholderKey,
 			ResolveFuncName:     "resolve" + suffix + "Label",
 			SearchPatchFuncName: "patchSearch" + suffix + "Field",
 			DialogPatchFuncName: "patchDialog" + suffix + "Field",
+			TenantScoped:        runtime.Relation != nil && runtime.Relation.ResourceField != "" && r.frontendRelationOptionTenantScoped(plan, frontendSnakeCase(runtime.Relation.ResourceField)),
 		})
 	}
 	return items
+}
+
+func (r *Runner) frontendRelationOptionTenantScoped(plan resourcePlan, resourceName string) bool {
+	if relatedPlan, ok := r.findPlanByResourceName(strings.TrimSpace(resourceName)); ok {
+		return strings.TrimSpace(relatedPlan.Resource.TenantScope) == "tenant_scoped" || hasField(relatedPlan.Schema.Fields, "tenant_id")
+	}
+	return true
 }
 
 func (r *Runner) frontendEnumRuntimes(plan resourcePlan) []frontendEnumRuntime {

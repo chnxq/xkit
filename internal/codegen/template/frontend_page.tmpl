@@ -83,6 +83,7 @@ const treeItems = ref<{{ .EntityType }}[]>([]);
 {{- end }}
 {{- range .RelationRuntimes }}
 const {{ .OptionsVarName }} = ref<Array<{ label: string; value: number | string }>>([]);
+const {{ .DialogOptionsVarName }} = ref<Array<{ label: string; value: number | string }>>([]);
 const {{ .OptionsMapVarName }} = computed(() =>
   new Map({{ .OptionsVarName }}.value.map((item) => [item.value, item.label])),
 );
@@ -136,7 +137,7 @@ function {{ .DialogPatchFuncName }}(item: any) {
       ...resolveComponentProps(item),
       allowClear: true,
       loading: optionLoading.value,
-      options: {{ .OptionsVarName }}.value,
+      options: {{ .DialogOptionsVarName }}.value,
       placeholder: $t(`${i18nPrefix}.{{ .PlaceholderKey }}`),
       showSearch: true,
     },
@@ -373,6 +374,9 @@ async function openCreateModal() {
 {{- if .TenantScoped }}
   editingReadonly.value = false;
 {{- end }}
+{{- if .RelationRuntimes }}
+  await loadRelationOptionsForTenant();
+{{- end }}
   resetFormModel();
   modalOpen.value = true;
   await nextTick();
@@ -381,18 +385,30 @@ async function openCreateModal() {
 
 async function openEditModal(record: {{ .EntityType }}) {
   if (!record.id) {
+    message.warning($t('common.detail'));
     return;
   }
-  editingId.value = record.id;
+  try {
+    editingId.value = record.id;
 {{- if .TenantScoped }}
-  editingReadonly.value = !canMutateRecord(record);
+    editingReadonly.value = !canMutateRecord(record);
 {{- end }}
-  const data = await {{ .GetFuncName }}(record.id);
-  resetFormModel();
-  Object.assign(formModel, data || {});
-  modalOpen.value = true;
-  await nextTick();
-  formRef.value?.clearValidate();
+    const data = await {{ .GetFuncName }}(record.id);
+    if (!data) {
+      message.warning($t('common.detail'));
+      return;
+    }
+{{- if .RelationRuntimes }}
+    await loadRelationOptionsForTenant(data?.tenantId);
+{{- end }}
+    resetFormModel();
+    Object.assign(formModel, data);
+    modalOpen.value = true;
+    await nextTick();
+    formRef.value?.clearValidate();
+  } catch (error) {
+    message.error((error as Error)?.message || $t('common.detail'));
+  }
 }
 
 async function handleSubmit() {
@@ -448,14 +464,24 @@ function {{ .ResolveFuncName }}(value: string | undefined) {
 {{- if .RelationRuntimes }}
 
 async function loadRelationOptions() {
+  return await loadRelationOptionsForTenant();
+}
+
+async function loadRelationOptionsForTenant(tenantId?: number) {
   optionLoading.value = true;
   try {
 {{- range .RelationRuntimes }}
-    {{ .OptionsVarName }}.value = await {{ .FuncName }}();
+    {{ .DialogOptionsVarName }}.value = await {{ .FuncName }}({{ if .TenantScoped }}tenantId{{ end }});
 {{- end }}
   } finally {
     optionLoading.value = false;
   }
+}
+
+async function loadStaticRelationOptions() {
+{{- range .RelationRuntimes }}
+  {{ .OptionsVarName }}.value = await {{ .FuncName }}();
+{{- end }}
 }
 {{- end }}
 
@@ -467,6 +493,7 @@ const [Grid, gridApi] = useVbenVxeGrid<{{ .EntityType }}>({
 {{- if .RelationRuntimes }}
 
 onMounted(() => {
+  void loadStaticRelationOptions();
   void loadRelationOptions();
 });
 {{- end }}

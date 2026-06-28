@@ -192,21 +192,36 @@ export async function {{ .DeleteFuncName }}(id: number) {
 {{- end }}
 {{- range .RelationOptions }}
 
-export async function {{ .FuncName }}(): Promise<{{ .ResultType }}[]> {
+export async function {{ .FuncName }}(tenantId?: number): Promise<{{ .ResultType }}[]> {
 {{- if .UseAdminListWrapper }}
   const response = await {{ .AdminListFunc }}({
     page: 1,
     pageSize: 200,
     sorting: [{ direction: 'ASC', field: '{{ .ValueField }}' }],
+{{- if .TenantScoped }}
+    tenantId,
+{{- end }}
   });
 {{- else }}
-  const relationClient = {{ .RelatedClientFunc }}(createRequestTransport());
-  const response = await relationClient.List(
+  const response = await getAdminList<{{ .RelatedListResult }}>(
+    '{{ .RelatedListPath }}',
     toPagingRequest({
+{{- if .TenantScoped }}
+      conditions:
+        tenantId !== undefined
+          ? [
+              {
+                field: 'tenant_id',
+                op: 'EQ',
+                value: tenantId,
+              },
+            ]
+          : undefined,
+{{- end }}
       page: 1,
       pageSize: 200,
     }),
-  ) as {{ .RelatedListResult }};
+  );
 {{- end }}
 
   return (response.items ?? []).map((item) => ({

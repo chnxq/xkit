@@ -2522,8 +2522,12 @@ func TestFrontendPageTemplateRendersReadonlyDetailModeForTenantScopedResource(t 
 	runner := &Runner{}
 	plan := resourcePlan{
 		ResourceField: "Device",
+		Binding: binding.ServiceBinding{
+			ServiceName: "DeviceService",
+		},
 		Resource: config.Resource{
 			Name:          "device",
+			ProtoService:  "xdev.service.v1.DeviceService",
 			TenantScope:   "tenant_scoped",
 			Frontend: &config.FrontendResourceConfig{
 				ViewPath:   "device/device",
@@ -2531,6 +2535,26 @@ func TestFrontendPageTemplateRendersReadonlyDetailModeForTenantScopedResource(t 
 				List: &config.FrontendListConfig{
 					Columns: []config.FrontendColumn{
 						{Field: "deviceCode"},
+						{
+							Field: "modelId",
+							Relation: &config.FrontendRelationSpec{
+								Resource:   "device_model",
+								LabelField: "modelName",
+								ValueField: "id",
+							},
+						},
+					},
+				},
+				Form: &config.FrontendDialogConfig{
+					Fields: []config.FrontendColumn{
+						{
+							Field: "modelId",
+							Relation: &config.FrontendRelationSpec{
+								Resource:   "device_model",
+								LabelField: "modelName",
+								ValueField: "id",
+							},
+						},
 					},
 				},
 			},
@@ -2564,6 +2588,149 @@ func TestFrontendPageTemplateRendersReadonlyDetailModeForTenantScopedResource(t 
 	}
 	if !strings.Contains(got, ":disabled=\"!canMutateRecord(row)\"") {
 		t.Fatalf("tenant scoped page should disable destructive action for cross-tenant rows:\n%s", got)
+	}
+	if !strings.Contains(got, "await loadRelationOptionsForTenant(data?.tenantId);") {
+		t.Fatalf("tenant scoped page should reload relation options using detail tenantId in edit mode:\n%s", got)
+	}
+	if !strings.Contains(got, "deviceModelOptionsDialog.value = await listDeviceModelOptions(tenantId);") {
+		t.Fatalf("tenant scoped relation options should be filtered by detail tenantId:\n%s", got)
+	}
+	if !strings.Contains(got, "deviceModelOptions.value = await listDeviceModelOptions();") {
+		t.Fatalf("list relation label cache should stay on static options:\n%s", got)
+	}
+}
+
+func TestFrontendProviderTemplateRendersTenantScopedRelationOptions(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{}
+	plan := resourcePlan{
+		ResourceField: "Device",
+		Binding: binding.ServiceBinding{
+			ServiceName: "DeviceService",
+		},
+		Resource: config.Resource{
+			Name:        "device",
+			Entity:      "Device",
+			DTOType:     "Device",
+			TenantScope: "tenant_scoped",
+			Generate: config.GenerateFlags{
+				ServiceStub: true,
+			},
+			Operations: config.OperationFlags{
+				"list":   true,
+				"get":    true,
+				"create": true,
+				"update": true,
+				"delete": true,
+			},
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath:   "device/device",
+				I18nPrefix: "page.device",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{
+						{
+							Field: "modelId",
+							Relation: &config.FrontendRelationSpec{
+								Resource:   "device_model",
+								LabelField: "modelName",
+								ValueField: "id",
+							},
+						},
+					},
+				},
+				Form: &config.FrontendDialogConfig{
+					Fields: []config.FrontendColumn{
+						{
+							Field: "modelId",
+							Relation: &config.FrontendRelationSpec{
+								Resource:   "device_model",
+								LabelField: "modelName",
+								ValueField: "id",
+							},
+						},
+					},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "tenant_id", Kind: "Uint32"},
+				{Name: "model_id", Kind: "Uint32"},
+			},
+		},
+	}
+	runner.config = config.Config{
+		Resources: []config.Resource{
+			{
+				Name:         "device",
+				ProtoService: "xdev.service.v1.DeviceService",
+				Entity:       "Device",
+				DTOType:      "Device",
+				TenantScope:  "tenant_scoped",
+				Generate: config.GenerateFlags{
+					ServiceStub: true,
+				},
+				Operations: config.OperationFlags{
+					"list":   true,
+					"get":    true,
+					"create": true,
+					"update": true,
+					"delete": true,
+				},
+				Frontend: plan.Resource.Frontend,
+			},
+			{
+				Name:         "device_model",
+				ProtoService: "xdev.service.v1.DeviceModelService",
+				Entity:       "DeviceModel",
+				DTOType:      "DeviceModel",
+				TenantScope:  "tenant_scoped",
+				Generate: config.GenerateFlags{
+					ServiceStub: true,
+				},
+				Operations: config.OperationFlags{
+					"list": true,
+				},
+			},
+		},
+	}
+	runner.bindingIndex = map[string]binding.ServiceBinding{
+		"xdev.service.v1.DeviceService": {
+			ServiceName: "DeviceService",
+		},
+		"xdev.service.v1.DeviceModelService": {
+			ServiceName: "DeviceModelService",
+		},
+	}
+	runner.protoIndex = map[string]xproto.Service{
+		"xdev.service.v1.DeviceService":      {},
+		"xdev.service.v1.DeviceModelService": {},
+	}
+	runner.schemaIndex = map[string]entschema.Schema{
+		"Device": {
+			Fields: []entschema.Field{
+				{Name: "tenant_id", Kind: "Uint32"},
+				{Name: "model_id", Kind: "Uint32"},
+			},
+		},
+		"DeviceModel": {
+			Fields: []entschema.Field{
+				{Name: "tenant_id", Kind: "Uint32"},
+			},
+		},
+	}
+
+	content, err := renderAnyTemplate(codegentemplate.FrontendProvider, runner.frontendProviderData(plan))
+	if err != nil {
+		t.Fatalf("render frontend provider: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "export async function listDeviceModelOptions(tenantId?: number)") {
+		t.Fatalf("relation option provider should accept optional tenantId:\n%s", got)
+	}
+	if !strings.Contains(got, "field: 'tenant_id'") || !strings.Contains(got, "value: tenantId") {
+		t.Fatalf("relation option provider should filter by tenant_id when tenantId is provided:\n%s", got)
 	}
 }
 
