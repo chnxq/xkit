@@ -38,6 +38,9 @@ export interface {{ .FrontendListParamsType }} {
 {{- range .FilterFields }}
   {{ .FieldName }}?: {{ .Type }};
 {{- end }}
+{{- if .TenantScoped }}
+  tenantId?: number;
+{{- end }}
   page?: number;
   pageSize?: number;
   sorting?: AdminSorting[];
@@ -104,6 +107,15 @@ function buildConditions(params: {{ .FrontendListParamsType }} = {}): AdminFilte
     });
   }
 {{- end }}
+{{- end }}
+{{- if .TenantScoped }}
+  if (params.tenantId !== undefined && params.tenantId !== null) {
+    conditions.push({
+      field: 'tenant_id',
+      op: 'EQ',
+      value: params.tenantId,
+    });
+  }
 {{- end }}
   return conditions;
 }

@@ -41,6 +41,7 @@ type frontendProviderTemplateData struct {
 	FilterFields           []frontendProviderFilterField
 	RelationOptions        []frontendRelationOptionData
 	NeedsCleanText         bool
+	TenantScoped           bool
 	TypeImports            []string
 	ClientFuncs            []string
 }
@@ -155,6 +156,7 @@ func (r *Runner) frontendProviderData(plan resourcePlan) frontendProviderTemplat
 		FilterFields:           r.frontendProviderFilterFields(plan),
 		RelationOptions:        relationOptions,
 		NeedsCleanText:         frontendProviderNeedsCleanText(plan),
+		TenantScoped:           strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped" || hasField(plan.Schema.Fields, "tenant_id"),
 		TypeImports:            typeImports,
 		ClientFuncs:            clientFuncs,
 	}

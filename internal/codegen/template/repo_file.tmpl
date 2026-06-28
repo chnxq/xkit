@@ -370,7 +370,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 {{- end}}
 		if err := r.entClient.Client().{{ $.EntityName }}.DeleteOneID(typedReq.GetId()).Exec(ctx); err != nil {
 			r.log.Errorf("delete {{ $.ResourceName }} failed: %s", err.Error())
-			return {{ .ZeroReturn }}, err
+			return {{ .ZeroReturn }}, {{if $.UseSharedModule}}modulex.NormalizeDeleteConstraintError{{else}}normalizeDeleteConstraintError{{end}}(err)
 		}
 	case interface{ GetIds() []{{ $.IDType }} }:
 {{- if eq $.TenantScope "tenant_scoped"}}
@@ -387,7 +387,7 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 {{- end}}
 		if _, err := r.entClient.Client().{{ $.EntityName }}.Delete().Where({{ $.EntPackage }}.IDIn(typedReq.GetIds()...)).Exec(ctx); err != nil {
 			r.log.Errorf("delete {{ $.ResourceName }} failed: %s", err.Error())
-			return {{ .ZeroReturn }}, err
+			return {{ .ZeroReturn }}, {{if $.UseSharedModule}}modulex.NormalizeDeleteConstraintError{{else}}normalizeDeleteConstraintError{{end}}(err)
 		}
 	default:
 		return {{ .ZeroReturn }}, fmt.Errorf("invalid delete request: missing id or ids")
