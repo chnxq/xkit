@@ -596,10 +596,6 @@ resources:
             en: Parent ID
             cn: 父级设备组
             width: 120
-          - field: path
-            en: Group Path
-            cn: 设备组路径
-            width: 40
           - field: status
             en: Status
             cn: 状态
@@ -646,9 +642,6 @@ resources:
             component: InputNumber
             en: Parent ID
             cn: 父级设备组
-          - field: path
-            en: Group Path
-            cn: 设备组路径
           - field: isLeafNode
             component: Switch
             en: Leaf Node
@@ -674,7 +667,6 @@ resources:
         - group_name
         - type
         - parent_id
-        - path
         - is_leaf_node
         - descript
         - sort_order

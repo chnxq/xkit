@@ -271,7 +271,6 @@ resources:
       allow:
         - id
         - model_type_name
-        - model_type_value
         - use_case
         - tenant_id
         - created_by
