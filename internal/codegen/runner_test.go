@@ -1283,7 +1283,7 @@ func TestBootstrapResourcesCollectServiceReposWithoutRepoCRUD(t *testing.T) {
 	if userPortal.HasRepo {
 		t.Fatalf("service-only resource without repo CRUD should not inject its main repo")
 	}
-	if len(userPortal.ServiceRepoVars) != 1 || userPortal.ServiceRepoVars[0] != "userCredentialRepo" {
+	if len(userPortal.ServiceRepoVars) != 1 || userPortal.ServiceRepoVars[0] != "UserCredentialRepo" {
 		t.Fatalf("user portal extra repos mismatch: got %#v", userPortal.ServiceRepoVars)
 	}
 
@@ -3035,11 +3035,17 @@ type Device struct { ent.Schema }
 	if !strings.Contains(generated, "func GeneratedSyncModuleResources") {
 		t.Fatalf("generated module resources missing sync function:\n%s", generated)
 	}
-	if !strings.Contains(generated, `Title: generatedModuleStringPtr("menu.xdev.moduleName")`) {
+	if !strings.Contains(generated, `generatedModuleStringPtr("menu.xdev.moduleName")`) {
 		t.Fatalf("generated module resources missing root title:\n%s", generated)
 	}
-	if !strings.Contains(generated, `Title: generatedModuleStringPtr("menu.xdev.device")`) {
+	if !strings.Contains(generated, `TitleAux: generatedModuleStringPtr("设备管理")`) {
+		t.Fatalf("generated module resources missing root title aux:\n%s", generated)
+	}
+	if !strings.Contains(generated, `generatedModuleStringPtr("menu.xdev.device")`) {
 		t.Fatalf("generated module resources missing child title:\n%s", generated)
+	}
+	if !strings.Contains(generated, `TitleAux: generatedModuleStringPtr("设备信息")`) {
+		t.Fatalf("generated module resources missing child title aux:\n%s", generated)
 	}
 
 	runtimePath := filepath.Join(moduleRoot, "bootstrap", "module_runtime_ext.go")
@@ -3250,4 +3256,70 @@ func readFile(t *testing.T, path string) string {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	return string(data)
+}
+
+func TestBuildModuleMenuResourceData_UsesTitleAuxFallbackFromTitle(t *testing.T) {
+	got := buildModuleMenuResourceData(config.HostModuleMenuConfig{
+		Name: "XdevDevice",
+		Meta: config.HostModuleMenuMeta{
+			Title:    "设备信息",
+			TitleKey: "menu.xdev.device",
+		},
+	})
+	if got.Meta.Title != "menu.xdev.device" {
+		t.Fatalf("expected title key, got %q", got.Meta.Title)
+	}
+	if !got.Meta.HasTitleAux {
+		t.Fatalf("expected title aux to be present")
+	}
+	if got.Meta.TitleAux != "设备信息" {
+		t.Fatalf("expected title aux fallback from title, got %q", got.Meta.TitleAux)
+	}
+}
+
+func TestModuleResourcesTemplate_RendersTitleAuxInjection(t *testing.T) {
+	root := buildModuleMenuResourceData(config.HostModuleMenuConfig{
+		Name: "XdevDevice",
+		Meta: config.HostModuleMenuMeta{
+			Title:    "设备信息",
+			TitleKey: "menu.xdev.device",
+		},
+	})
+	content, err := renderAnyTemplate(codegentemplate.ModuleGeneratedResources, moduleResourcesTemplateData{
+		templateBase:     templateBase{},
+		ModuleHostImport: "example.com/admin/shared/modulehost",
+		HasMenus:         true,
+		Menus:            []moduleMenuResourceData{root},
+	})
+	if err != nil {
+		t.Fatalf("render module resources template: %v", err)
+	}
+	rendered := string(content)
+	if !strings.Contains(rendered, `TitleAux: generatedModuleStringPtr("设备信息")`) {
+		t.Fatalf("expected title aux render, got:\n%s", rendered)
+	}
+	if strings.Contains(rendered, `InjectionMenuTitleDisplayName(`) {
+		t.Fatalf("did not expect title display injection render, got:\n%s", rendered)
+	}
+}
+
+func TestRealXdevConfig_MenuTitleAuxFallbackData(t *testing.T) {
+	cfg, err := config.Load(filepath.Join("..", "..", "examples", "xdev", "xdev-target-config", "xdev.yaml"))
+	if err != nil {
+		t.Fatalf("load xdev target config: %v", err)
+	}
+	if cfg.HostModule == nil || cfg.HostModule.Resources == nil || len(cfg.HostModule.Resources.Menus) == 0 {
+		t.Fatalf("xdev target config has no host module menus")
+	}
+	root := cfg.HostModule.Resources.Menus[0]
+	if len(root.Children) == 0 {
+		t.Fatalf("xdev root menu has no children")
+	}
+	got := buildModuleMenuResourceData(root.Children[0])
+	if !got.Meta.HasTitleAux {
+		t.Fatalf("expected real config child menu to have title aux")
+	}
+	if strings.TrimSpace(got.Meta.TitleAux) == "" {
+		t.Fatalf("expected real config child menu title aux to be non-empty")
+	}
 }

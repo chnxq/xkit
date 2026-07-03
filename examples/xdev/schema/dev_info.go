@@ -82,6 +82,7 @@ func (Device) Edges() []ent.Edge {
 			Field("model_id").
 			Unique().
 			Required(),
+		edge.To("credentials", DeviceCredential.Type),
 		edge.To("group_relations", DeviceGroupDevice.Type),
 	}
 }

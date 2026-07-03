@@ -40,6 +40,7 @@ type HostModuleMenuMeta struct {
 	OpenInNewWindow *bool    `yaml:"open_in_new_window,omitempty"`
 	Title           string   `yaml:"title,omitempty"`
 	TitleKey        string   `yaml:"title_key,omitempty"`
+	TitleAux        string   `yaml:"title_aux,omitempty"`
 }
 
 type Resource struct {

@@ -1,6 +1,8 @@
 package codegen
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -32,6 +34,10 @@ func buildModuleMenuResourceData(cfg config.HostModuleMenuConfig) moduleMenuReso
 	if title == "" {
 		title = strings.TrimSpace(cfg.Meta.Title)
 	}
+	titleAux := strings.TrimSpace(cfg.Meta.TitleAux)
+	if titleAux == "" {
+		titleAux = strings.TrimSpace(cfg.Meta.Title)
+	}
 	return moduleMenuResourceData{
 		Name:      strings.TrimSpace(cfg.Name),
 		Path:      strings.TrimSpace(cfg.Path),
@@ -49,9 +55,62 @@ func buildModuleMenuResourceData(cfg config.HostModuleMenuConfig) moduleMenuReso
 			HasOpenInNew:    cfg.Meta.OpenInNewWindow != nil,
 			Title:           title,
 			HasTitle:        title != "",
+			TitleAux:        titleAux,
+			HasTitleAux:     titleAux != "",
 		},
 		Children: children,
 	}
+}
+
+func (r *Runner) enrichModuleMenuTitleAux() {
+	if r == nil || r.config.HostModule == nil || r.config.HostModule.Resources == nil {
+		return
+	}
+	langPath := filepath.Join(r.project.Root, "langs", "zh-CN", "menu.json")
+	content, err := os.ReadFile(langPath)
+	if err != nil {
+		return
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return
+	}
+	for index := range r.config.HostModule.Resources.Menus {
+		enrichHostModuleMenuTitleAux(&r.config.HostModule.Resources.Menus[index], payload)
+	}
+}
+
+func enrichHostModuleMenuTitleAux(menu *config.HostModuleMenuConfig, payload map[string]any) {
+	if menu == nil {
+		return
+	}
+	if strings.TrimSpace(menu.Meta.TitleAux) == "" {
+		menu.Meta.TitleAux = lookupMenuTitleAux(payload, strings.TrimSpace(menu.Meta.TitleKey))
+	}
+	for index := range menu.Children {
+		enrichHostModuleMenuTitleAux(&menu.Children[index], payload)
+	}
+}
+
+func lookupMenuTitleAux(payload map[string]any, key string) string {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return ""
+	}
+	parts := strings.Split(key, ".")
+	var current any = payload
+	for _, part := range parts {
+		node, ok := current.(map[string]any)
+		if !ok {
+			return ""
+		}
+		current, ok = node[part]
+		if !ok {
+			return ""
+		}
+	}
+	value, _ := current.(string)
+	return strings.TrimSpace(value)
 }
 
 func normalizeModuleMenuType(value string) string {
@@ -87,6 +146,7 @@ func (r *Runner) generateModuleResourcesFile(result *Result) error {
 	if !r.isModuleMode() {
 		return nil
 	}
+	r.enrichModuleMenuTitleAux()
 	content, err := renderAnyTemplate(codegentemplate.ModuleGeneratedResources, r.moduleResourcesData())
 	if err != nil {
 		return err

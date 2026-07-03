@@ -14,7 +14,7 @@
       "PRODUCTION": "生产设备",
       "SECURITY": "安防设备",
       "NETWORK": "网络设备",
-      "OTHER": "其他"
+      "OTHER": "其它"
     }
   },
   "deviceGroup": {
@@ -27,6 +27,36 @@
       "NETWORK": "网络",
       "USER": "用户",
       "DEPARTMENT": "组织"
+    }
+  },
+  "deviceParameterGroup": {
+    "groupType": {
+      "COMMUNICATION": "通讯",
+      "CONTROL": "控制",
+      "ACQUISITION": "采集",
+      "USER_DEFINITION": "用户定义",
+      "INTEGRATION": "集成",
+      "NO_CLASSIFY": "未分类"
+    }
+  },
+  "deviceParameterItem": {
+    "parameterType": {
+      "EQ": "等于",
+      "MIN": "最小值",
+      "MAX": "最大值",
+      "BETWEEN": "区间",
+      "BOOL": "布尔",
+      "REGEX": "正则",
+      "CONTAINS": "包含",
+      "STRING": "字符串",
+      "JSON": "JSON"
+    }
+  },
+  "deviceCredential": {
+    "credentialType": {
+      "STRING": "字符串",
+      "JSON": "JSON",
+      "OTHER": "其它"
     }
   }
 }

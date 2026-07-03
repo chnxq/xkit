@@ -69,6 +69,9 @@ func GeneratedModuleMenuResources() []modulehost.MenuResource {
 		{{- if .Meta.HasTitle }}
 		Title: generatedModuleStringPtr({{ printf "%q" .Meta.Title }}),
 		{{- end }}
+		{{- if .Meta.HasTitleAux }}
+		TitleAux: generatedModuleStringPtr({{ printf "%q" .Meta.TitleAux }}),
+		{{- end }}
 	},
 	{{- if .Children }}
 	Children: []modulehost.MenuResource{

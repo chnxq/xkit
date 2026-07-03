@@ -54,7 +54,7 @@ func NewGeneratedServices(appCtx *app.AppCtx, data *GeneratedData) *GeneratedSer
 	services := &GeneratedServices{
 {{- range .ServerResources }}
 {{- if .HasRepo }}
-		{{ .FieldName }}: service.{{ .Constructor }}(appCtx, data.{{ .RepoVar | upperFirst }}{{ range .ServiceRepoVars }}, data.{{ . | upperFirst }}{{ end }}),
+		{{ .FieldName }}: service.{{ .Constructor }}(appCtx, data.{{ .RepoDataField }}{{ range .ServiceRepoVars }}, data.{{ . }}{{ end }}),
 {{- else }}
 		{{ .FieldName }}: service.{{ .Constructor }}(),
 {{- end }}

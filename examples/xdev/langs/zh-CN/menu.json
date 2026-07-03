@@ -9,7 +9,11 @@
       "deviceModelType": "设备类型",
       "deviceModel": "设备型号",
       "device": "设备信息",
-      "deviceCenter": "设备中心"
+      "deviceCenter": "设备中心",
+      "deviceCredential": "设备凭据",
+      "deviceParameterGroup": "设备参数组",
+      "deviceParameterItem": "设备参数项",
+      "deviceModelParameterGroup": "设备型号参数组绑定"
     }
   }
 }

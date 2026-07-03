@@ -1,0 +1,160 @@
+syntax = "proto3";
+
+package xdev.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "pagination/v1/pagination.proto";
+
+// 设备参数组服务
+service DeviceParameterGroupService {
+  // 查询设备参数组列表
+  rpc List(pagination.PagingRequest) returns (DeviceParameterGroupServiceListResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-parameter-groups"};
+  }
+
+  // 统计设备参数组数量
+  rpc Count(pagination.PagingRequest) returns (DeviceParameterGroupServiceCountResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-parameter-groups/count"};
+  }
+
+  // 查询设备参数组详情
+  rpc Get(DeviceParameterGroupServiceGetRequest) returns (DeviceParameterGroupServiceGetResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-parameter-groups/{id}"};
+  }
+
+  // 创建设备参数组
+  rpc Create(DeviceParameterGroupServiceCreateRequest) returns (DeviceParameterGroupServiceCreateResponse) {
+    option (google.api.http) = {
+      post: "/xdev/v1/device-parameter-groups"
+      body: "*"
+    };
+  }
+
+  // 更新设备参数组
+  rpc Update(DeviceParameterGroupServiceUpdateRequest) returns (DeviceParameterGroupServiceUpdateResponse) {
+    option (google.api.http) = {
+      put: "/xdev/v1/device-parameter-groups/{id}"
+      body: "*"
+    };
+  }
+
+  // 删除设备参数组
+  rpc Delete(DeviceParameterGroupServiceDeleteRequest) returns (DeviceParameterGroupServiceDeleteResponse) {
+    option (google.api.http) = {delete: "/xdev/v1/device-parameter-groups/{id}"};
+  }
+}
+
+// 设备参数组
+message DeviceParameterGroup {
+  enum GroupType {
+    GROUP_TYPE_UNSPECIFIED = 0;
+    COMMUNICATION = 1;
+    CONTROL = 2;
+    ACQUISITION = 3;
+    USER_DEFINITION = 4;
+    INTEGRATION = 5;
+    NO_CLASSIFY = 6;
+  }
+
+  optional uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备参数组ID"}
+  ];
+  optional string group_code = 2 [
+    json_name = "groupCode",
+    (gnostic.openapi.v3.property) = {description: "参数组编码"}
+  ];
+  optional string group_name = 3 [
+    json_name = "groupName",
+    (gnostic.openapi.v3.property) = {description: "参数组名称"}
+  ];
+  optional GroupType group_type = 4 [
+    json_name = "groupType",
+    (gnostic.openapi.v3.property) = {description: "参数组类型"}
+  ];
+  optional bool editable = 5 [
+    json_name = "editable",
+    (gnostic.openapi.v3.property) = {description: "是否允许编辑"}
+  ];
+  optional string description = 6 [
+    json_name = "description",
+    (gnostic.openapi.v3.property) = {description: "参数组描述"}
+  ];
+  optional uint32 version = 7 [
+    json_name = "version",
+    (gnostic.openapi.v3.property) = {description: "版本"}
+  ];
+  optional uint32 tenant_id = 20 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+}
+
+// 设备参数组列表响应
+message DeviceParameterGroupServiceListResponse {
+  repeated DeviceParameterGroup items = 1;
+  uint64 total = 2;
+}
+
+// 设备参数组数量响应
+message DeviceParameterGroupServiceCountResponse {
+  uint64 count = 1;
+}
+
+// 设备参数组详情请求
+message DeviceParameterGroupServiceGetRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备参数组ID"}
+  ];
+  optional google.protobuf.FieldMask view_mask = 100 [
+    json_name = "viewMask",
+    (gnostic.openapi.v3.property) = {description: "返回字段掩码"}
+  ];
+}
+
+// 设备参数组详情响应
+message DeviceParameterGroupServiceGetResponse {
+  DeviceParameterGroup data = 1;
+}
+
+// 创建设备参数组请求
+message DeviceParameterGroupServiceCreateRequest {
+  DeviceParameterGroup data = 1 [json_name = "data"];
+}
+
+// 创建设备参数组响应
+message DeviceParameterGroupServiceCreateResponse {}
+
+// 更新设备参数组请求
+message DeviceParameterGroupServiceUpdateRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备参数组ID"}
+  ];
+  DeviceParameterGroup data = 2 [json_name = "data"];
+  google.protobuf.FieldMask update_mask = 3 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新字段掩码"}
+  ];
+  optional bool allow_missing = 4 [
+    json_name = "allowMissing",
+    (gnostic.openapi.v3.property) = {description: "资源不存在时是否允许创建"}
+  ];
+}
+
+// 更新设备参数组响应
+message DeviceParameterGroupServiceUpdateResponse {}
+
+// 删除设备参数组请求
+message DeviceParameterGroupServiceDeleteRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备参数组ID"}
+  ];
+}
+
+// 删除设备参数组响应
+message DeviceParameterGroupServiceDeleteResponse {}

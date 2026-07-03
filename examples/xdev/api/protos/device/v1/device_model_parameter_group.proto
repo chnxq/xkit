@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package xdev.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "pagination/v1/pagination.proto";
+
+// 设备型号参数组绑定服务
+service DeviceModelParameterGroupService {
+  // 查询设备型号参数组绑定列表
+  rpc List(pagination.PagingRequest) returns (DeviceModelParameterGroupServiceListResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-model-parameter-groups"};
+  }
+
+  // 统计设备型号参数组绑定数量
+  rpc Count(pagination.PagingRequest) returns (DeviceModelParameterGroupServiceCountResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-model-parameter-groups/count"};
+  }
+
+  // 查询设备型号参数组绑定详情
+  rpc Get(DeviceModelParameterGroupServiceGetRequest) returns (DeviceModelParameterGroupServiceGetResponse) {
+    option (google.api.http) = {get: "/xdev/v1/device-model-parameter-groups/{id}"};
+  }
+
+  // 创建设备型号参数组绑定
+  rpc Create(DeviceModelParameterGroupServiceCreateRequest) returns (DeviceModelParameterGroupServiceCreateResponse) {
+    option (google.api.http) = {
+      post: "/xdev/v1/device-model-parameter-groups"
+      body: "*"
+    };
+  }
+
+  // 更新设备型号参数组绑定
+  rpc Update(DeviceModelParameterGroupServiceUpdateRequest) returns (DeviceModelParameterGroupServiceUpdateResponse) {
+    option (google.api.http) = {
+      put: "/xdev/v1/device-model-parameter-groups/{id}"
+      body: "*"
+    };
+  }
+
+  // 删除设备型号参数组绑定
+  rpc Delete(DeviceModelParameterGroupServiceDeleteRequest) returns (DeviceModelParameterGroupServiceDeleteResponse) {
+    option (google.api.http) = {delete: "/xdev/v1/device-model-parameter-groups/{id}"};
+  }
+}
+
+// 设备型号参数组绑定
+message DeviceModelParameterGroup {
+  optional uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备型号参数组绑定ID"}
+  ];
+  optional uint32 model_id = 2 [
+    json_name = "modelId",
+    (gnostic.openapi.v3.property) = {description: "设备型号ID"}
+  ];
+  optional uint32 parameter_group_id = 3 [
+    json_name = "parameterGroupId",
+    (gnostic.openapi.v3.property) = {description: "参数组ID"}
+  ];
+  optional uint32 tenant_id = 20 [
+    json_name = "tenantId",
+    (gnostic.openapi.v3.property) = {description: "租户ID"}
+  ];
+}
+
+// 设备型号参数组绑定列表响应
+message DeviceModelParameterGroupServiceListResponse {
+  repeated DeviceModelParameterGroup items = 1;
+  uint64 total = 2;
+}
+
+// 设备型号参数组绑定数量响应
+message DeviceModelParameterGroupServiceCountResponse {
+  uint64 count = 1;
+}
+
+// 设备型号参数组绑定详情请求
+message DeviceModelParameterGroupServiceGetRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备型号参数组绑定ID"}
+  ];
+  optional google.protobuf.FieldMask view_mask = 100 [
+    json_name = "viewMask",
+    (gnostic.openapi.v3.property) = {description: "返回字段掩码"}
+  ];
+}
+
+// 设备型号参数组绑定详情响应
+message DeviceModelParameterGroupServiceGetResponse {
+  DeviceModelParameterGroup data = 1;
+}
+
+// 创建设备型号参数组绑定请求
+message DeviceModelParameterGroupServiceCreateRequest {
+  DeviceModelParameterGroup data = 1 [json_name = "data"];
+}
+
+// 创建设备型号参数组绑定响应
+message DeviceModelParameterGroupServiceCreateResponse {}
+
+// 更新设备型号参数组绑定请求
+message DeviceModelParameterGroupServiceUpdateRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备型号参数组绑定ID"}
+  ];
+  DeviceModelParameterGroup data = 2 [json_name = "data"];
+  google.protobuf.FieldMask update_mask = 3 [
+    json_name = "updateMask",
+    (gnostic.openapi.v3.property) = {description: "更新字段掩码"}
+  ];
+  optional bool allow_missing = 4 [
+    json_name = "allowMissing",
+    (gnostic.openapi.v3.property) = {description: "资源不存在时是否允许创建"}
+  ];
+}
+
+// 更新设备型号参数组绑定响应
+message DeviceModelParameterGroupServiceUpdateResponse {}
+
+// 删除设备型号参数组绑定请求
+message DeviceModelParameterGroupServiceDeleteRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = {description: "设备型号参数组绑定ID"}
+  ];
+}
+
+// 删除设备型号参数组绑定响应
+message DeviceModelParameterGroupServiceDeleteResponse {}

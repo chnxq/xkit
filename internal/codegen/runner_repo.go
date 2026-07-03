@@ -236,13 +236,13 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		imports = append(imports,
 			importSpec{Path: "strconv"},
 			importSpec{Path: "strings"},
+			importSpec{Path: "time"},
 			importSpec{Alias: "paginationv1", Path: "github.com/chnxq/x-crud/api/gen/pagination/v1"},
 		)
 	}
 	if usesAuditFields {
 		imports = append(imports,
 			importSpec{Alias: "crudviewer", Path: "github.com/chnxq/x-crud/viewer"},
-			importSpec{Path: "time"},
 		)
 	}
 	if strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped" {

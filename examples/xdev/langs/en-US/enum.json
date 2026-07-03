@@ -28,5 +28,35 @@
       "USER": "User",
       "DEPARTMENT": "Org Unit"
     }
+  },
+  "deviceParameterGroup": {
+    "groupType": {
+      "COMMUNICATION": "Communication",
+      "CONTROL": "Control",
+      "ACQUISITION": "Acquisition",
+      "USER_DEFINITION": "User Definition",
+      "INTEGRATION": "Integration",
+      "NO_CLASSIFY": "Unclassified"
+    }
+  },
+  "deviceParameterItem": {
+    "parameterType": {
+      "EQ": "Equal",
+      "MIN": "Minimum",
+      "MAX": "Maximum",
+      "BETWEEN": "Between",
+      "BOOL": "Boolean",
+      "REGEX": "Regex",
+      "CONTAINS": "Contains",
+      "STRING": "String",
+      "JSON": "JSON"
+    }
+  },
+  "deviceCredential": {
+    "credentialType": {
+      "STRING": "String",
+      "JSON": "JSON",
+      "OTHER": "Other"
+    }
   }
 }

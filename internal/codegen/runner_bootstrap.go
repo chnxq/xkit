@@ -25,6 +25,7 @@ func (r *Runner) bootstrapResources(plans []resourcePlan) []bootstrapResourceDat
 		data := bootstrapResourceData{
 			FieldName:       plan.ResourceField,
 			RepoVar:         repoVarFromInterface(repoName),
+			RepoDataField:   plan.ResourceField + "Repo",
 			RepoInterface:   repoName,
 			RepoConstructor: "New" + repoName,
 			HasRepo:         hasRepo,
@@ -38,12 +39,12 @@ func (r *Runner) bootstrapResources(plans []resourcePlan) []bootstrapResourceDat
 			if !ok {
 				continue
 			}
-			extraRepoVar := repoVarFromInterface(strings.TrimSpace(extraPlan.Resource.RepoInterface))
 			if !extraPlan.Resource.Generate.EffectiveRepoCRUD() {
 				continue
 			}
-			if !slices.Contains(data.ServiceRepoVars, extraRepoVar) {
-				data.ServiceRepoVars = append(data.ServiceRepoVars, extraRepoVar)
+			extraRepoDataField := extraPlan.ResourceField + "Repo"
+			if !slices.Contains(data.ServiceRepoVars, extraRepoDataField) {
+				data.ServiceRepoVars = append(data.ServiceRepoVars, extraRepoDataField)
 			}
 		}
 
@@ -95,6 +96,7 @@ func (r *Runner) bootstrapRepoResource(plan resourcePlan) bootstrapResourceData 
 	return bootstrapResourceData{
 		FieldName:       plan.ResourceField,
 		RepoVar:         repoVarFromInterface(repoName),
+		RepoDataField:   plan.ResourceField + "Repo",
 		RepoInterface:   repoName,
 		RepoConstructor: "New" + repoName,
 	}

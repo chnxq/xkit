@@ -94,6 +94,62 @@ host_module:
                 - xdev:device-group-device:create
                 - xdev:device-group-device:edit
                 - xdev:device-group-device:delete
+          - name: XdevDeviceCredential
+            path: /xdev/device-credential
+            component: /xdev/device-credential/index
+            type: menu
+            meta:
+              title: 设备凭据
+              title_key: menu.xdev.deviceCredential
+              icon: lucide:key-round
+              authority:
+                - xdev:device-credential:view
+                - xdev:device-credential:create
+                - xdev:device-credential:edit
+                - xdev:device-credential:delete
+                - xdev:device-credential:export
+          - name: XdevDeviceParameterGroup
+            path: /xdev/device-parameter-group
+            component: /xdev/device-parameter-group/index
+            type: menu
+            meta:
+              title: 设备参数组
+              title_key: menu.xdev.deviceParameterGroup
+              icon: lucide:sliders-horizontal
+              authority:
+                - xdev:device-parameter-group:view
+                - xdev:device-parameter-group:create
+                - xdev:device-parameter-group:edit
+                - xdev:device-parameter-group:delete
+                - xdev:device-parameter-group:export
+          - name: XdevDeviceParameterItem
+            path: /xdev/device-parameter-item
+            component: /xdev/device-parameter-item/index
+            type: menu
+            meta:
+              title: 设备参数项
+              title_key: menu.xdev.deviceParameterItem
+              icon: lucide:list-tree
+              authority:
+                - xdev:device-parameter-item:view
+                - xdev:device-parameter-item:create
+                - xdev:device-parameter-item:edit
+                - xdev:device-parameter-item:delete
+                - xdev:device-parameter-item:export
+          - name: XdevDeviceModelParameterGroup
+            path: /xdev/device-model-parameter-group
+            component: /xdev/device-model-parameter-group/index
+            type: menu
+            meta:
+              title: 设备型号参数组绑定
+              title_key: menu.xdev.deviceModelParameterGroup
+              icon: lucide:git-branch-plus
+              authority:
+                - xdev:device-model-parameter-group:view
+                - xdev:device-model-parameter-group:create
+                - xdev:device-model-parameter-group:edit
+                - xdev:device-model-parameter-group:delete
+                - xdev:device-model-parameter-group:export
 resources:
   - name: device
     proto_service: xdev.service.v1.DeviceService
@@ -954,6 +1010,285 @@ resources:
         - created_at
         - updated_at
         - deleted_at
+    operations:
+      create: true
+      delete: true
+      export: true
+      get: true
+      list: true
+      count: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+
+  - name: device_credential
+    proto_service: xdev.service.v1.DeviceCredentialService
+    entity: DeviceCredential
+    dto_import: xdev/api/gen/xdev/service/v1
+    dto_type: DeviceCredential
+    tenant_scope: tenant_scoped
+    repo_interface: DeviceCredentialRepo
+    frontend:
+      view_path: device-credential/device-credential
+      i18n_prefix: page.deviceCredential
+      list:
+        columns:
+          - field: deviceId
+            en: Device ID
+            cn: 设备
+            width: 160
+            relation:
+              resource: device
+              label_field: name
+              value_field: id
+          - [credentialName, Credential Name, 凭据名称, 180]
+          - [credentialType, Credential Type, 凭据类型, 140]
+          - [remark, Remark, 备注, 180]
+        filters:
+          - field: deviceId
+            component: Select
+            en: Device ID
+            cn: 设备
+            relation:
+              resource: device
+              label_field: name
+              value_field: id
+          - [credentialName, Input, Credential Name, 凭据名称]
+          - [credentialType, Select, Credential Type, 凭据类型]
+      form:
+        fields:
+          - field: deviceId
+            en: Device ID
+            cn: 设备
+            relation:
+              resource: device
+              label_field: name
+              value_field: id
+          - [credentialName, Credential Name, 凭据名称]
+          - [credentialType, Credential Type, 凭据类型]
+          - [credentialValue, Credential Value, 凭据内容]
+          - [remark, Remark, 备注]
+    filters:
+      allow:
+        - id
+        - device_id
+        - credential_name
+        - credential_type
+        - tenant_id
+    operations:
+      create: true
+      delete: true
+      export: true
+      get: true
+      list: true
+      count: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+
+  - name: device_parameter_group
+    proto_service: xdev.service.v1.DeviceParameterGroupService
+    entity: DeviceParameterGroup
+    dto_import: xdev/api/gen/xdev/service/v1
+    dto_type: DeviceParameterGroup
+    tenant_scope: tenant_scoped
+    repo_interface: DeviceParameterGroupRepo
+    frontend:
+      view_path: device-parameter-group/device-parameter-group
+      i18n_prefix: page.deviceParameterGroup
+      list:
+        columns:
+          - [groupCode, Group Code, 参数组编码, 180]
+          - [groupName, Group Name, 参数组名称, 180]
+          - [groupType, Group Type, 参数组类型, 140]
+          - [editable, Editable, 允许编辑, 100]
+          - [version, Version, 版本, 100]
+          - [description, Description, 参数组描述, 220]
+        filters:
+          - [groupCode, Input, Group Code, 参数组编码]
+          - [groupName, Input, Group Name, 参数组名称]
+          - [groupType, Select, Group Type, 参数组类型]
+      form:
+        fields:
+          - [groupCode, Group Code, 参数组编码]
+          - [groupName, Group Name, 参数组名称]
+          - [groupType, Group Type, 参数组类型]
+          - [editable, Editable, 允许编辑]
+          - [version, Version, 版本]
+          - [description, Description, 参数组描述]
+    filters:
+      allow:
+        - id
+        - group_code
+        - group_name
+        - group_type
+        - editable
+        - version
+        - tenant_id
+    operations:
+      create: true
+      delete: true
+      export: true
+      get: true
+      list: true
+      count: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+
+  - name: device_parameter_item
+    proto_service: xdev.service.v1.DeviceParameterItemService
+    entity: DeviceParameterItem
+    dto_import: xdev/api/gen/xdev/service/v1
+    dto_type: DeviceParameterItem
+    tenant_scope: tenant_scoped
+    repo_interface: DeviceParameterItemRepo
+    frontend:
+      view_path: device-parameter-item/device-parameter-item
+      i18n_prefix: page.deviceParameterItem
+      list:
+        columns:
+          - field: parameterGroupId
+            en: Parameter Group ID
+            cn: 参数组
+            width: 180
+            relation:
+              resource: device_parameter_group
+              label_field: groupName
+              value_field: id
+          - [parameterName, Parameter Name, 参数名称, 180]
+          - [parameterKey, Parameter Key, 参数键, 160]
+          - [parameterType, Parameter Type, 参数运算, 140]
+          - [parameterValue, Parameter Value, 参数值, 220]
+          - [required, Required, 是否必填, 100]
+          - [unit, Unit, 单位, 100]
+        filters:
+          - field: parameterGroupId
+            component: Select
+            en: Parameter Group ID
+            cn: 参数组
+            relation:
+              resource: device_parameter_group
+              label_field: groupName
+              value_field: id
+          - [parameterName, Input, Parameter Name, 参数名称]
+          - [parameterKey, Input, Parameter Key, 参数键]
+          - [parameterType, Select, Parameter Type, 参数运算]
+      form:
+        fields:
+          - field: parameterGroupId
+            en: Parameter Group ID
+            cn: 参数组
+            relation:
+              resource: device_parameter_group
+              label_field: groupName
+              value_field: id
+          - [parameterName, Parameter Name, 参数名称]
+          - [parameterKey, Parameter Key, 参数键]
+          - [parameterType, Parameter Type, 参数运算]
+          - [parameterValue, Parameter Value, 参数值]
+          - [required, Required, 是否必填]
+          - [unit, Unit, 单位]
+          - [remark, Remark, 备注]
+    filters:
+      allow:
+        - id
+        - parameter_group_id
+        - parameter_name
+        - parameter_key
+        - parameter_type
+        - required
+        - tenant_id
+    operations:
+      create: true
+      delete: true
+      export: true
+      get: true
+      list: true
+      count: true
+      update: true
+    generate:
+      service_stub: true
+      repo_crud: true
+      rest_register: true
+      grpc_register: true
+
+  - name: device_model_parameter_group
+    proto_service: xdev.service.v1.DeviceModelParameterGroupService
+    entity: DeviceModelParameterGroup
+    dto_import: xdev/api/gen/xdev/service/v1
+    dto_type: DeviceModelParameterGroup
+    tenant_scope: tenant_scoped
+    repo_interface: DeviceModelParameterGroupRepo
+    frontend:
+      view_path: device-model-parameter-group/device-model-parameter-group
+      i18n_prefix: page.deviceModelParameterGroup
+      list:
+        columns:
+          - field: modelId
+            en: Model ID
+            cn: 设备型号
+            width: 180
+            relation:
+              resource: device_model
+              label_field: modelName
+              value_field: id
+          - field: parameterGroupId
+            en: Parameter Group ID
+            cn: 参数组
+            width: 180
+            relation:
+              resource: device_parameter_group
+              label_field: groupName
+              value_field: id
+        filters:
+          - field: modelId
+            component: Select
+            en: Model ID
+            cn: 设备型号
+            relation:
+              resource: device_model
+              label_field: modelName
+              value_field: id
+          - field: parameterGroupId
+            component: Select
+            en: Parameter Group ID
+            cn: 参数组
+            relation:
+              resource: device_parameter_group
+              label_field: groupName
+              value_field: id
+      form:
+        fields:
+          - field: modelId
+            en: Model ID
+            cn: 设备型号
+            relation:
+              resource: device_model
+              label_field: modelName
+              value_field: id
+          - field: parameterGroupId
+            en: Parameter Group ID
+            cn: 参数组
+            relation:
+              resource: device_parameter_group
+              label_field: groupName
+              value_field: id
+    filters:
+      allow:
+        - id
+        - model_id
+        - parameter_group_id
+        - tenant_id
     operations:
       create: true
       delete: true

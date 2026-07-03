@@ -9,7 +9,11 @@
       "deviceModelType": "Device Types",
       "deviceModel": "Device Models",
       "device": "Devices",
-      "deviceCenter": "Device Center"
+      "deviceCenter": "Device Center",
+      "deviceCredential": "Device Credentials",
+      "deviceParameterGroup": "Device Parameter Groups",
+      "deviceParameterItem": "Device Parameter Items",
+      "deviceModelParameterGroup": "Device Model Parameter Groups"
     }
   }
 }

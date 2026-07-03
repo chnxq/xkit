@@ -67,6 +67,7 @@ func (DeviceModel) Edges() []ent.Edge {
 			Ref("models").
 			Field("model_type_id").
 			Unique(),
+		edge.To("parameter_group_relations", DeviceModelParameterGroup.Type),
 		edge.To("devices", Device.Type),
 	}
 }

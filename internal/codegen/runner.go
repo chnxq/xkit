@@ -163,11 +163,14 @@ type moduleMenuMetaData struct {
 	HasOpenInNew    bool
 	Title           string
 	HasTitle        bool
+	TitleAux        string
+	HasTitleAux     bool
 }
 
 type bootstrapResourceData struct {
 	FieldName       string
 	RepoVar         string
+	RepoDataField   string
 	RepoInterface   string
 	RepoConstructor string
 	HasRepo         bool
