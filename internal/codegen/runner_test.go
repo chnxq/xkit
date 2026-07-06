@@ -2526,9 +2526,9 @@ func TestFrontendPageTemplateRendersReadonlyDetailModeForTenantScopedResource(t 
 			ServiceName: "DeviceService",
 		},
 		Resource: config.Resource{
-			Name:          "device",
-			ProtoService:  "xdev.service.v1.DeviceService",
-			TenantScope:   "tenant_scoped",
+			Name:         "device",
+			ProtoService: "xdev.service.v1.DeviceService",
+			TenantScope:  "tenant_scoped",
 			Frontend: &config.FrontendResourceConfig{
 				ViewPath:   "device/device",
 				I18nPrefix: "page.device",
@@ -2597,6 +2597,148 @@ func TestFrontendPageTemplateRendersReadonlyDetailModeForTenantScopedResource(t 
 	}
 	if !strings.Contains(got, "deviceModelOptions.value = await listDeviceModelOptions();") {
 		t.Fatalf("list relation label cache should stay on static options:\n%s", got)
+	}
+}
+
+func TestFrontendPageDataUsesHostMenuAuthorityForAccessControls(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{
+		config: config.Config{
+			HostModule: &config.HostModuleConfig{
+				Resources: &config.HostModuleResourcesConfig{
+					Menus: []config.HostModuleMenuConfig{
+						{
+							Path:      "/xdev/device-model",
+							Component: "/xdev/device-model/index",
+							Meta: config.HostModuleMenuMeta{
+								Authority: []string{
+									"xdev:device-model:view",
+									"xdev:device-model:create",
+									"xdev:device-model:edit",
+									"xdev:device-model:delete",
+									"xdev:device-model:export",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		options: Options{
+			ModuleName: "xdev",
+		},
+	}
+
+	plan := resourcePlan{
+		ResourceField: "DeviceModel",
+		Resource: config.Resource{
+			Name:        "device_model",
+			TenantScope: "tenant_scoped",
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath:   "device-model/device-model",
+				I18nPrefix: "page.deviceModel",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{{Field: "modelName"}},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{{Name: "tenant_id", Kind: "Uint32"}},
+		},
+	}
+
+	data := runner.frontendPageData(plan)
+	if !data.Access.HasAny {
+		t.Fatalf("expected access metadata to be resolved")
+	}
+	if got := data.Access.CreateCodes; len(got) != 1 || got[0] != "xdev:device-model:create" {
+		t.Fatalf("unexpected create codes: %#v", got)
+	}
+	if got := data.Access.EditCodes; len(got) != 1 || got[0] != "xdev:device-model:edit" {
+		t.Fatalf("unexpected edit codes: %#v", got)
+	}
+	if got := data.Access.DeleteCodes; len(got) != 1 || got[0] != "xdev:device-model:delete" {
+		t.Fatalf("unexpected delete codes: %#v", got)
+	}
+	if got := data.Access.ExportCodes; len(got) != 1 || got[0] != "xdev:device-model:export" {
+		t.Fatalf("unexpected export codes: %#v", got)
+	}
+}
+
+func TestFrontendPageTemplateRendersAccessControlsFromHostMenuAuthority(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{
+		config: config.Config{
+			HostModule: &config.HostModuleConfig{
+				Resources: &config.HostModuleResourcesConfig{
+					Menus: []config.HostModuleMenuConfig{
+						{
+							Path:      "/xdev/device-credential",
+							Component: "/xdev/device-credential/index",
+							Meta: config.HostModuleMenuMeta{
+								Authority: []string{
+									"xdev:device-credential:view",
+									"xdev:device-credential:create",
+									"xdev:device-credential:edit",
+									"xdev:device-credential:delete",
+									"xdev:device-credential:export",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		options: Options{
+			ModuleName: "xdev",
+		},
+	}
+
+	plan := resourcePlan{
+		ResourceField: "DeviceCredential",
+		Resource: config.Resource{
+			Name:        "device_credential",
+			TenantScope: "tenant_scoped",
+			Operations: config.OperationFlags{
+				"export": true,
+			},
+			Frontend: &config.FrontendResourceConfig{
+				ViewPath:   "device-credential/device-credential",
+				I18nPrefix: "page.deviceCredential",
+				List: &config.FrontendListConfig{
+					Columns: []config.FrontendColumn{{Field: "credentialCode"}},
+				},
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{{Name: "tenant_id", Kind: "Uint32"}},
+		},
+	}
+
+	content, err := renderAnyTemplate(codegentemplate.FrontendPage, runner.frontendPageData(plan))
+	if err != nil {
+		t.Fatalf("render frontend page: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "import { useAccess } from '@vben/access';") {
+		t.Fatalf("page should import useAccess when authority exists:\n%s", got)
+	}
+	if !strings.Contains(got, "const PAGE_ACCESS = {") {
+		t.Fatalf("page should render PAGE_ACCESS constants:\n%s", got)
+	}
+	if !strings.Contains(got, "v-if=\"hasAccessByCodes([...PAGE_ACCESS.create])\"") {
+		t.Fatalf("create button should be guarded by access codes:\n%s", got)
+	}
+	if !strings.Contains(got, "v-if=\"hasAccessByCodes([...PAGE_ACCESS.edit])\"") {
+		t.Fatalf("edit button should be guarded by access codes:\n%s", got)
+	}
+	if !strings.Contains(got, "v-if=\"hasAccessByCodes([...PAGE_ACCESS.delete])\"") {
+		t.Fatalf("delete action should be guarded by access codes:\n%s", got)
+	}
+	if !strings.Contains(got, "export: hasAccessByCodes([...PAGE_ACCESS.export]),") {
+		t.Fatalf("export toolbar should be guarded by access codes:\n%s", got)
 	}
 }
 

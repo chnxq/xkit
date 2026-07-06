@@ -85,6 +85,14 @@ host_module:
                 - xdev:device-group-device:edit
                 - xdev:device-group-device:delete
                 - xdev:device-group-device:export
+                - xdev:device_group_org_unit:view
+                - xdev:device_group_org_unit:create
+                - xdev:device_group_org_unit:edit
+                - xdev:device_group_org_unit:delete
+                - xdev:device_group_user:view
+                - xdev:device_group_user:create
+                - xdev:device_group_user:edit
+                - xdev:device_group_user:delete
           - name: XdevDeviceCredential
             path: /xdev/device-credential
             component: /xdev/device-credential/index

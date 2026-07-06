@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	codegentemplate "github.com/chnxq/xkit/internal/codegen/template"
+	"github.com/chnxq/xkit/internal/config"
 )
 
 type frontendPageTemplateData struct {
@@ -38,19 +39,32 @@ type frontendPageTemplateData struct {
 	ProviderFuncs      []string
 	RelationRuntimes   []frontendRelationRuntime
 	EnumRuntimes       []frontendEnumRuntime
+	Access             frontendPageAccessData
+}
+
+type frontendPageAccessData struct {
+	CreateCodes []string
+	EditCodes   []string
+	DeleteCodes []string
+	ExportCodes []string
+	HasCreate   bool
+	HasEdit     bool
+	HasDelete   bool
+	HasExport   bool
+	HasAny      bool
 }
 
 type frontendRelationRuntime struct {
-	FieldName           string
-	FuncName            string
-	OptionsVarName      string
+	FieldName            string
+	FuncName             string
+	OptionsVarName       string
 	DialogOptionsVarName string
-	OptionsMapVarName   string
-	PlaceholderKey      string
-	ResolveFuncName     string
-	SearchPatchFuncName string
-	DialogPatchFuncName string
-	TenantScoped        bool
+	OptionsMapVarName    string
+	PlaceholderKey       string
+	ResolveFuncName      string
+	SearchPatchFuncName  string
+	DialogPatchFuncName  string
+	TenantScoped         bool
 }
 
 type frontendEnumRuntime struct {
@@ -117,6 +131,7 @@ func (r *Runner) frontendPageData(plan resourcePlan) frontendPageTemplateData {
 		providerImportPath = filepath.ToSlash(frontendModuleRelativeImport(viewPath, filepath.Join("provider", filepath.Base(viewPath)+".provider")))
 		metaImportPath = filepath.ToSlash(frontendModuleRelativeImport(viewPath, filepath.Join("meta", filepath.Base(viewPath)+".meta")))
 	}
+	access := r.frontendPageAccess(plan)
 
 	return frontendPageTemplateData{
 		templateBase:       r.templateBase(),
@@ -146,7 +161,113 @@ func (r *Runner) frontendPageData(plan resourcePlan) frontendPageTemplateData {
 		ProviderFuncs:      r.frontendProviderFuncs(plan),
 		RelationRuntimes:   r.frontendRelationRuntimes(plan),
 		EnumRuntimes:       r.frontendEnumRuntimes(plan),
+		Access:             access,
 	}
+}
+
+func (r *Runner) frontendPageAccess(plan resourcePlan) frontendPageAccessData {
+	authorities := r.frontendPageAuthorityCodes(plan)
+	access := frontendPageAccessData{
+		CreateCodes: frontendPermissionCodesByAction(authorities, "create"),
+		EditCodes:   frontendPermissionCodesByAction(authorities, "edit"),
+		DeleteCodes: frontendPermissionCodesByAction(authorities, "delete"),
+		ExportCodes: frontendPermissionCodesByAction(authorities, "export"),
+	}
+	access.HasCreate = len(access.CreateCodes) > 0
+	access.HasEdit = len(access.EditCodes) > 0
+	access.HasDelete = len(access.DeleteCodes) > 0
+	access.HasExport = len(access.ExportCodes) > 0
+	access.HasAny = access.HasCreate || access.HasEdit || access.HasDelete || access.HasExport
+	return access
+}
+
+func (r *Runner) frontendPageAuthorityCodes(plan resourcePlan) []string {
+	if r == nil || r.config.HostModule == nil || r.config.HostModule.Resources == nil {
+		return nil
+	}
+
+	candidates := frontendComponentPathCandidates(strings.TrimSpace(r.options.ModuleName), strings.TrimSpace(plan.Resource.Frontend.ViewPath))
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	for _, menu := range r.config.HostModule.Resources.Menus {
+		if codes := frontendMatchMenuAuthorityCodes(menu, candidates); len(codes) > 0 {
+			return codes
+		}
+	}
+	return nil
+}
+
+func frontendComponentPathCandidates(moduleName, viewPath string) []string {
+	viewPath = strings.TrimSpace(viewPath)
+	if viewPath == "" {
+		return nil
+	}
+
+	dir := filepath.ToSlash(filepath.Dir(filepath.FromSlash(viewPath)))
+	base := filepath.ToSlash(strings.TrimSpace(viewPath))
+	if dir == "." {
+		dir = ""
+	}
+
+	candidates := make([]string, 0, 4)
+	appendCandidate := func(value string) {
+		value = strings.TrimSpace(filepath.ToSlash(value))
+		if value == "" {
+			return
+		}
+		if !strings.HasPrefix(value, "/") {
+			value = "/" + strings.TrimLeft(value, "/")
+		}
+		for _, existing := range candidates {
+			if existing == value {
+				return
+			}
+		}
+		candidates = append(candidates, value)
+	}
+
+	if moduleName != "" && dir != "" {
+		appendCandidate(filepath.ToSlash(filepath.Join(moduleName, dir, "index")))
+	}
+	if dir != "" {
+		appendCandidate(filepath.ToSlash(filepath.Join(dir, "index")))
+	}
+	if moduleName != "" {
+		appendCandidate(filepath.ToSlash(filepath.Join(moduleName, base)))
+	}
+	appendCandidate(base)
+	return candidates
+}
+
+func frontendMatchMenuAuthorityCodes(menu config.HostModuleMenuConfig, candidates []string) []string {
+	component := strings.TrimSpace(filepath.ToSlash(menu.Component))
+	for _, candidate := range candidates {
+		if component == candidate {
+			return trimStringSlice(menu.Meta.Authority)
+		}
+	}
+	for _, child := range menu.Children {
+		if codes := frontendMatchMenuAuthorityCodes(child, candidates); len(codes) > 0 {
+			return codes
+		}
+	}
+	return nil
+}
+
+func frontendPermissionCodesByAction(codes []string, action string) []string {
+	action = strings.TrimSpace(action)
+	if action == "" {
+		return nil
+	}
+	out := make([]string, 0, len(codes))
+	for _, code := range trimStringSlice(codes) {
+		if strings.HasSuffix(code, ":"+action) {
+			out = append(out, code)
+		}
+	}
+	return out
 }
 
 func (r *Runner) frontendProviderFuncs(plan resourcePlan) []string {
@@ -247,16 +368,16 @@ func (r *Runner) frontendRelationRuntimes(plan resourcePlan) []frontendRelationR
 		optionsVar := lowerFirst(relationResourceField) + "Options"
 		suffix := frontendKeySuffix(fieldName)
 		items = append(items, frontendRelationRuntime{
-			FieldName:           fieldName,
-			FuncName:            "list" + relationResourceField + "Options",
-			OptionsVarName:      optionsVar,
+			FieldName:            fieldName,
+			FuncName:             "list" + relationResourceField + "Options",
+			OptionsVarName:       optionsVar,
 			DialogOptionsVarName: optionsVar + "Dialog",
-			OptionsMapVarName:   optionsVar + "Map",
-			PlaceholderKey:      runtime.Relation.PlaceholderKey,
-			ResolveFuncName:     "resolve" + suffix + "Label",
-			SearchPatchFuncName: "patchSearch" + suffix + "Field",
-			DialogPatchFuncName: "patchDialog" + suffix + "Field",
-			TenantScoped:        runtime.Relation != nil && runtime.Relation.ResourceField != "" && r.frontendRelationOptionTenantScoped(plan, frontendSnakeCase(runtime.Relation.ResourceField)),
+			OptionsMapVarName:    optionsVar + "Map",
+			PlaceholderKey:       runtime.Relation.PlaceholderKey,
+			ResolveFuncName:      "resolve" + suffix + "Label",
+			SearchPatchFuncName:  "patchSearch" + suffix + "Field",
+			DialogPatchFuncName:  "patchDialog" + suffix + "Field",
+			TenantScoped:         runtime.Relation != nil && runtime.Relation.ResourceField != "" && r.frontendRelationOptionTenantScoped(plan, frontendSnakeCase(runtime.Relation.ResourceField)),
 		})
 	}
 	return items

@@ -12,6 +12,9 @@ import type { VxeTableGridOptions } from '#/adapter/vxe-table';
 
 import { computed, nextTick, {{- if .RelationRuntimes }} onMounted,{{- end }} reactive, ref{{- if .RelationRuntimes }}, unref{{- end }} } from 'vue';
 
+{{- if .Access.HasAny }}
+import { useAccess } from '@vben/access';
+{{- end }}
 import { Page } from '@vben/common-ui';
 import { IconifyIcon } from '@vben/icons';
 {{- if .TenantScoped }}
@@ -47,6 +50,10 @@ import {
 defineOptions({ name: '{{ .DefineOptionsName }}' });
 {{- end }}
 
+{{- if .Access.HasAny }}
+const { hasAccessByCodes } = useAccess();
+{{- end }}
+
 const modalOpen = ref(false);
 const submitting = ref(false);
 {{- if .RelationRuntimes }}
@@ -72,6 +79,23 @@ const modalTitle = computed(() =>
 {{- end }}
     : $t(`${i18nPrefix}.createTitle`) || $t('common.create'),
 );
+{{- if .Access.HasAny }}
+
+const PAGE_ACCESS = {
+{{- if .Access.HasCreate }}
+  create: [{{- range $index, $code := .Access.CreateCodes }}{{ if $index }}, {{ end }}'{{ $code }}'{{- end }}],
+{{- end }}
+{{- if .Access.HasEdit }}
+  edit: [{{- range $index, $code := .Access.EditCodes }}{{ if $index }}, {{ end }}'{{ $code }}'{{- end }}],
+{{- end }}
+{{- if .Access.HasDelete }}
+  delete: [{{- range $index, $code := .Access.DeleteCodes }}{{ if $index }}, {{ end }}'{{ $code }}'{{- end }}],
+{{- end }}
+{{- if .Access.HasExport }}
+  export: [{{- range $index, $code := .Access.ExportCodes }}{{ if $index }}, {{ end }}'{{ $code }}'{{- end }}],
+{{- end }}
+} as const;
+{{- end }}
 
 const generatedFormOptions = buildGeneratedSearchFormOptions($t);
 const generatedDialogFormOptions = buildGeneratedDialogFormOptions($t);
@@ -308,7 +332,7 @@ const gridOptions: VxeTableGridOptions<{{ .EntityType }}> = {
   toolbarConfig: {
     custom: true,
 {{- if .ExportEnabled }}
-    export: true,
+    export: {{- if .Access.HasExport }} hasAccessByCodes([...PAGE_ACCESS.export]), {{- else }} true, {{- end }}
 {{- end }}
     refresh: true,
     slots: {
@@ -503,7 +527,13 @@ onMounted(() => {
   <Page auto-content-height :title="$t('{{ .PageTitleKey }}')">
     <Grid :table-title="$t('{{ .PageTitleKey }}')">
       <template #toolPrefix>
-        <Button type="primary" @click="openCreateModal">
+        <Button
+          {{- if .Access.HasCreate }}
+          v-if="hasAccessByCodes([...PAGE_ACCESS.create])"
+          {{- end }}
+          type="primary"
+          @click="openCreateModal"
+        >
           <template #icon>
             <IconifyIcon icon="lucide:plus" />
           </template>
@@ -526,10 +556,20 @@ onMounted(() => {
 
       <template #action="{ row }">
         <Space>
-          <Button size="small" type="link" @click="openEditModal(row)">
+          <Button
+            {{- if .Access.HasEdit }}
+            v-if="hasAccessByCodes([...PAGE_ACCESS.edit])"
+            {{- end }}
+            size="small"
+            type="link"
+            @click="openEditModal(row)"
+          >
             {{ "{{" }} {{- if .TenantScoped }} canMutateRecord(row) ? $t('common.edit') : $t('common.detail') {{- else }} $t('common.edit') {{- end }} {{ "}}" }}
           </Button>
           <Popconfirm
+            {{- if .Access.HasDelete }}
+            v-if="hasAccessByCodes([...PAGE_ACCESS.delete])"
+            {{- end }}
             :title="$t('ui.actionMessage.deleteConfirm', [$t('{{ .PageModuleNameKey }}')])"
             @confirm="handleDelete(row)"
           >
