@@ -93,7 +93,7 @@ host_module:
                 - xdev:device-group-user:create
                 - xdev:device-group-user:edit
                 - xdev:device-group-user:delete
-                - org:units:view
+                - org-units:view
                 - users:view
           - name: XdevDeviceCredential
             path: /xdev/device-credential
