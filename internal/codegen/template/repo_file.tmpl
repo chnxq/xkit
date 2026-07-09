@@ -272,6 +272,22 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 {{- range .AuditSetters}}
 	builder.{{ .Method }}({{ .Expr }})
 {{- end}}
+{{- if and (eq $.TenantScope "tenant_scoped") $.Tree $.TreeParentDTOFieldExpr $.TreeParentGetterExpr}}
+	if {{ $.TreeParentDTOFieldExpr }} != nil && {{ $.TreeParentGetterExpr }} > 0 {
+		parentEntity, err := r.entClient.Client().{{ $.EntityName }}.Query().
+			Where({{ $.EntPackage }}.IDEQ({{ $.TreeParentGetterExpr }})).
+			Only(ctx)
+		if err != nil {
+			return {{ .ZeroReturn }}, err
+		}
+		if err := {{if $.UseSharedModule}}modulex.EnsureTenantAccessible{{else}}ensureTenantAccessible{{end}}(ctx, parentEntity.TenantID); err != nil {
+			return {{ .ZeroReturn }}, err
+		}
+		if !{{if $.UseSharedModule}}modulex.SameTenantDomain{{else}}sameTenantDomain{{end}}(parentEntity.TenantID, tenantID) {
+			return {{ .ZeroReturn }}, fmt.Errorf("parent {{ $.ResourceName }} tenant mismatch")
+		}
+	}
+{{- end}}
 
 	entity, err := builder.Save(ctx)
 	if err != nil {
@@ -304,6 +320,22 @@ func (r *{{ $.RepoStructName }}) {{ .Name }}({{range $index, $param := .Params}}
 	if err := {{if $.UseSharedModule}}modulex.EnsureTenantAccessible{{else}}ensureTenantAccessible{{end}}(ctx, current.TenantID); err != nil {
 		return {{ .ZeroReturn }}, err
 	}
+{{- if and $.Tree $.TreeParentDTOFieldExpr $.TreeParentGetterExpr}}
+	if {{ $.TreeParentDTOFieldExpr }} != nil && {{ $.TreeParentGetterExpr }} > 0 {
+		parentEntity, err := r.entClient.Client().{{ $.EntityName }}.Query().
+			Where({{ $.EntPackage }}.IDEQ({{ $.TreeParentGetterExpr }})).
+			Only(ctx)
+		if err != nil {
+			return {{ .ZeroReturn }}, err
+		}
+		if err := {{if $.UseSharedModule}}modulex.EnsureTenantAccessible{{else}}ensureTenantAccessible{{end}}(ctx, parentEntity.TenantID); err != nil {
+			return {{ .ZeroReturn }}, err
+		}
+		if !{{if $.UseSharedModule}}modulex.SameTenantDomain{{else}}sameTenantDomain{{end}}(parentEntity.TenantID, current.TenantID) {
+			return {{ .ZeroReturn }}, fmt.Errorf("parent {{ $.ResourceName }} tenant mismatch")
+		}
+	}
+{{- end}}
 {{- end}}
 	builder := r.entClient.Client().{{ $.EntityName }}.UpdateOneID(req.GetId())
 {{- if and .AuditUsesNow .AuditUsesViewer}}

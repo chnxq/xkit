@@ -457,6 +457,20 @@ resources:
           builder.SetNillableParentID(req.Data.ParentId)
           builder.SetCreatedBy(uint32(viewer.UserID()))
           builder.SetCreatedAt(now)
+          if req.Data.ParentId != nil && req.Data.GetParentId() > 0 {
+          	parentEntity, err := tx.DeviceGroup.Query().
+          		Where(devicegroup.IDEQ(req.Data.GetParentId())).
+          		Only(ctx)
+          	if err != nil {
+          		return nil, err
+          	}
+          	if err := modulex.EnsureTenantAccessible(ctx, parentEntity.TenantID); err != nil {
+          		return nil, err
+          	}
+          	if !modulex.SameTenantDomain(parentEntity.TenantID, tenantID) {
+          		return nil, fmt.Errorf("parent device_group tenant mismatch")
+          	}
+          }
 
           entity, err := builder.Save(ctx)
           if err != nil {
@@ -563,6 +577,20 @@ resources:
           }
           builder.SetUpdatedBy(uint32(viewer.UserID()))
           builder.SetUpdatedAt(now)
+          if req.Data.ParentId != nil && req.Data.GetParentId() > 0 {
+          	parentEntity, err := tx.DeviceGroup.Query().
+          		Where(devicegroup.IDEQ(req.Data.GetParentId())).
+          		Only(ctx)
+          	if err != nil {
+          		return nil, err
+          	}
+          	if err := modulex.EnsureTenantAccessible(ctx, parentEntity.TenantID); err != nil {
+          		return nil, err
+          	}
+          	if !modulex.SameTenantDomain(parentEntity.TenantID, current.TenantID) {
+          		return nil, fmt.Errorf("parent device_group tenant mismatch")
+          	}
+          }
 
           entity, err := builder.Save(ctx)
           if err != nil {

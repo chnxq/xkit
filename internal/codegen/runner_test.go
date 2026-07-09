@@ -563,6 +563,9 @@ return {{successReturn}}, nil`,
 	if !strings.Contains(repoSharedFile, "func ensureTenantAccessible(") || !strings.Contains(repoSharedFile, "func viewerTenantID(") {
 		t.Fatalf("repo shared helper file is missing tenant scope helpers")
 	}
+	if !strings.Contains(repoSharedFile, "func sameTenantDomain(") {
+		t.Fatalf("repo shared helper file is missing tenant domain helper")
+	}
 	if !strings.Contains(repoFile, "if _, _, err := r.repository.BuildListSelectorWithPaging(builder, listReq); err != nil {") || !strings.Contains(repoFile, "entities, err := builder.All(ctx)") {
 		t.Fatalf("repo file is missing generated List body")
 	}
@@ -2248,6 +2251,89 @@ func TestFrontendProviderTemplateUsesTreeMode(t *testing.T) {
 	}
 	if !strings.Contains(got, "field: 'status'") || !strings.Contains(got, "op: 'EQ'") {
 		t.Fatalf("tree provider should use EQ for bool filters:\n%s", got)
+	}
+}
+
+func TestRenderRepoFile_GeneratesTreeParentTenantGuardForTenantScopedResources(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/xadmin-web\n\ngo 1.26.0\n")
+	writeFile(t, filepath.Join(root, "api", "gen", "device", "v1", "device.pb.go"), `package device
+
+type DeviceGroup struct {
+	ParentId *uint32
+	TenantId *uint32
+}
+
+func (x *DeviceGroup) GetParentId() uint32 {
+	if x != nil && x.ParentId != nil {
+		return *x.ParentId
+	}
+	return 0
+}`)
+
+	runner := &Runner{
+		project: project.Info{Root: root, Module: "example.com/xadmin-web"},
+		layout: layout{
+			ModuleImport:  "example.com/xadmin-web/modules/xdev",
+			EntImportRoot: "example.com/xadmin-web/modules/xdev/data",
+		},
+	}
+
+	plan := resourcePlan{
+		ResourceField: "DeviceGroup",
+		Binding: binding.ServiceBinding{
+			ServiceName: "DeviceGroupService",
+			Methods: []binding.Method{
+				{Name: "Create", Params: []string{"context.Context", "*devicev1.DeviceGroupServiceCreateRequest"}, Results: []string{"*devicev1.DeviceGroupServiceCreateResponse", "error"}},
+				{Name: "Update", Params: []string{"context.Context", "*devicev1.DeviceGroupServiceUpdateRequest"}, Results: []string{"*devicev1.DeviceGroupServiceUpdateResponse", "error"}},
+			},
+			ImportPath: "example.com/xadmin-web/api/gen/device/v1",
+		},
+		Resource: config.Resource{
+			Name:          "device_group",
+			Entity:        "DeviceGroup",
+			DTOImport:     "example.com/xadmin-web/api/gen/device/v1",
+			DTOType:       "DeviceGroup",
+			ProtoService:  "xdev.service.v1.DeviceGroupService",
+			RepoInterface: "DeviceGroupRepo",
+			TenantScope:   "tenant_scoped",
+			Tree: &config.TreeConfig{
+				ParentField: "parent_id",
+			},
+			Operations: config.OperationFlags{
+				"create": true,
+				"update": true,
+			},
+		},
+		Schema: entschema.Schema{
+			Fields: []entschema.Field{
+				{Name: "tenant_id", Kind: "Uint32", Optional: true, Nillable: true},
+				{Name: "parent_id", Kind: "Uint32", Optional: true, Nillable: true},
+				{Name: "path", Kind: "String", Optional: true, Nillable: true},
+			},
+		},
+	}
+
+	content, err := runner.renderRepoFile(plan)
+	if err != nil {
+		t.Fatalf("render repo file: %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "if req.Data.ParentId != nil && req.Data.GetParentId() > 0 {") {
+		t.Fatalf("expected tree parent guard, got:\n%s", got)
+	}
+	if !strings.Contains(got, "sameTenantDomain(parentEntity.TenantID, tenantID)") &&
+		!strings.Contains(got, "modulex.SameTenantDomain(parentEntity.TenantID, tenantID)") {
+		t.Fatalf("expected create tenant-domain guard, got:\n%s", got)
+	}
+	if !strings.Contains(got, "sameTenantDomain(parentEntity.TenantID, current.TenantID)") &&
+		!strings.Contains(got, "modulex.SameTenantDomain(parentEntity.TenantID, current.TenantID)") {
+		t.Fatalf("expected update tenant-domain guard, got:\n%s", got)
+	}
+	if !strings.Contains(got, `fmt.Errorf("parent device_group tenant mismatch")`) {
+		t.Fatalf("expected parent tenant mismatch error, got:\n%s", got)
 	}
 }
 

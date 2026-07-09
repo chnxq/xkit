@@ -317,3 +317,17 @@ func resolveCreateTenantID(ctx context.Context, requestedTenantID *uint32) (*uin
 	return requestedTenantID, nil
 }
 {{- end }}
+
+{{- if .NeedsTenantHelpers }}
+func sameTenantDomain(left, right *uint32) bool {
+	leftPlatform := left == nil || *left == platformTenantID
+	rightPlatform := right == nil || *right == platformTenantID
+	if leftPlatform || rightPlatform {
+		return leftPlatform && rightPlatform
+	}
+	if left == nil || right == nil {
+		return false
+	}
+	return *left == *right
+}
+{{- end }}

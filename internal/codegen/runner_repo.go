@@ -48,6 +48,8 @@ type repoTemplateData struct {
 	NeedsTenantHelpers       bool
 	UseSharedModule          bool
 	Tree                     *treeConfigData
+	TreeParentDTOFieldExpr   string
+	TreeParentGetterExpr     string
 	Aggregates               []aggregateConfigData
 }
 
@@ -373,6 +375,8 @@ func (r *Runner) renderRepoFile(plan resourcePlan) ([]byte, error) {
 		NeedsTenantHelpers:       strings.TrimSpace(plan.Resource.TenantScope) == "tenant_scoped",
 		UseSharedModule:          r.isModuleMode(),
 		Tree:                     buildTreeConfig(plan.Resource.Tree),
+		TreeParentDTOFieldExpr:   repoTreeParentDTOFieldExpr(plan),
+		TreeParentGetterExpr:     repoTreeParentGetterExpr(plan),
 		Aggregates:               r.aggregateConfigs(plan),
 	}
 	data.Methods = methods
@@ -452,6 +456,28 @@ func repoInterfaceName(plan resourcePlan) string {
 		entityName = strings.TrimSuffix(plan.Binding.ServiceName, "Service")
 	}
 	return entityName + "Repo"
+}
+
+func repoTreeParentDTOFieldExpr(plan resourcePlan) string {
+	if plan.Resource.Tree == nil {
+		return ""
+	}
+	parentField := strings.TrimSpace(plan.Resource.Tree.ParentField)
+	if parentField == "" {
+		return ""
+	}
+	return "req.Data." + toPascal(parentField)
+}
+
+func repoTreeParentGetterExpr(plan resourcePlan) string {
+	if plan.Resource.Tree == nil {
+		return ""
+	}
+	parentField := strings.TrimSpace(plan.Resource.Tree.ParentField)
+	if parentField == "" {
+		return ""
+	}
+	return "req.Data.Get" + toPascal(parentField) + "()"
 }
 
 func (r *Runner) repoMethodBody(plan resourcePlan, methodName string, params []namedType, responseType string) string {
