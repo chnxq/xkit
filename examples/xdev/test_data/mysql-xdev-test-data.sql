@@ -49,6 +49,9 @@ VALUES
 DELETE FROM xdev_dev_group_device WHERE id BETWEEN 8601 AND 8799;
 DELETE FROM xdev_dev_group_user WHERE id BETWEEN 8801 AND 8899;
 DELETE FROM xdev_dev_group_org_unit WHERE id BETWEEN 8901 AND 8999;
+DELETE FROM xdev_dev_model_parameter_group WHERE id BETWEEN 8931 AND 8941;
+DELETE FROM xdev_dev_parameter_item WHERE id BETWEEN 8961 AND 8970;
+DELETE FROM xdev_dev_parameter_group WHERE id BETWEEN 8921 AND 8925;
 DELETE FROM xdev_dev_info WHERE id BETWEEN 8301 AND 8499;
 DELETE FROM xdev_dev_group WHERE id BETWEEN 8501 AND 8599;
 DELETE FROM xdev_dev_model WHERE id BETWEEN 8201 AND 8299;
@@ -104,6 +107,60 @@ VALUES
   (8315, 2, 2, NOW(), NOW(), NULL, 1, 'TEN-PLC-002', '租户生产控制器-2号线', 'SN-TEN-PLC-002', NULL, 'DISABLED', NULL, 8213),
   (8316, 2, 2, NOW(), NOW(), NULL, 1, 'TEN-SENSOR-001', '租户环境传感器-仓库A', 'SN-TEN-SENSOR-001', NULL, 'USING', NULL, 8214),
   (8317, 2, 2, NOW(), NOW(), NULL, 1, 'TEN-SENSOR-002', '租户环境传感器-仓库B', 'SN-TEN-SENSOR-002', NULL, 'SCRAPPED', NULL, 8214);
+
+-- ---------------------------------------------------------------------------
+-- xdev parameter groups
+-- ---------------------------------------------------------------------------
+
+INSERT INTO xdev_dev_parameter_group (
+  id, tenant_id, group_code, group_name, group_type, editable, description, version
+)
+VALUES
+  (8921, 1, 'comm-params', '通讯参数', 'COMMUNICATION', 1, '设备连接、上报与链路保持相关参数', 1),
+  (8922, 1, 'device-config-params', '设备配置参数', 'CONTROL', 1, '设备采集周期、超时与基础运行配置', 1),
+  (8923, 1, 'device-strategy-params', '设备策略控制参数', 'CONTROL', 1, '设备告警、重启与策略控制参数', 1),
+  (8924, 1, 'business-params', '业务参数', 'ACQUISITION', 1, '产线业务侧运行指标和阈值参数', 1),
+  (8925, 1, 'custom-params', '自定义参数', 'USER_DEFINITION', 1, '租户自定义扩展参数', 1);
+
+-- ---------------------------------------------------------------------------
+-- xdev parameter items
+-- ---------------------------------------------------------------------------
+
+INSERT INTO xdev_dev_parameter_item (
+  id, tenant_id, parameter_group_id, parameter_name, parameter_key,
+  parameter_type, parameter_value, unit, required, remark
+)
+VALUES
+  (8961, 1, 8921, 'MQTT Broker', 'mqtt_broker', 'STRING', 'tcp://10.10.1.15:1883', NULL, 1, '绑定上行链路信号 uplink_status'),
+  (8962, 1, 8921, 'MQTT QoS', 'mqtt_qos', 'EQ', '1', NULL, 1, '绑定上行链路信号 uplink_status'),
+  (8963, 1, 8922, 'Report Interval', 'report_interval_sec', 'MIN', '30', 's', 1, '绑定温度、湿度、线速等周期采集信号'),
+  (8964, 1, 8922, 'Offline Timeout', 'offline_timeout_sec', 'MAX', '300', 's', 1, '绑定设备离线判断信号 uplink_status'),
+  (8965, 1, 8923, 'Auto Restart', 'auto_restart', 'BOOL', 'true', NULL, 0, '绑定设备运行信号 restart_state'),
+  (8966, 1, 8923, 'Temperature Alarm Threshold', 'temp_alarm_threshold', 'MAX', '80', 'C', 1, '绑定温度告警信号 temperature'),
+  (8967, 1, 8924, 'Production Rate', 'production_rate', 'MIN', '120', 'unit/h', 0, '绑定产线速率信号 line_speed'),
+  (8968, 1, 8924, 'Energy Budget Max', 'energy_budget_max', 'MAX', '450', 'kWh', 0, '绑定能耗信号 energy_consumption'),
+  (8969, 1, 8925, 'Custom Region', 'custom_region', 'STRING', 'warehouse-a', NULL, 0, '绑定仓储区域信号 site_region'),
+  (8970, 1, 8925, 'Custom Scene', 'custom_scene', 'JSON', '{\"mode\":\"night\",\"level\":2}', NULL, 0, '绑定场景切换信号 scene_mode');
+
+-- ---------------------------------------------------------------------------
+-- xdev model-parameter-group relations
+-- ---------------------------------------------------------------------------
+
+INSERT INTO xdev_dev_model_parameter_group (
+  id, tenant_id, model_id, parameter_group_id
+)
+VALUES
+  (8931, 1, 8212, 8921),
+  (8932, 1, 8212, 8922),
+  (8933, 1, 8213, 8921),
+  (8934, 1, 8213, 8922),
+  (8935, 1, 8213, 8923),
+  (8936, 1, 8213, 8924),
+  (8937, 1, 8213, 8925),
+  (8938, 1, 8214, 8921),
+  (8939, 1, 8214, 8922),
+  (8940, 1, 8214, 8923),
+  (8941, 1, 8214, 8925);
 
 -- ---------------------------------------------------------------------------
 -- xdev groups (tree)
@@ -169,6 +226,43 @@ VALUES
   (8912, 2, NOW(), NOW(), NULL, 1, 9112, 8513),
   (8913, 2, NOW(), NOW(), NULL, 1, 9112, 8514);
 
+-- ---------------------------------------------------------------------------
+-- xdev device signal metadata with parameter bindings
+-- ---------------------------------------------------------------------------
+
+UPDATE xdev_dev_info
+SET meta_data = '{
+  "signals":[
+    {"key":"uplink_status","name":"Uplink Status","parameterKeys":["mqtt_broker","mqtt_qos","offline_timeout_sec"]},
+    {"key":"print_queue_depth","name":"Print Queue Depth","parameterKeys":["report_interval_sec"]},
+    {"key":"toner_level","name":"Toner Level","parameterKeys":["report_interval_sec"]}
+  ]
+}'
+WHERE id = 8313;
+
+UPDATE xdev_dev_info
+SET meta_data = '{
+  "signals":[
+    {"key":"uplink_status","name":"Uplink Status","parameterKeys":["mqtt_broker","mqtt_qos","offline_timeout_sec"]},
+    {"key":"line_speed","name":"Line Speed","parameterKeys":["report_interval_sec","production_rate"]},
+    {"key":"temperature","name":"Temperature","parameterKeys":["report_interval_sec","temp_alarm_threshold"]},
+    {"key":"restart_state","name":"Restart State","parameterKeys":["auto_restart"]},
+    {"key":"scene_mode","name":"Scene Mode","parameterKeys":["custom_scene"]}
+  ]
+}'
+WHERE id IN (8314, 8315);
+
+UPDATE xdev_dev_info
+SET meta_data = '{
+  "signals":[
+    {"key":"uplink_status","name":"Uplink Status","parameterKeys":["mqtt_broker","mqtt_qos","offline_timeout_sec"]},
+    {"key":"temperature","name":"Temperature","parameterKeys":["report_interval_sec","temp_alarm_threshold"]},
+    {"key":"humidity","name":"Humidity","parameterKeys":["report_interval_sec"]},
+    {"key":"site_region","name":"Site Region","parameterKeys":["custom_region"]}
+  ]
+}'
+WHERE id IN (8316, 8317);
+
 ALTER TABLE xdev_dev_model_type AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FROM xdev_dev_model_type);
 ALTER TABLE xdev_dev_model AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FROM xdev_dev_model);
 ALTER TABLE xdev_dev_info AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FROM xdev_dev_info);
@@ -176,6 +270,9 @@ ALTER TABLE xdev_dev_group AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FRO
 ALTER TABLE xdev_dev_group_device AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FROM xdev_dev_group_device);
 ALTER TABLE xdev_dev_group_user AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FROM xdev_dev_group_user);
 ALTER TABLE xdev_dev_group_org_unit AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FROM xdev_dev_group_org_unit);
+ALTER TABLE xdev_dev_parameter_group AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FROM xdev_dev_parameter_group);
+ALTER TABLE xdev_dev_parameter_item AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FROM xdev_dev_parameter_item);
+ALTER TABLE xdev_dev_model_parameter_group AUTO_INCREMENT = (SELECT COALESCE(MAX(id) + 1, 1) FROM xdev_dev_model_parameter_group);
 
 COMMIT;
 SET FOREIGN_KEY_CHECKS = 1;
