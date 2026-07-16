@@ -104,19 +104,21 @@ host_module:
               title_key: menu.xdev.parameterCenter
               icon: lucide:settings-2
               authority:
-                - xdev:parameter-center:view
-                - xdev:device-parameter-group:view
-                - xdev:device-parameter-group:create
-                - xdev:device-parameter-group:edit
-                - xdev:device-parameter-group:delete
-                - xdev:device-parameter-item:view
-                - xdev:device-parameter-item:create
-                - xdev:device-parameter-item:edit
-                - xdev:device-parameter-item:delete
                 - xdev:device-model-parameter-group:view
                 - xdev:device-model-parameter-group:create
                 - xdev:device-model-parameter-group:edit
                 - xdev:device-model-parameter-group:delete
+                - xdev:device-model-parameter-group:export
+                - xdev:device-parameter-group:view
+                - xdev:device-parameter-group:create
+                - xdev:device-parameter-group:edit
+                - xdev:device-parameter-group:delete
+                - xdev:device-parameter-group:export
+                - xdev:device-parameter-item:view
+                - xdev:device-parameter-item:create
+                - xdev:device-parameter-item:edit
+                - xdev:device-parameter-item:delete
+                - xdev:device-parameter-item:export
                 - xdev:device-model-type:view
                 - xdev:device-model:view
                 - xdev:device-group-device:view
@@ -162,20 +164,7 @@ host_module:
                 - xdev:device-parameter-item:edit
                 - xdev:device-parameter-item:delete
                 - xdev:device-parameter-item:export
-          - name: XdevDeviceModelParameterGroup
-            path: /xdev/device-model-parameter-group
-            component: /xdev/device-model-parameter-group/index
-            type: menu
-            meta:
-              title: 设备型号参数组绑定
-              title_key: menu.xdev.deviceModelParameterGroup
-              icon: lucide:git-branch-plus
-              authority:
-                - xdev:device-model-parameter-group:view
-                - xdev:device-model-parameter-group:create
-                - xdev:device-model-parameter-group:edit
-                - xdev:device-model-parameter-group:delete
-                - xdev:device-model-parameter-group:export
+
 resources:
   - name: device
     proto_service: xdev.service.v1.DeviceService
