@@ -45,16 +45,16 @@
       }
   },
   "deviceParameterItem": {
-    "parameterType": {
-      "EQ": "等于",
-      "MIN": "最小值",
-      "MAX": "最大值",
-      "BETWEEN": "区间",
+    "valueType": {
+      "NUMBER": "数值",
       "BOOL": "布尔",
-      "REGEX": "正则",
-      "CONTAINS": "包含",
       "STRING": "字符串",
       "JSON": "JSON"
+    },
+    "constraintType": {
+      "NONE": "无约束",
+      "RANGE": "取值区间",
+      "LENGTH": "长度限制"
     }
   },
   "deviceCredential": {

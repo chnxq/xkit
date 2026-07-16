@@ -132,19 +132,19 @@ VALUES
 
 INSERT INTO public.xdev_dev_parameter_item (
   id, tenant_id, parameter_group_id, parameter_name, parameter_key,
-  parameter_type, parameter_value, unit, required, remark
+  value_type, default_value, constraint_type, constraint_config, unit, required, remark
 )
 VALUES
-  (8961, 1, 8921, 'MQTT Broker', 'mqtt_broker', 'STRING', 'tcp://10.10.1.15:1883', NULL, TRUE, '绑定上行链路信号 uplink_status'),
-  (8962, 1, 8921, 'MQTT QoS', 'mqtt_qos', 'EQ', '1', NULL, TRUE, '绑定上行链路信号 uplink_status'),
-  (8963, 1, 8922, 'Report Interval', 'report_interval_sec', 'MIN', '30', 's', TRUE, '绑定温度、湿度、线速等周期采集信号'),
-  (8964, 1, 8922, 'Offline Timeout', 'offline_timeout_sec', 'MAX', '300', 's', TRUE, '绑定设备离线判断信号 uplink_status'),
-  (8965, 1, 8923, 'Auto Restart', 'auto_restart', 'BOOL', 'true', NULL, FALSE, '绑定设备运行信号 restart_state'),
-  (8966, 1, 8923, 'Temperature Alarm Threshold', 'temp_alarm_threshold', 'MAX', '80', 'C', TRUE, '绑定温度告警信号 temperature'),
-  (8967, 1, 8924, 'Production Rate', 'production_rate', 'MIN', '120', 'unit/h', FALSE, '绑定产线速率信号 line_speed'),
-  (8968, 1, 8924, 'Energy Budget Max', 'energy_budget_max', 'MAX', '450', 'kWh', FALSE, '绑定能耗信号 energy_consumption'),
-  (8969, 1, 8925, 'Custom Region', 'custom_region', 'STRING', 'warehouse-a', NULL, FALSE, '绑定仓储区域信号 site_region'),
-  (8970, 1, 8925, 'Custom Scene', 'custom_scene', 'JSON', '{"mode":"night","level":2}', NULL, FALSE, '绑定场景切换信号 scene_mode');
+  (8961, 1, 8921, 'MQTT Broker', 'mqtt_broker', 'STRING', 'tcp://10.10.1.15:1883', 'LENGTH', '{"maxLength":255}', NULL, TRUE, '绑定上行链路信号 uplink_status'),
+  (8962, 1, 8921, 'MQTT QoS', 'mqtt_qos', 'NUMBER', '1', 'RANGE', '{"min":0,"max":2}', NULL, TRUE, '绑定上行链路信号 uplink_status'),
+  (8963, 1, 8922, 'Report Interval', 'report_interval_sec', 'NUMBER', '30', 'RANGE', '{"min":1,"max":3600}', 's', TRUE, '绑定温度、湿度、线速等周期采集信号'),
+  (8964, 1, 8922, 'Offline Timeout', 'offline_timeout_sec', 'NUMBER', '300', 'RANGE', '{"min":30,"max":86400}', 's', TRUE, '绑定设备离线判断信号 uplink_status'),
+  (8965, 1, 8923, 'Auto Restart', 'auto_restart', 'BOOL', 'true', 'NONE', NULL, NULL, FALSE, '绑定设备运行信号 restart_state'),
+  (8966, 1, 8923, 'Temperature Alarm Threshold', 'temp_alarm_threshold', 'NUMBER', '80', 'RANGE', '{"min":-40,"max":125}', 'C', TRUE, '绑定温度告警信号 temperature'),
+  (8967, 1, 8924, 'Production Rate', 'production_rate', 'NUMBER', '120', 'RANGE', '{"min":0,"max":10000}', 'unit/h', FALSE, '绑定产线速率信号 line_speed'),
+  (8968, 1, 8924, 'Energy Budget Max', 'energy_budget_max', 'NUMBER', '450', 'RANGE', '{"min":0,"max":100000}', 'kWh', FALSE, '绑定能耗信号 energy_consumption'),
+  (8969, 1, 8925, 'Custom Region', 'custom_region', 'STRING', 'warehouse-a', 'LENGTH', '{"maxLength":64}', NULL, FALSE, '绑定仓储区域信号 site_region'),
+  (8970, 1, 8925, 'Custom Scene', 'custom_scene', 'JSON', '{"mode":"night","level":2}', 'NONE', NULL, NULL, FALSE, '绑定场景切换信号 scene_mode');
 
 -- ---------------------------------------------------------------------------
 -- xdev model-parameter-group relations

@@ -1214,8 +1214,10 @@ resources:
               value_field: id
           - [parameterName, Parameter Name, 参数名称, 180]
           - [parameterKey, Parameter Key, 参数键, 160]
-          - [parameterType, Parameter Type, 参数运算, 140]
-          - [parameterValue, Parameter Value, 参数值, 220]
+          - [valueType, Value Type, 值类型, 120]
+          - [defaultValue, Default Value, 默认值, 180]
+          - [constraintType, Constraint Type, 约束类型, 120]
+          - [constraintConfig, Constraint Config, 约束配置, 220]
           - [required, Required, 是否必填, 100]
           - [unit, Unit, 单位, 100]
         filters:
@@ -1229,7 +1231,9 @@ resources:
               value_field: id
           - [parameterName, Input, Parameter Name, 参数名称]
           - [parameterKey, Input, Parameter Key, 参数键]
-          - [parameterType, Select, Parameter Type, 参数运算]
+          - [valueType, Select, Value Type, 值类型]
+          - [constraintType, Select, Constraint Type, 约束类型]
+          - [required, Select, Required, 是否必填]
       form:
         fields:
           - field: parameterGroupId
@@ -1241,8 +1245,10 @@ resources:
               value_field: id
           - [parameterName, Parameter Name, 参数名称]
           - [parameterKey, Parameter Key, 参数键]
-          - [parameterType, Parameter Type, 参数运算]
-          - [parameterValue, Parameter Value, 参数值]
+          - [valueType, Value Type, 值类型]
+          - [defaultValue, Default Value, 默认值]
+          - [constraintType, Constraint Type, 约束类型]
+          - [constraintConfig, Constraint Config, 约束配置]
           - [required, Required, 是否必填]
           - [unit, Unit, 单位]
           - [remark, Remark, 备注]
@@ -1252,7 +1258,8 @@ resources:
         - parameter_group_id
         - parameter_name
         - parameter_key
-        - parameter_type
+        - value_type
+        - constraint_type
         - required
         - tenant_id
     operations:

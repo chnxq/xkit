@@ -45,16 +45,16 @@
       }
   },
   "deviceParameterItem": {
-    "parameterType": {
-      "EQ": "Equal",
-      "MIN": "Minimum",
-      "MAX": "Maximum",
-      "BETWEEN": "Between",
+    "valueType": {
+      "NUMBER": "Number",
       "BOOL": "Boolean",
-      "REGEX": "Regex",
-      "CONTAINS": "Contains",
       "STRING": "String",
       "JSON": "JSON"
+    },
+    "constraintType": {
+      "NONE": "None",
+      "RANGE": "Range",
+      "LENGTH": "Length"
     }
   },
   "deviceCredential": {
