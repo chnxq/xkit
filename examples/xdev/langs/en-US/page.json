@@ -181,6 +181,7 @@
       "groupCode": "Group Code",
       "groupName": "Group Name",
       "groupType": "Group Type",
+      "shareScope": "Share Scope",
       "editable": "Editable",
       "version": "Version",
       "description": "Description",
@@ -191,10 +192,14 @@
       "filterGroupType": "Group Type",
       "searchFilterGroupType": "Search Group Type",
       "selectFilterGroupType": "Select Group Type",
+      "filterShareScope": "Share Scope",
+      "searchFilterShareScope": "Search Share Scope",
+      "selectFilterShareScope": "Select Share Scope",
       "filterEditable": "Editable",
       "searchFilterEditable": "Search Editable",
       "selectFilterEditable": "Select Editable",
-      "selectGroupType": "Select Group Type"
+      "selectGroupType": "Select Group Type",
+      "selectShareScope": "Select Share Scope"
     },
     "deviceParameterItem": {
       "moduleName": "Device Parameter Item",

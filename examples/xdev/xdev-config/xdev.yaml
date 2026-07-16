@@ -95,6 +95,31 @@ host_module:
                 - xdev:device-group-user:delete
                 - org-units:view
                 - users:view
+          - name: XdevParameterCenter
+            path: /xdev/parameter-center
+            component: /xdev/parameter-center/index
+            type: menu
+            meta:
+              title: 参数中心
+              title_key: menu.xdev.parameterCenter
+              icon: lucide:settings-2
+              authority:
+                - xdev:parameter-center:view
+                - xdev:device-parameter-group:view
+                - xdev:device-parameter-group:create
+                - xdev:device-parameter-group:edit
+                - xdev:device-parameter-group:delete
+                - xdev:device-parameter-item:view
+                - xdev:device-parameter-item:create
+                - xdev:device-parameter-item:edit
+                - xdev:device-parameter-item:delete
+                - xdev:device-model-parameter-group:view
+                - xdev:device-model-parameter-group:create
+                - xdev:device-model-parameter-group:edit
+                - xdev:device-model-parameter-group:delete
+                - xdev:device-model-type:view
+                - xdev:device-model:view
+                - xdev:device-group-device:view
           - name: XdevDeviceCredential
             path: /xdev/device-credential
             component: /xdev/device-credential/index
@@ -1136,6 +1161,7 @@ resources:
           - [groupCode, Group Code, 参数组编码, 180]
           - [groupName, Group Name, 参数组名称, 180]
           - [groupType, Group Type, 参数组类型, 140]
+          - [shareScope, Share Scope, 共享范围, 140]
           - [editable, Editable, 允许编辑, 100]
           - [version, Version, 版本, 100]
           - [description, Description, 参数组描述, 220]
@@ -1143,11 +1169,13 @@ resources:
           - [groupCode, Input, Group Code, 参数组编码]
           - [groupName, Input, Group Name, 参数组名称]
           - [groupType, Select, Group Type, 参数组类型]
+          - [shareScope, Select, Share Scope, 共享范围]
       form:
         fields:
           - [groupCode, Group Code, 参数组编码]
           - [groupName, Group Name, 参数组名称]
           - [groupType, Group Type, 参数组类型]
+          - [shareScope, Share Scope, 共享范围]
           - [editable, Editable, 允许编辑]
           - [version, Version, 版本]
           - [description, Description, 参数组描述]
@@ -1157,6 +1185,7 @@ resources:
         - group_code
         - group_name
         - group_type
+        - share_scope
         - editable
         - version
         - tenant_id

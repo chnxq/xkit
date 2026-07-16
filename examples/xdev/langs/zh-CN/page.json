@@ -184,6 +184,7 @@
       "groupCode": "参数组编码",
       "groupName": "参数组名称",
       "groupType": "参数组类型",
+      "shareScope": "共享范围",
       "editable": "允许编辑",
       "version": "版本",
       "description": "参数组描述",
@@ -194,10 +195,14 @@
       "filterGroupType": "参数组类型",
       "searchFilterGroupType": "参数组类型",
       "selectFilterGroupType": "选择参数组类型",
+      "filterShareScope": "共享范围",
+      "searchFilterShareScope": "共享范围",
+      "selectFilterShareScope": "选择共享范围",
       "filterEditable": "允许编辑",
       "searchFilterEditable": "允许编辑",
       "selectFilterEditable": "选择是否允许编辑",
-      "selectGroupType": "选择参数组类型"
+      "selectGroupType": "选择参数组类型",
+      "selectShareScope": "选择共享范围"
     },
     "deviceParameterItem": {
       "moduleName": "设备参数项",

@@ -58,6 +58,13 @@ message DeviceParameterGroup {
     NO_CLASSIFY = 6;
   }
 
+  enum ShareScope {
+    SHARE_SCOPE_UNSPECIFIED = 0;
+    NOT_SHARED = 1;
+    DEVICE_GROUP_SHARED = 2;
+    GLOBAL_SHARED = 3;
+  }
+
   optional uint32 id = 1 [
     json_name = "id",
     (gnostic.openapi.v3.property) = {description: "设备参数组ID"}
@@ -85,6 +92,10 @@ message DeviceParameterGroup {
   optional uint32 version = 7 [
     json_name = "version",
     (gnostic.openapi.v3.property) = {description: "版本"}
+  ];
+  optional ShareScope share_scope = 8 [
+    json_name = "shareScope",
+    (gnostic.openapi.v3.property) = {description: "共享范围：不共享、设备组共享或全局共享"}
   ];
   optional uint32 tenant_id = 20 [
     json_name = "tenantId",

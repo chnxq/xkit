@@ -30,14 +30,19 @@
     }
   },
   "deviceParameterGroup": {
-    "groupType": {
+      "groupType": {
       "COMMUNICATION": "通讯",
       "CONTROL": "控制",
       "ACQUISITION": "采集",
       "USER_DEFINITION": "用户定义",
       "INTEGRATION": "集成",
-      "NO_CLASSIFY": "未分类"
-    }
+        "NO_CLASSIFY": "未分类"
+      },
+      "shareScope": {
+        "NOT_SHARED": "不共享",
+        "DEVICE_GROUP_SHARED": "设备组共享",
+        "GLOBAL_SHARED": "全局共享"
+      }
   },
   "deviceParameterItem": {
     "parameterType": {

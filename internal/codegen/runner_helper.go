@@ -226,7 +226,7 @@ func repoSetters(fields []entschema.Field, dtoFields map[string]string, methodNa
 			directExpr = jsonStringSetterValueExpr(dtoName, entName)
 		}
 		preferNillable := prefersNillableSetter(field.Kind, dtoType)
-		if !field.Optional {
+		if !field.Optional && !field.Default {
 			setters = append(setters, setterData{
 				Method: directMethod,
 				Expr:   directExpr,
@@ -235,6 +235,16 @@ func repoSetters(fields []entschema.Field, dtoFields map[string]string, methodNa
 			continue
 		}
 		if methodName == "Create" {
+			if field.Default && !field.Optional {
+				setters = append(setters, setterData{
+					Method:    directMethod,
+					Expr:      directExpr,
+					Kind:      field.Kind,
+					Condition: "req.Data." + dtoName + " != nil",
+					Pre:       pre,
+				})
+				continue
+			}
 			if field.Nillable || preferNillable {
 				setters = append(setters, setterData{
 					Method: "SetNillable" + entName,
@@ -244,6 +254,16 @@ func repoSetters(fields []entschema.Field, dtoFields map[string]string, methodNa
 				})
 				continue
 			}
+			setters = append(setters, setterData{
+				Method:    directMethod,
+				Expr:      directExpr,
+				Kind:      field.Kind,
+				Condition: "req.Data." + dtoName + " != nil",
+				Pre:       pre,
+			})
+			continue
+		}
+		if field.Default && !field.Optional {
 			setters = append(setters, setterData{
 				Method:    directMethod,
 				Expr:      directExpr,

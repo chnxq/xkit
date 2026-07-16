@@ -63,6 +63,9 @@ func (User) Mixin() []ent.Mixin {
 	if user.Fields[1].Kind != "Enum" || user.Fields[1].Name != "status" {
 		t.Fatalf("enum field mismatch: %+v", user.Fields[1])
 	}
+	if !user.Fields[1].Default {
+		t.Fatalf("enum default was not parsed: %+v", user.Fields[1])
+	}
 	assertField(t, user.Fields, Field{Name: "tenant_id", Kind: "Uint32", Optional: true, Nillable: true, Immutable: true})
 	assertField(t, user.Fields, Field{Name: "created_at", Kind: "Time", Optional: true, Nillable: true, Immutable: true})
 	assertField(t, user.Fields, Field{Name: "remark", Kind: "String", Optional: true, Nillable: true})

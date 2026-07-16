@@ -50,6 +50,14 @@ func (DeviceParameterGroup) Fields() []ent.Field {
 			).
 			Default("NO_CLASSIFY").
 			Comment("参数组类型"),
+		field.Enum("share_scope").
+			NamedValues(
+				"NotShared", "NOT_SHARED",
+				"DeviceGroupShared", "DEVICE_GROUP_SHARED",
+				"GlobalShared", "GLOBAL_SHARED",
+			).
+			Default("NOT_SHARED").
+			Comment("共享范围"),
 		field.Bool("editable").
 			Default(true).
 			Comment("允许编辑"),
@@ -73,8 +81,10 @@ func (DeviceParameterGroup) Mixin() []ent.Mixin {
 
 func (DeviceParameterGroup) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("items", DeviceParameterItem.Type),
-		edge.To("model_relations", DeviceModelParameterGroup.Type),
+		edge.To("items", DeviceParameterItem.Type).
+			Annotations(entsql.Annotation{OnDelete: entsql.Cascade}),
+		edge.To("model_relations", DeviceModelParameterGroup.Type).
+			Annotations(entsql.Annotation{OnDelete: entsql.Cascade}),
 	}
 }
 

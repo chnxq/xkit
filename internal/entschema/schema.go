@@ -22,6 +22,7 @@ type Field struct {
 	Optional  bool
 	Nillable  bool
 	Immutable bool
+	Default   bool
 }
 
 var (
@@ -31,6 +32,7 @@ var (
 	optionalCallPattern  = regexp.MustCompile(`\.\s*Optional\s*\(\s*\)`)
 	nillableCallPattern  = regexp.MustCompile(`\.\s*Nillable\s*\(\s*\)`)
 	immutableCallPattern = regexp.MustCompile(`\.\s*Immutable\s*\(\s*\)`)
+	defaultCallPattern   = regexp.MustCompile(`\.\s*Default\s*\(`)
 	commentCallPattern   = regexp.MustCompile(`\.\s*Comment\s*\(\s*"((?:[^"\\]|\\.)*)"\s*\)`)
 )
 
@@ -94,6 +96,7 @@ func parseFile(path string) (Schema, error) {
 			Optional:  optionalCallPattern.MatchString(chain),
 			Nillable:  nillableCallPattern.MatchString(chain),
 			Immutable: immutableCallPattern.MatchString(chain),
+			Default:   defaultCallPattern.MatchString(chain),
 		})
 	}
 	schema.Fields = appendMissingFields(schema.Fields, fieldsFromMixins(content)...)

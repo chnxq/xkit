@@ -10,6 +10,7 @@
       "deviceModel": "Device Models",
       "device": "Devices",
       "deviceCenter": "Device Center",
+      "parameterCenter": "Parameter Center",
       "deviceCredential": "Device Credentials",
       "deviceParameterGroup": "Device Parameter Groups",
       "deviceParameterItem": "Device Parameter Items",

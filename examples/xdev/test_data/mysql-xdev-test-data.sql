@@ -113,14 +113,14 @@ VALUES
 -- ---------------------------------------------------------------------------
 
 INSERT INTO xdev_dev_parameter_group (
-  id, tenant_id, group_code, group_name, group_type, editable, description, version
+  id, tenant_id, group_code, group_name, group_type, share_scope, editable, description, version
 )
 VALUES
-  (8921, 1, 'comm-params', '通讯参数', 'COMMUNICATION', 1, '设备连接、上报与链路保持相关参数', 1),
-  (8922, 1, 'device-config-params', '设备配置参数', 'CONTROL', 1, '设备采集周期、超时与基础运行配置', 1),
-  (8923, 1, 'device-strategy-params', '设备策略控制参数', 'CONTROL', 1, '设备告警、重启与策略控制参数', 1),
-  (8924, 1, 'business-params', '业务参数', 'ACQUISITION', 1, '产线业务侧运行指标和阈值参数', 1),
-  (8925, 1, 'custom-params', '自定义参数', 'USER_DEFINITION', 1, '租户自定义扩展参数', 1);
+  (8921, 1, 'comm-params', '通讯参数', 'COMMUNICATION', 'GLOBAL_SHARED', 1, '设备连接、上报与链路保持相关参数', 1),
+  (8922, 1, 'device-config-params', '设备配置参数', 'CONTROL', 'DEVICE_GROUP_SHARED', 1, '设备采集周期、超时与基础运行配置', 1),
+  (8923, 1, 'device-strategy-params', '设备策略控制参数', 'CONTROL', 'DEVICE_GROUP_SHARED', 1, '设备告警、重启与策略控制参数', 1),
+  (8924, 1, 'business-params', '业务参数', 'ACQUISITION', 'NOT_SHARED', 1, '产线业务侧运行指标和阈值参数', 1),
+  (8925, 1, 'custom-params', '自定义参数', 'USER_DEFINITION', 'NOT_SHARED', 1, '租户自定义扩展参数', 1);
 
 -- ---------------------------------------------------------------------------
 -- xdev parameter items

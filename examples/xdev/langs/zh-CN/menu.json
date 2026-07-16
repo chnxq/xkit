@@ -10,6 +10,7 @@
       "deviceModel": "设备型号",
       "device": "设备信息",
       "deviceCenter": "设备中心",
+      "parameterCenter": "参数中心",
       "deviceCredential": "设备凭据",
       "deviceParameterGroup": "设备参数组",
       "deviceParameterItem": "设备参数项",
